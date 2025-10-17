@@ -120,7 +120,12 @@ class ExpeditionMission extends GameMission
                 break;
             case ExpeditionOutcomeType::GainShips:
                 $foundUnits = $this->processExpeditionGainShipsOutcome($mission);
-                $units->addCollection($foundUnits);
+                if ($foundUnits->getAmount() > 0) {
+                    $units->addCollection($foundUnits);
+                } else {
+                    // No ships could be granted for this fleet -> treat as Failed (per maintainer review)
+                    $this->processExpeditionFailedOutcome($mission);
+                }
                 break;
             case ExpeditionOutcomeType::GainDarkMatter:
                 $this->processExpeditionGainDarkMatterOutcome($mission);
@@ -369,10 +374,9 @@ class ExpeditionMission extends GameMission
             }
         }
 
-        // If no ships can be found at all for this fleet composition, fallback to a failure-style outcome
+        // If no ships can be found at all for this fleet composition, just return empty.
+        // The caller will decide how to message (fallback to Failed).
         if (empty($possibleShips)) {
-            $message_variation_id = ExpeditionFailed::getRandomMessageVariationId();
-            $this->messageService->sendSystemMessageToPlayer($player, ExpeditionFailed::class, ['message_variation_id' => $message_variation_id]);
             return new UnitCollection();
         }
 
@@ -390,11 +394,6 @@ class ExpeditionMission extends GameMission
         $selectedShips = array_slice($possibleShips, 0, $num_ship_types);
 
         // Distribute resources per ship type with randomness (up to 75% variance), last ship gets the remainder.
-        // E.g. if there are 500k resources to find and 3 ship types, the actual ship amount found might look like this:
-        // Ship type 1: 150k / 4k cost per ship = 37 ships (rounded down)
-        // Ship type 2: 250k / 10k cost per ship = 25 ships
-        // Ship type 3: 100k / 20k cost per ship = 5 ships
-        // The distribution is random, so it will look different each time.
         $remainingResources = $cargoCapacityConstrainedAmount;
         $numShips = count($selectedShips);
         $averageResourcePerShip = $cargoCapacityConstrainedAmount / $numShips;
@@ -429,24 +428,17 @@ class ExpeditionMission extends GameMission
 
         // --- Armada fix: Guarantee at least one ship if possible (before building $message_params) ---
         if (empty($units->units)) {
-            // Find the cheapest ship among the candidates
-            $cheapest = array_reduce(
-                $possibleShips,
-                fn ($carry, $s) => $carry === null || $s->price->resources->sum() < $carry->price->resources->sum()
-                    ? $s
-                    : $carry,
-                null
-            );
+            // Switch to UnitCollection helper that matches maintainer request
+            $cheapest = $units->findCheapestShip($possibleShips);
 
             if ($cheapest !== null && $cargoCapacityConstrainedAmount >= $cheapest->price->resources->sum()) {
                 $units->addUnit($cheapest, 1);
             }
         }
 
-        // If still empty here (no eligible or affordable ships), fallback to a failure-style message
+        // If still empty here (no eligible or affordable ships), return empty.
+        // Caller will handle fallback messaging.
         if (empty($units->units)) {
-            $message_variation_id = ExpeditionFailed::getRandomMessageVariationId();
-            $this->messageService->sendSystemMessageToPlayer($player, ExpeditionFailed::class, ['message_variation_id' => $message_variation_id]);
             return new UnitCollection();
         }
 
