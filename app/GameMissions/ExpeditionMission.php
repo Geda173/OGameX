@@ -394,6 +394,11 @@ class ExpeditionMission extends GameMission
         $selectedShips = array_slice($possibleShips, 0, $num_ship_types);
 
         // Distribute resources per ship type with randomness (up to 75% variance), last ship gets the remainder.
+        // E.g. if there are 500k resources to find and 3 ship types, the actual ship amount found might look like this:
+        // Ship type 1: 150k / 4k cost per ship = 37 ships (rounded down)
+        // Ship type 2: 250k / 10k cost per ship = 25 ships
+        // Ship type 3: 100k / 20k cost per ship = 5 ships
+        // The distribution is random, so it will look different each time.
         $remainingResources = $cargoCapacityConstrainedAmount;
         $numShips = count($selectedShips);
         $averageResourcePerShip = $cargoCapacityConstrainedAmount / $numShips;
