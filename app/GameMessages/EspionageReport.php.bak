@@ -1,0 +1,79 @@
+<?php
+
+namespace OGame\GameMessages;
+
+use Illuminate\Support\Facades\DB;
+
+class EspionageReport
+{
+    protected $message;
+
+    public function __construct($message)
+    {
+        $this->message = $message;
+    }
+
+    /** Normalize params so the view can safely access resource keys. */
+    protected function getEspionageReportParams(): array
+    {
+        $params = [];
+
+        // Start from message.params JSON
+        if (!empty($this->message->params)) {
+            $dec = json_decode($this->message->params, true);
+            if (is_array($dec)) {
+                $params = $dec;
+            }
+        }
+
+        // Merge from espionage_reports if linked
+        if (!empty($this->message->espionage_report_id)) {
+            $er = DB::table(espionage_reports)
+                ->where(id, $this->message->espionage_report_id)
+                ->first();
+            if ($er) {
+                foreach ([player_info,resources,debris,buildings,research,ships,defense] as $k) {
+                    if (isset($er->$k) && $er->$k !== ) {
+                        $v = json_decode($er->$k, true);
+                        if (is_array($v)) {
+                            $params[$k] = $v;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Ensure all sections exist
+        foreach ([player_info,debris,buildings,research,ships,defense] as $k) {
+            if (!isset($params[$k]) || !is_array($params[$k])) {
+                $params[$k] = [];
+            }
+        }
+
+        // Ensure resources and required keys exist
+        if (!isset($params[resources]) || !is_array($params[resources])) {
+            $params[resources] = [];
+        }
+        $params[resources] = array_merge(
+            [metal=>0,crystal=>0,deuterium=>0,energy=>0],
+            $params[resources]
+        );
+
+        return $params;
+    }
+
+    /** Called by the blade. Keep signature. */
+    public function getBody()
+    {
+        $p = $this->getEspionageReportParams();
+
+        // Minimal safe output; your blade can use $p as needed.
+        return sprintf(
+            "Resources — Metal: %d, Crystal: %d, Deuterium: %d, Energy: %d",
+            $p[resources][metal],
+            $p[resources][crystal],
+            $p[resources][deuterium],
+            $p[resources][energy]
+        );
+    }
+}

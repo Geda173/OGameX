@@ -1,0 +1,1 @@
+<?php echo $subtab_content; ?><?php /**PATH /var/www/resources/views/ingame/messages/tabs/default/tab.blade.php ENDPATH**/ ?>
