@@ -216,9 +216,12 @@ abstract class GameMission
         // Holding time is the amount of time the fleet will wait at the target planet and/or how long expedition will last.
         // The $holdingHours is in hours, so we convert it to seconds.
         // Only applies to expeditions and ACS Defend missions.
-        if (static::class === ExpeditionMission::class || static::class === ACSDefendMission::class) {
+        if (static::class === ExpeditionMission::class) {
             $mission->time_holding = $holdingHours * 3600;
             $targetType = PlanetType::DeepSpace;
+        } elseif (static::class === ACSDefendMission::class) {
+            $mission->time_holding = $holdingHours * 3600;
+            // ACS Defend keeps the original target type (Planet or Moon), not DeepSpace
         }
 
         $mission->type_to = $targetType->value;
@@ -292,6 +295,16 @@ abstract class GameMission
         // Time fleet mission will arrive (arrival time of the parent mission + duration of the parent mission)
         // Return mission duration is always the same as the parent mission duration.
         $time_end = $time_start + ($parentMission->time_arrival - $parentMission->time_departure) + $additionalReturnTripTime;
+
+        // Validate parent mission has a valid mission_type before creating return mission
+        if (!is_numeric($parentMission->mission_type) || intval($parentMission->mission_type) <= 0) {
+            \Log::error('GameMission: Cannot create return mission - parent has invalid mission_type', [
+                'parent_mission_id' => $parentMission->id,
+                'parent_mission_type' => $parentMission->mission_type,
+                'parent_mission_type_type' => gettype($parentMission->mission_type),
+            ]);
+            return;
+        }
 
         // Create new return mission object
         $mission = new FleetMission();

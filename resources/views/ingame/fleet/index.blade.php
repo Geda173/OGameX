@@ -1181,61 +1181,61 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                             </div>
                             <ul id="missions">
                                 <li id="button15" class="off ipiHintable" data-ipi-hint="ipiFleetMission15">
-                                    <a id="missionButton15" href="" data-mission="15"
+                                    <a id="missionButton15" href="javascript:void(0);" data-mission="15"
                                        data-ipi-highlight-step="ipiFleetMission15">
                                         <span class="textlabel">@lang('Expedition')</span>
                                     </a>
                                 </li>
                                 <li id="button7" class="off ipiHintable" data-ipi-hint="ipiFleetMission7">
-                                    <a id="missionButton7" href="" data-mission="7"
+                                    <a id="missionButton7" href="javascript:void(0);" data-mission="7"
                                        data-ipi-highlight-step="ipiFleetMission7">
                                         <span class="textlabel">@lang('Colonisation')</span>
                                     </a>
                                 </li>
                                 <li id="button8" class="off ipiHintable" data-ipi-hint="ipiFleetMission8">
-                                    <a id="missionButton8" href="" data-mission="8"
+                                    <a id="missionButton8" href="javascript:void(0);" data-mission="8"
                                        data-ipi-highlight-step="ipiFleetMission8">
                                         <span class="textlabel">@lang('Recycle Debris Field')</span>
                                     </a>
                                 </li>
                                 <li id="button3" class="off ipiHintable" data-ipi-hint="ipiFleetMission3">
-                                    <a id="missionButton3" href="" data-mission="3"
+                                    <a id="missionButton3" href="javascript:void(0);" data-mission="3"
                                        data-ipi-highlight-step="ipiFleetMission3">
                                         <span class="textlabel">@lang('Transport')</span>
                                     </a>
                                 </li>
                                 <li id="button4" class="off ipiHintable" data-ipi-hint="ipiFleetMission4">
-                                    <a id="missionButton4" href="" data-mission="4"
+                                    <a id="missionButton4" href="javascript:void(0);" data-mission="4"
                                        data-ipi-highlight-step="ipiFleetMission4">
                                         <span class="textlabel">@lang('Deployment')</span>
                                     </a>
                                 </li>
                                 <li id="button6" class="off ipiHintable" data-ipi-hint="ipiFleetMission6">
-                                    <a id="missionButton6" href="" data-mission="6"
+                                    <a id="missionButton6" href="javascript:void(0);" data-mission="6"
                                        data-ipi-highlight-step="ipiFleetMission6">
                                         <span class="textlabel">@lang('Espionage')</span>
                                     </a>
                                 </li>
                                 <li id="button5" class="off ipiHintable" data-ipi-hint="ipiFleetMission5">
-                                    <a id="missionButton5" href="" data-mission="5"
+                                    <a id="missionButton5" href="javascript:void(0);" data-mission="5"
                                        data-ipi-highlight-step="ipiFleetMission5">
                                         <span class="textlabel">@lang('ACS Defend')</span>
                                     </a>
                                 </li>
                                 <li id="button1" class="off ipiHintable" data-ipi-hint="ipiFleetMission1">
-                                    <a id="missionButton1" href="" data-mission="1"
+                                    <a id="missionButton1" href="javascript:void(0);" data-mission="1"
                                        data-ipi-highlight-step="ipiFleetMission1">
                                         <span class="textlabel">@lang('Attack')</span>
                                     </a>
                                 </li>
                                 <li id="button2" class="off ipiHintable" data-ipi-hint="ipiFleetMission2">
-                                    <a id="missionButton2" href="" data-mission="2"
+                                    <a id="missionButton2" href="javascript:void(0);" data-mission="2"
                                        data-ipi-highlight-step="ipiFleetMission2">
                                         <span class="textlabel">@lang('ACS Attack')</span>
                                     </a>
                                 </li>
                                 <li id="button9" class="off ipiHintable" data-ipi-hint="ipiFleetMission9">
-                                    <a id="missionButton9" href="" data-mission="9"
+                                    <a id="missionButton9" href="javascript:void(0);" data-mission="9"
                                        data-ipi-highlight-step="ipiFleetMission9">
                                         <span class="textlabel">@lang('Moon Destruction')</span>
                                     </a>
@@ -1480,11 +1480,11 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                                 </div>
                                 <br class="clearfloat">
                                 <div id="naviActions">
-                                    <a id="sendFleet" class="start ipiHintable off" href=""
+                                    <a id="sendFleet" class="start ipiHintable off" href="javascript:void(0);"
                                        data-ipi-hint="ipiFleetSend">
                                         <span style="padding-top:9px;">@lang('Send fleet')</span>
                                     </a>
-                                    <a id="backToFleet1" class="back" href="">
+                                    <a id="backToFleet1" class="back" href="javascript:void(0);">
                                         <span style="font-size:12px; text-transform:uppercase;">@lang('Back')</span>
                                     </a>
                                     <br class="clearfloat">

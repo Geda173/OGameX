@@ -91,7 +91,27 @@ class ACSDefendMission extends GameMission
         // Calculate deuterium consumed during the hold period
 
         $originPlanet = $this->planetServiceFactory->make($mission->planet_id_from, true);
-        $targetPlanet = $this->planetServiceFactory->make($mission->planet_id_to, true);
+
+        // Load target planet - handle legacy missions where planet_id_to might be null
+        if ($mission->planet_id_to) {
+            $targetPlanet = $this->planetServiceFactory->make($mission->planet_id_to, true);
+        } else {
+            // Fallback: load by coordinates for legacy missions
+            $targetCoords = new Coordinate($mission->galaxy_to, $mission->system_to, $mission->position_to);
+            $targetPlanet = $this->planetServiceFactory->makeForCoordinate($targetCoords, true);
+        }
+
+        if (!$targetPlanet) {
+            \Log::error('ACSDefendMission: Target planet not found', [
+                'mission_id' => $mission->id,
+                'planet_id_to' => $mission->planet_id_to,
+                'coordinates' => $mission->galaxy_to . ':' . $mission->system_to . ':' . $mission->position_to,
+            ]);
+            // Mark as processed and skip
+            $mission->processed = 1;
+            $mission->save();
+            return;
+        }
 
         // Get hold duration in hours
         $holdDurationSeconds = $mission->time_holding ?? 0;

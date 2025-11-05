@@ -28,6 +28,7 @@ class FleetEventsController extends OGameController
         // Get all the fleet movements for the current user.
         $activeMissionRows = $fleetMissionService->getActiveFleetMissionsForCurrentPlayer();
 
+        $ownMissionCount = 0;
         $friendlyMissionCount = 0;
         $neutralMissionCount = 0;
         $hostileMissionCount = 0;
@@ -53,6 +54,8 @@ class FleetEventsController extends OGameController
             foreach ($activeMissionRows as $row) {
                 switch ($this->determineFriendly($row, $player)) {
                     case 'own':
+                        $ownMissionCount++;
+                        break;
                     case 'friendly':
                         $friendlyMissionCount++;
                         break;
@@ -71,6 +74,7 @@ class FleetEventsController extends OGameController
             'hostile' => $hostileMissionCount,
             'neutral' => $neutralMissionCount,
             'friendly' => $friendlyMissionCount,
+            'own' => $ownMissionCount,
             'eventType' => $eventType,
             'eventTime' => $timeNextMission,
             'eventText' => $typeNextMission,
@@ -193,7 +197,8 @@ class FleetEventsController extends OGameController
             }
 
             // For missions with waiting time, add an additional row showing when the fleet will start its return journey
-            if ($friendlyStatus === 'own' && $row->time_holding > 0 && !$eventRowViewModel->is_return_trip) {
+            // Show for 'own' missions and also for 'friendly' ACS Defend missions at our planets
+            if (($friendlyStatus === 'own' || ($friendlyStatus === 'friendly' && $row->mission_type == 5)) && $row->time_holding > 0 && !$eventRowViewModel->is_return_trip) {
                 $waitEndRow = new FleetEventRowViewModel();
                 $waitEndRow->is_return_trip = false;
                 $waitEndRow->is_recallable = false;
@@ -210,7 +215,7 @@ class FleetEventsController extends OGameController
                 $waitEndRow->fleet_unit_count = $eventRowViewModel->fleet_unit_count;
                 $waitEndRow->fleet_units = $eventRowViewModel->fleet_units;
                 $waitEndRow->resources = $eventRowViewModel->resources;
-                $waitEndRow->mission_status = 'own'; // Wait end is always own
+                $waitEndRow->mission_status = $friendlyStatus; // Keep same status as parent mission
                 // Copy ACS properties
                 $waitEndRow->acs_group_id = $eventRowViewModel->acs_group_id;
                 $waitEndRow->acs_group_name = $eventRowViewModel->acs_group_name;

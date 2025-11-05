@@ -454,59 +454,83 @@ class FleetController extends OGameController
                     throw new Exception('You cannot join this ACS group. Only buddies and alliance members can join.');
                 }
 
-                // Calculate this fleet's natural arrival time at 100% speed
+                // Calculate this fleet's natural arrival time at the USER'S SELECTED speed
                 $currentTime = time();
+                $durationAtSelectedSpeed = $fleetMissionService->calculateFleetMissionDuration($planet, $target_coordinate, $units, $speed_percent);
+                $naturalArrivalTime = $currentTime + $durationAtSelectedSpeed;
+
+                // Also calculate at 100% for the 30% rule validation
                 $durationAt100 = $fleetMissionService->calculateFleetMissionDuration($planet, $target_coordinate, $units, 100);
-                $naturalArrivalTime = $currentTime + $durationAt100;
 
-                // Calculate what speed this fleet would need to match the group
-                $requiredDuration = $acsGroup->arrival_time - $currentTime;
-                $requiredSpeed = ($durationAt100 / max($requiredDuration, 1)) * 100;
-                $requiredSpeed = max(10, min(100, $requiredSpeed)); // Clamp to 10-100%
-
-                // OGame Rule: Group speed cannot be lowered by more than 30 percentage points
-                // Calculate current group's slowest speed
-                $groupSlowestSpeed = 100; // Start with 100%
-                foreach ($existingFleets as $member) {
-                    $fleetMission = $member->fleetMission;
-                    $fleetDuration = $fleetMission->time_arrival - $fleetMission->time_departure;
-                    $fleetDurationAt100 = $fleetMissionService->calculateFleetMissionDuration(
-                        $planetServiceFactory->make($fleetMission->planet_id_from),
-                        new Coordinate($fleetMission->galaxy_to, $fleetMission->system_to, $fleetMission->position_to),
-                        $fleetMissionService->getFleetUnits($fleetMission),
-                        100
-                    );
-                    $fleetSpeed = ($fleetDurationAt100 / max($fleetDuration, 1)) * 100;
-                    $fleetSpeed = max(10, min(100, $fleetSpeed));
-                    $groupSlowestSpeed = min($groupSlowestSpeed, $fleetSpeed);
-                }
-
-                // Check 30% rule: new fleet speed must be >= (group's slowest speed - 30)
-                $minimumAllowedSpeed = $groupSlowestSpeed - 30;
-
-                \Log::debug('Checking ACS 30% speed rule', [
-                    'natural_arrival_at_100' => $naturalArrivalTime,
+                \Log::debug('ACS sync: analyzing new fleet', [
+                    'user_selected_speed' => $speed_percent,
+                    'natural_arrival_at_selected_speed' => $naturalArrivalTime,
+                    'natural_arrival_at_100' => $currentTime + $durationAt100,
                     'group_current_arrival' => $acsGroup->arrival_time,
-                    'required_speed' => round($requiredSpeed, 1),
-                    'group_slowest_speed' => round($groupSlowestSpeed, 1),
-                    'minimum_allowed_speed' => round($minimumAllowedSpeed, 1),
-                    'is_within_30_percent' => $requiredSpeed >= $minimumAllowedSpeed,
+                    'is_slower_than_group' => $naturalArrivalTime > $acsGroup->arrival_time,
                 ]);
 
-                if ($requiredSpeed < $minimumAllowedSpeed) {
-                    throw new Exception('Fleet is too slow to join this ACS group. OGame rules: group speed cannot be reduced by more than 30%. Your fleet would need ' . round($requiredSpeed, 1) . '% speed but minimum allowed is ' . round($minimumAllowedSpeed, 1) . '%.');
-                }
-
                 // OGame behavior: slowest ship determines arrival time
+                // Check this FIRST before validating 30% rule
                 if ($naturalArrivalTime > $acsGroup->arrival_time) {
-                    // This fleet is slower - delay the ENTIRE group
+                    // This fleet is slower - would delay the ENTIRE group
+                    // But first check if delaying violates 30% rule for any existing fleet
+                    $delayAmount = $naturalArrivalTime - $acsGroup->arrival_time;
+                    $newGroupArrival = $naturalArrivalTime;
+
+                    \Log::debug('Checking if delaying group violates 30% rule for existing fleets', [
+                        'old_group_arrival' => $acsGroup->arrival_time,
+                        'new_group_arrival' => $newGroupArrival,
+                        'delay_seconds' => $delayAmount,
+                    ]);
+
+                    // Check each existing fleet to ensure delay doesn't violate their 30% rule
+                    foreach ($existingFleets as $member) {
+                        $existingMission = $member->fleetMission;
+
+                        // Calculate the existing fleet's duration at 100% speed
+                        $existingDurationAt100 = $fleetMissionService->calculateFleetMissionDuration(
+                            $planetServiceFactory->make($existingMission->planet_id_from),
+                            new Coordinate($existingMission->galaxy_to, $existingMission->system_to, $existingMission->position_to),
+                            $fleetMissionService->getFleetUnits($existingMission),
+                            100
+                        );
+
+                        // Calculate what NEW duration this fleet would have after delay
+                        $newArrival = $existingMission->time_arrival + $delayAmount;
+                        $newDuration = $newArrival - $existingMission->time_departure;
+
+                        // Calculate the NEW speed this fleet would be traveling at
+                        $newSpeed = ($existingDurationAt100 / max($newDuration, 1)) * 100;
+                        $newSpeed = max(10, min(100, $newSpeed));
+
+                        // Calculate current speed
+                        $currentDuration = $existingMission->time_arrival - $existingMission->time_departure;
+                        $currentSpeed = ($existingDurationAt100 / max($currentDuration, 1)) * 100;
+                        $currentSpeed = max(10, min(100, $currentSpeed));
+
+                        // Check if new speed violates 30% rule (new speed must be >= current speed - 30)
+                        $minimumAllowed = $currentSpeed - 30;
+
+                        \Log::debug('Checking existing fleet after delay', [
+                            'mission_id' => $existingMission->id,
+                            'current_speed' => round($currentSpeed, 1),
+                            'new_speed_after_delay' => round($newSpeed, 1),
+                            'minimum_allowed' => round($minimumAllowed, 1),
+                            'would_violate' => $newSpeed < $minimumAllowed,
+                        ]);
+
+                        if ($newSpeed < $minimumAllowed) {
+                            throw new Exception('Your fleet is too slow to join this ACS group. Delaying the group to match your fleet would violate the 30% speed rule for existing members. Current group speed: ' . round($currentSpeed, 1) . '%, your fleet would require: ' . round($newSpeed, 1) . '%, minimum allowed: ' . round($minimumAllowed, 1) . '%.');
+                        }
+                    }
+
+                    // All checks passed - delay the group
                     \Log::info('Slower fleet joining ACS group - delaying all fleets', [
                         'old_arrival' => $acsGroup->arrival_time,
                         'new_arrival' => $naturalArrivalTime,
-                        'delay_seconds' => $naturalArrivalTime - $acsGroup->arrival_time,
+                        'delay_seconds' => $delayAmount,
                     ]);
-
-                    $delayAmount = $naturalArrivalTime - $acsGroup->arrival_time;
 
                     // Update all existing fleet missions in the group
                     $existingFleets = ACSService::getGroupFleets($acsGroup);
@@ -526,17 +550,53 @@ class FleetController extends OGameController
                     $acsGroup->arrival_time = $naturalArrivalTime;
                     $acsGroup->save();
 
-                    // New fleet uses 100% speed (its natural speed)
-                    $adjustedSpeed = 100;
+                    // New fleet uses the user's selected speed (this is what delayed the group)
+                    $adjustedSpeed = $speed_percent;
                     $targetArrivalTime = $naturalArrivalTime;
 
                     \Log::debug('ACS group delayed to match slower fleet', [
                         'new_group_arrival' => $naturalArrivalTime,
                         'fleets_delayed' => $existingFleets->count(),
+                        'new_fleet_speed' => $adjustedSpeed,
                     ]);
                 } else {
                     // This fleet is faster - adjust it to match the group
                     $targetArrivalTime = $acsGroup->arrival_time;
+
+                    // Calculate what speed this fleet needs to match the group
+                    $requiredDuration = $targetArrivalTime - $currentTime;
+                    $requiredSpeed = ($durationAt100 / max($requiredDuration, 1)) * 100;
+                    $requiredSpeed = max(10, min(100, $requiredSpeed)); // Clamp to 10-100%
+
+                    // Calculate current group's slowest speed for 30% rule validation
+                    $groupSlowestSpeed = 100; // Start with 100%
+                    foreach ($existingFleets as $member) {
+                        $fleetMission = $member->fleetMission;
+                        $fleetDuration = $fleetMission->time_arrival - $fleetMission->time_departure;
+                        $fleetDurationAt100 = $fleetMissionService->calculateFleetMissionDuration(
+                            $planetServiceFactory->make($fleetMission->planet_id_from),
+                            new Coordinate($fleetMission->galaxy_to, $fleetMission->system_to, $fleetMission->position_to),
+                            $fleetMissionService->getFleetUnits($fleetMission),
+                            100
+                        );
+                        $fleetSpeed = ($fleetDurationAt100 / max($fleetDuration, 1)) * 100;
+                        $fleetSpeed = max(10, min(100, $fleetSpeed));
+                        $groupSlowestSpeed = min($groupSlowestSpeed, $fleetSpeed);
+                    }
+
+                    // OGame 30% rule: new fleet speed must be >= (group's slowest speed - 30)
+                    $minimumAllowedSpeed = max(10, $groupSlowestSpeed - 30);
+
+                    \Log::debug('Faster fleet matching group - checking 30% rule', [
+                        'required_speed' => round($requiredSpeed, 1),
+                        'group_slowest_speed' => round($groupSlowestSpeed, 1),
+                        'minimum_allowed_speed' => round($minimumAllowedSpeed, 1),
+                        'is_valid' => $requiredSpeed >= $minimumAllowedSpeed,
+                    ]);
+
+                    if ($requiredSpeed < $minimumAllowedSpeed) {
+                        throw new Exception('Your fleet is too fast to join this ACS group at the current timing. To match the group\'s arrival, you would need to fly at ' . round($requiredSpeed, 1) . '% speed, but the 30% rule requires at least ' . round($minimumAllowedSpeed, 1) . '% speed. The slowest fleet in the group is flying at ' . round($groupSlowestSpeed, 1) . '% speed.');
+                    }
 
                     // Calculate required speed to match arrival time
                     $speedResult = $this->calculateRequiredSpeed(

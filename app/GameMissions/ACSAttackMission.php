@@ -165,7 +165,27 @@ class ACSAttackMission extends GameMission
         $attackerFleets = [];
 
         foreach ($fleetMembers as $member) {
-            $fleetMission = $this->fleetMissionService->getFleetMissionById($member->fleet_mission_id);
+            // Use only_active=false to allow fetching missions that may have been processed
+            // (e.g., if one fleet in the group failed validation and was marked as processed)
+            $fleetMission = $this->fleetMissionService->getFleetMissionById($member->fleet_mission_id, false);
+
+            if (!$fleetMission) {
+                \Log::warning('ACS group fleet mission not found', [
+                    'acs_group_id' => $acsGroup->id,
+                    'fleet_mission_id' => $member->fleet_mission_id,
+                ]);
+                continue;
+            }
+
+            // Skip missions that have already been processed
+            if ($fleetMission->processed) {
+                \Log::debug('Skipping already processed fleet in ACS group', [
+                    'mission_id' => $fleetMission->id,
+                    'acs_group_id' => $acsGroup->id,
+                ]);
+                continue;
+            }
+
             $fleetUnits = $this->fleetMissionService->getFleetUnits($fleetMission);
 
             // Add this fleet's units to the combined force
@@ -180,6 +200,16 @@ class ACSAttackMission extends GameMission
                 'units' => $fleetUnits,
                 'cargo_capacity' => $fleetUnits->getTotalCargoCapacity($fleetPlayer),
             ];
+        }
+
+        // Check if we have any valid fleets to attack with
+        if (empty($attackerFleets)) {
+            \Log::error('ACS group has no valid fleets to attack with', [
+                'acs_group_id' => $acsGroup->id,
+            ]);
+            // Mark the group as completed since there are no valid fleets
+            ACSService::completeGroup($acsGroup);
+            return;
         }
 
         // Use the first attacker's player for battle engine (all attackers fight together)
@@ -229,30 +259,69 @@ class ACSAttackMission extends GameMission
         }
 
         // Handle ACS Defend missions that participated in the battle
-        // These missions should end immediately as their fleets participated in combat
-        // TODO: Implement proper loss distribution among defending missions
-        // For now, all defending fleet units are considered lost when they participate in battle
+        // Calculate survival rate for each unit type and distribute survivors back to defending missions
+        $acsDefendTotalStart = new UnitCollection();
         foreach ($battleResult->defendingMissions as $defendingMission) {
-            // Mark the mission as processed to end its hold period
-            $defendingMission->processed = 1;
-            $defendingMission->save();
+            $defendingUnits = $this->fleetMissionService->getFleetUnits($defendingMission);
+            $acsDefendTotalStart->addCollection($defendingUnits);
+        }
 
-            \Log::info('ACS Defend mission ' . $defendingMission->id . ' participated in battle against ACS group ' . $acsGroup->id);
+        // Calculate the planet's units (ships + defenses) at start
+        $planetUnitsStart = clone $battleResult->defenderUnitsStart;
+        $planetUnitsStart->subtractCollection($acsDefendTotalStart);
 
-            // Create return mission with 0 units (all considered lost in battle)
-            // In the future, we should track which units belonged to which mission and distribute losses proportionally
-            $gameMissionFactory = resolve(\OGame\Factories\GameMissionFactory::class);
-            $missionObject = $gameMissionFactory->getMissionById(5, [
-                'fleetMissionService' => $this->fleetMissionService,
-                'messageService' => $this->messageService,
+        // Calculate how many of the planet's units survived
+        // First, we need to figure out which survivors belong to the planet vs ACS Defend missions
+        // We'll use a proportional distribution based on each unit type
+        foreach ($battleResult->defendingMissions as $defendingMission) {
+            // Get the original units for this mission
+            $missionUnitsStart = $this->fleetMissionService->getFleetUnits($defendingMission);
+
+            // Calculate surviving units for this mission based on overall survival rates
+            $missionUnitsSurvived = new UnitCollection();
+
+            foreach ($missionUnitsStart->units as $unit) {
+                $unitMachineName = $unit->unitObject->machine_name;
+                $originalAmount = $unit->amount;
+
+                // Get totals for this unit type
+                $totalStartForUnit = $acsDefendTotalStart->getAmountByMachineName($unitMachineName);
+
+                if ($totalStartForUnit > 0) {
+                    // Get surviving amount from battle result for this unit type (only ships, not defenses)
+                    $totalSurvivedForUnit = $battleResult->defenderUnitsResult->getAmountByMachineName($unitMachineName);
+
+                    // Subtract planet's original amount to get ACS defend survivors
+                    $planetOriginalForUnit = $planetUnitsStart->getAmountByMachineName($unitMachineName);
+                    $acsDefendSurvivedForUnit = max(0, $totalSurvivedForUnit - $planetOriginalForUnit);
+
+                    // Calculate this mission's share of survivors based on proportion
+                    $missionProportion = $originalAmount / $totalStartForUnit;
+                    $missionSurvived = (int)floor($acsDefendSurvivedForUnit * $missionProportion);
+
+                    if ($missionSurvived > 0) {
+                        $missionUnitsSurvived->addUnit($unit->unitObject, $missionSurvived);
+                    }
+                }
+            }
+
+            \Log::info('ACS Defend mission ' . $defendingMission->id . ' participated in battle against ACS group ' . $acsGroup->id, [
+                'original_units' => $missionUnitsStart->toArray(),
+                'surviving_units' => $missionUnitsSurvived->toArray(),
             ]);
 
-            // Return with remaining deuterium resources but no ships
-            $remainingResources = $this->fleetMissionService->getResources($defendingMission);
-            $noUnits = new UnitCollection();
+            // Update the defending mission's units to reflect battle losses
+            // The mission will continue holding and return when its hold duration expires
+            foreach ($missionUnitsSurvived->units as $unit) {
+                $defendingMission->{$unit->unitObject->machine_name} = $unit->amount;
+            }
+            $defendingMission->save();
 
-            // Start the return trip immediately
-            $missionObject->startReturn($defendingMission, $remainingResources, $noUnits);
+            \Log::debug('Updated ACS Defend mission units after battle', [
+                'mission_id' => $defendingMission->id,
+                'surviving_units' => $missionUnitsSurvived->toArray(),
+                'will_return_at' => $defendingMission->time_arrival + ($defendingMission->time_holding ?? 0),
+            ]);
         }
 
         // Distribute loot and losses among all attackers

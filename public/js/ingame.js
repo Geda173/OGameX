@@ -69017,7 +69017,7 @@ function reloadEventbox(data) {
   }
 
   var type = typeof evalData["eventText"];
-  var actionSum = parseInt(evalData["friendly"]) + parseInt(evalData["neutral"]) + parseInt(evalData["hostile"]);
+  var actionSum = parseInt(evalData["own"] || 0) + parseInt(evalData["friendly"] || 0) + parseInt(evalData["neutral"] || 0) + parseInt(evalData["hostile"] || 0);
 
   if (actionSum > 0) {
     var $eventList;
@@ -69030,20 +69030,32 @@ function reloadEventbox(data) {
       var missions = actionSum === 1 ? eventboxLoca.mission : eventboxLoca.missions;
       $eventList = $('<p class="event_list">' + actionSum + ' ' + missions + ': </p>');
 
+      var hasDisplayedCount = false;
+
+      if (evalData["own"]) {
+        $eventList.append('<span class="undermark">' + evalData["own"] + ' ' + eventboxLoca.own + '</span>');
+        hasDisplayedCount = true;
+      }
+
       if (evalData["friendly"]) {
+        if (hasDisplayedCount) {
+          $eventList.append(', ');
+        }
         $eventList.append('<span class="undermark">' + evalData["friendly"] + ' ' + eventboxLoca.friendly + '</span>');
+        hasDisplayedCount = true;
       }
 
       if (evalData["neutral"]) {
-        if (evalData["friendly"]) {
+        if (hasDisplayedCount) {
           $eventList.append(', ');
         }
 
         $eventList.append('<span class="middlemark">' + evalData["neutral"] + ' ' + eventboxLoca.neutral + '</span>');
+        hasDisplayedCount = true;
       }
 
       if (evalData["hostile"]) {
-        if (evalData["friendly"] || evalData["neutral"]) {
+        if (hasDisplayedCount) {
           $eventList.append(', ');
         }
 

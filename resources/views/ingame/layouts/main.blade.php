@@ -709,8 +709,9 @@ Combat simulation save slots +20">
                     "missions": "Missions",
                     "next misson": "DUMMY_KEY_N\u00e4chster_fertig",
                     "type": "DUMMY_KEY_Art",
-                    "friendly": "own",
-                    "neutral": "friendly",
+                    "own": "own",
+                    "friendly": "friendly",
+                    "neutral": "neutral",
                     "hostile": "hostile",
                     "nextEvent": "Next",
                     "nextEventText": "Type"

@@ -262,13 +262,30 @@ class FleetMissionService
         // - AND -
         // 2. All missions against any of current users planets (by other players).
         $planetIds = [];
+        $planetCoords = [];
         foreach ($this->player->planets->all() as $planet) {
             $planetIds[] = $planet->getPlanetId();
+            $coords = $planet->getPlanetCoordinates();
+            $planetCoords[] = [
+                'galaxy' => $coords->galaxy,
+                'system' => $coords->system,
+                'position' => $coords->position,
+            ];
         }
 
-        $missions = $query->where(function ($query) use ($planetIds) {
+        $missions = $query->where(function ($query) use ($planetIds, $planetCoords) {
             $query->where('user_id', $this->player->getId())
-                ->orWhereIn('planet_id_to', $planetIds);
+                ->orWhereIn('planet_id_to', $planetIds)
+                // Also include missions targeting player's planets by coordinates (for legacy missions)
+                ->orWhere(function ($q) use ($planetCoords) {
+                    foreach ($planetCoords as $coords) {
+                        $q->orWhere(function ($subQuery) use ($coords) {
+                            $subQuery->where('galaxy_to', $coords['galaxy'])
+                                ->where('system_to', $coords['system'])
+                                ->where('position_to', $coords['position']);
+                        });
+                    }
+                });
         })
             ->where('processed', 0)
             ->get();
@@ -428,9 +445,9 @@ class FleetMissionService
      *
      * @param int $id
      * @param bool $only_active
-     * @return FleetMission
+     * @return FleetMission|null
      */
-    public function getFleetMissionById(int $id, bool $only_active = true): FleetMission
+    public function getFleetMissionById(int $id, bool $only_active = true): ?FleetMission
     {
         if ($only_active) {
             return $this->model
@@ -497,8 +514,17 @@ class FleetMissionService
      */
     public function updateMission(FleetMission $mission): void
     {
+        // Capture mission ID before reloading
+        $missionId = $mission->id;
+
         // Load the mission object again from database to ensure we have the latest data.
-        $mission = $this->getFleetMissionById($mission->id, false);
+        $mission = $this->getFleetMissionById($missionId, false);
+
+        // Sanity check: mission must exist
+        if (!$mission) {
+            \Log::error('FleetMissionService: Mission not found after reload', ['mission_id' => $missionId]);
+            return;
+        }
 
         // Sanity check: only process missions that have arrived AND potential waiting time has passed.
         $arrivalTimeWithWaitingTime = $mission->time_arrival + ($mission->time_holding ?? 0);
@@ -511,11 +537,43 @@ class FleetMissionService
             return;
         }
 
-        $missionObject = $this->gameMissionFactory->getMissionById($mission->mission_type, [
-            'fleetMissionService' => $this,
-            'messageService' => $this->messageService,
-        ]);
-        $missionObject->process($mission);
+        // Validate mission_type is a valid value before attempting to process
+        // Use is_numeric and intval to handle both integer and numeric string values
+        if (!is_numeric($mission->mission_type) || intval($mission->mission_type) <= 0) {
+            \Log::error('FleetMissionService: Invalid mission_type detected', [
+                'mission_id' => $mission->id,
+                'mission_type' => $mission->mission_type,
+                'mission_type_type' => gettype($mission->mission_type),
+                'user_id' => $mission->user_id,
+                'parent_id' => $mission->parent_id,
+            ]);
+            // Mark mission as processed to prevent infinite retry loop
+            $mission->processed = 1;
+            $mission->save();
+            return;
+        }
+
+        // Ensure mission_type is an integer for use with getMissionById
+        $missionType = intval($mission->mission_type);
+
+        try {
+            $missionObject = $this->gameMissionFactory->getMissionById($missionType, [
+                'fleetMissionService' => $this,
+                'messageService' => $this->messageService,
+            ]);
+            $missionObject->process($mission);
+        } catch (\RuntimeException $e) {
+            \Log::error('FleetMissionService: Failed to process mission', [
+                'mission_id' => $mission->id,
+                'mission_type' => $mission->mission_type,
+                'error' => $e->getMessage(),
+                'user_id' => $mission->user_id,
+                'parent_id' => $mission->parent_id,
+            ]);
+            // Mark mission as processed to prevent infinite retry loop
+            $mission->processed = 1;
+            $mission->save();
+        }
     }
 
     /**
@@ -556,15 +614,30 @@ class FleetMissionService
     {
         $currentTime = Carbon::now()->timestamp;
 
+        // Load the planet to get its coordinates for fallback matching
+        $planetService = resolve(\OGame\Services\PlanetService::class, ['planet_id' => $planetId]);
+        if (!$planetService) {
+            return collect();
+        }
+        $coords = $planetService->getPlanetCoordinates();
+
         // Get ACS Defend missions (type 5) that:
-        // 1. Are targeted at this planet
+        // 1. Are targeted at this planet (by planet_id_to OR by coordinates)
         // 2. Have arrived (time_arrival <= now)
         // 3. Are still holding (time_arrival + time_holding > now)
         // 4. Haven't been processed yet
         // 5. Haven't been canceled
         return $this->model
-            ->where('planet_id_to', $planetId)
             ->where('mission_type', 5) // ACS Defend
+            ->where(function ($query) use ($planetId, $coords) {
+                // Match by planet_id_to OR by coordinates (fallback for missions with null planet_id_to)
+                $query->where('planet_id_to', $planetId)
+                    ->orWhere(function ($q) use ($coords) {
+                        $q->where('galaxy_to', $coords->galaxy)
+                            ->where('system_to', $coords->system)
+                            ->where('position_to', $coords->position);
+                    });
+            })
             ->where('time_arrival', '<=', $currentTime)
             ->whereRaw('time_arrival + COALESCE(time_holding, 0) > ?', [$currentTime])
             ->where('processed', 0)

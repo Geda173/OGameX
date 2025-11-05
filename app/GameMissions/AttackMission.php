@@ -3,6 +3,7 @@
 namespace OGame\GameMissions;
 
 use OGame\GameMissions\Abstracts\GameMission;
+use OGame\GameMissions\ACSDefendMission;
 use OGame\GameMissions\BattleEngine\Models\BattleResult;
 use OGame\GameMissions\BattleEngine\PhpBattleEngine;
 use OGame\GameMissions\BattleEngine\RustBattleEngine;
@@ -147,27 +148,25 @@ class AttackMission extends GameMission
                 }
             }
 
-            // Mark the mission as processed to end its hold period
-            $defendingMission->processed = 1;
-            $defendingMission->save();
-
             \Log::info('ACS Defend mission ' . $defendingMission->id . ' participated in battle', [
                 'original_units' => $missionUnitsStart->toArray(),
                 'surviving_units' => $missionUnitsSurvived->toArray(),
+                'mission_type' => $defendingMission->mission_type,
+                'mission_type_type' => gettype($defendingMission->mission_type),
             ]);
 
-            // Create return mission with surviving units
-            $gameMissionFactory = resolve(\OGame\Factories\GameMissionFactory::class);
-            $missionObject = $gameMissionFactory->getMissionById(5, [
-                'fleetMissionService' => $this->fleetMissionService,
-                'messageService' => $this->messageService,
+            // Update the defending mission's units to reflect battle losses
+            // The mission will continue holding and return when its hold duration expires
+            foreach ($missionUnitsSurvived->units as $unit) {
+                $defendingMission->{$unit->unitObject->machine_name} = $unit->amount;
+            }
+            $defendingMission->save();
+
+            \Log::debug('Updated ACS Defend mission units after battle', [
+                'mission_id' => $defendingMission->id,
+                'surviving_units' => $missionUnitsSurvived->toArray(),
+                'will_return_at' => $defendingMission->time_arrival + ($defendingMission->time_holding ?? 0),
             ]);
-
-            // Return with remaining resources and surviving ships
-            $remainingResources = $this->fleetMissionService->getResources($defendingMission);
-
-            // Start the return trip immediately with surviving units
-            $missionObject->startReturn($defendingMission, $remainingResources, $missionUnitsSurvived);
         }
 
         // Create or append debris field.
