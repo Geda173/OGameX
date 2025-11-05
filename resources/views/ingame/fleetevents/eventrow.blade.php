@@ -106,9 +106,15 @@
                     &lt;/tr&gt;
                     @foreach($fleet_event_row->acs_participants as $participant)
                         &lt;tr&gt;
-                            &lt;td colspan=&quot;2&quot; style=&quot;font-size: 10px;&quot;&gt;{{ $participant['planet_name'] }} [{{ $participant['coordinates'] }}]:&lt;/td&gt;
-                            &lt;td class=&quot;value&quot;&gt;{{ $participant['unit_count'] }} @lang('ships')&lt;/td&gt;
+                            &lt;td colspan=&quot;3&quot; style=&quot;font-size: 10px; font-weight: bold; padding-top: 8px;&quot;&gt;{{ $participant['planet_name'] }} [{{ $participant['coordinates'] }}]&lt;/td&gt;
                         &lt;/tr&gt;
+                        @foreach($participant['fleet_units']->units as $unit)
+                            &lt;tr&gt;
+                                &lt;td&gt;&lt;/td&gt;
+                                &lt;td style=&quot;font-size: 10px;&quot;&gt;{{ $unit->unitObject->title }}:&lt;/td&gt;
+                                &lt;td class=&quot;value&quot;&gt;{{ $unit->amount }}&lt;/td&gt;
+                            &lt;/tr&gt;
+                        @endforeach
                     @endforeach
                 @endif
             &lt;/table&gt;
@@ -254,9 +260,15 @@
                     &lt;/tr&gt;
                     @foreach($fleet_event_row->acs_participants as $participant)
                         &lt;tr&gt;
-                            &lt;td colspan=&quot;2&quot; style=&quot;font-size: 10px;&quot;&gt;{{ $participant['planet_name'] }} [{{ $participant['coordinates'] }}]:&lt;/td&gt;
-                            &lt;td class=&quot;value&quot;&gt;{{ $participant['unit_count'] }} @lang('ships')&lt;/td&gt;
+                            &lt;td colspan=&quot;3&quot; style=&quot;font-size: 10px; font-weight: bold; padding-top: 8px;&quot;&gt;{{ $participant['planet_name'] }} [{{ $participant['coordinates'] }}]&lt;/td&gt;
                         &lt;/tr&gt;
+                        @foreach($participant['fleet_units']->units as $unit)
+                            &lt;tr&gt;
+                                &lt;td&gt;&lt;/td&gt;
+                                &lt;td style=&quot;font-size: 10px;&quot;&gt;{{ $unit->unitObject->title }}:&lt;/td&gt;
+                                &lt;td class=&quot;value&quot;&gt;{{ $unit->amount }}&lt;/td&gt;
+                            &lt;/tr&gt;
+                        @endforeach
                     @endforeach
                 @endif
             &lt;/table&gt;

@@ -335,6 +335,9 @@ class FleetController extends OGameController
         // Extract ACS union parameter (0 = create new group, >0 = join existing group)
         $union = (int)request()->input('union', 0);
 
+        // Convert target type to PlanetType enum (needed for validation)
+        $planetType = PlanetType::from($target_type);
+
         // Validate deuterium for ACS Defend missions
         if ($mission_type === 5 && $holding_hours > 0) {
             // Validate hold time limit (max 32 hours for ACS Defend)
@@ -351,7 +354,7 @@ class FleetController extends OGameController
             $totalConsumptionNeeded = $holdConsumptionService->calculateTotalConsumption($units, $holding_hours);
 
             // Get target planet to check Alliance Depot
-            $targetPlanet = $planetServiceFactory->makeForCoordinates($target_coordinate, $planetType);
+            $targetPlanet = $planetServiceFactory->makeForCoordinate($target_coordinate, true, $planetType);
             if ($targetPlanet === null) {
                 throw new \Exception('Target planet not found.');
             }
@@ -401,8 +404,6 @@ class FleetController extends OGameController
         ]);
 
         // Create a new fleet mission
-        $planetType = PlanetType::from($target_type);
-
         try {
             // For ACS missions, check if we need to adjust speed to match group arrival time
             $adjustedSpeed = $speed_percent;
