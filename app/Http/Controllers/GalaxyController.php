@@ -915,7 +915,7 @@ class GalaxyController extends OGameController
             })
                 ->where('processed', 0)
                 ->where('canceled', 0)
-                ->whereNull('parent_id') // Exclude return trips - only show outgoing missions
+                // Show both outgoing missions and return trips - phalanx should show all fleet movements
                 ->where('time_departure', '<=', $currentTime) // Fleet has departed
                 ->where('time_arrival', '>', $currentTime)    // Fleet hasn't arrived yet
                 ->orderBy('time_arrival', 'asc')
@@ -949,6 +949,9 @@ class GalaxyController extends OGameController
                 'recycler' => 'Recycler',
                 'espionage_probe' => 'Espionage Probe',
             ];
+
+            // Mission types that have return trips
+            $missionTypesWithReturnTrips = [1, 3, 6, 7, 8, 15]; // Attack, Transport, Espionage, Colonization, Recycle, Expedition
 
             // Format fleet information for response
             $fleetData = [];
@@ -984,6 +987,7 @@ class GalaxyController extends OGameController
                     'mission_type' => $fleet->mission_type,
                     'mission_name' => $missionNames[$fleet->mission_type] ?? 'Unknown',
                     'direction' => $isIncoming ? 'incoming' : 'outgoing',
+                    'is_return' => !empty($fleet->parent_id), // Flag to indicate if this is a return trip
                     'fleet_id' => $fleet->id,
                     'time_arrival' => $fleet->time_arrival,
                     'time_departure' => $fleet->time_departure,
@@ -1000,6 +1004,39 @@ class GalaxyController extends OGameController
                         'position' => $fleet->position_to,
                     ],
                 ];
+
+                // Add calculated return trip for outgoing missions (that don't have a parent_id, meaning they're not already return trips)
+                if (empty($fleet->parent_id) && in_array($fleet->mission_type, $missionTypesWithReturnTrips)) {
+                    // Calculate return trip arrival time (outgoing arrival + travel duration)
+                    $travelDuration = $fleet->time_arrival - $fleet->time_departure;
+                    $returnArrival = $fleet->time_arrival + $travelDuration;
+
+                    // Only show return trip if it hasn't arrived yet
+                    if ($returnArrival > $currentTime) {
+                        $fleetData[] = [
+                            'mission_type' => $fleet->mission_type,
+                            'mission_name' => $missionNames[$fleet->mission_type] ?? 'Unknown',
+                            'direction' => $isIncoming ? 'outgoing' : 'incoming', // Reverse direction for return trip
+                            'is_return' => true,
+                            'fleet_id' => $fleet->id,
+                            'time_arrival' => $returnArrival,
+                            'time_departure' => $fleet->time_arrival, // Return trip departs when outgoing arrives
+                            'total_ships' => $totalShips,
+                            'ship_details' => $shipDetails,
+                            // Swap origin and destination for return trip
+                            'origin' => [
+                                'galaxy' => $fleet->galaxy_to,
+                                'system' => $fleet->system_to,
+                                'position' => $fleet->position_to,
+                            ],
+                            'destination' => [
+                                'galaxy' => $fleet->galaxy_from,
+                                'system' => $fleet->system_from,
+                                'position' => $fleet->position_from,
+                            ],
+                        ];
+                    }
+                }
             }
 
             return response()->json([

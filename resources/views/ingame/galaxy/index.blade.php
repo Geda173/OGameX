@@ -536,7 +536,17 @@
                                                 var timeRemaining = hours + 'h ' + minutes + 'm ' + seconds + 's';
 
                                                 // Use original phalanx row classes: friendly (green), neutral (yellow), hostile (red)
-                                                var rowClass = fleet.direction === 'incoming' ? 'hostile' : 'neutral';
+                                                // Return trips are always friendly (going home)
+                                                // Incoming hostile missions (attacks) are hostile
+                                                // Outgoing missions are neutral
+                                                var rowClass = 'neutral'; // default
+                                                if (fleet.is_return) {
+                                                    rowClass = 'friendly'; // Return trips are always green
+                                                } else if (fleet.direction === 'incoming' && (fleet.mission_type === 1 || fleet.mission_type === 2 || fleet.mission_type === 6)) {
+                                                    rowClass = 'hostile'; // Incoming attacks/raids/espionage are red
+                                                } else if (fleet.direction === 'incoming') {
+                                                    rowClass = 'friendly'; // Other incoming (transport, etc.) are green
+                                                }
                                                 var missionIcon = '/img/fleet/' + fleet.mission_type + '.gif';
 
                                                 overlayHtml += '<tr class="' + rowClass + '">';
@@ -550,7 +560,11 @@
                                                 // Mission
                                                 overlayHtml += '<td class="text" style="background-color:#23212D; border:1px solid #161A20; padding:5px; text-align:center;">';
                                                 overlayHtml += '<img src="' + missionIcon + '" alt="' + fleet.mission_name + '" title="' + fleet.mission_name + '" style="display:block; margin:0 auto 3px;"/>';
-                                                overlayHtml += '<div style="font-size:10px; text-transform:uppercase; font-weight:700;">' + fleet.direction + '</div>';
+                                                var directionLabel = fleet.direction;
+                                                if (fleet.is_return) {
+                                                    directionLabel += ' (R)';
+                                                }
+                                                overlayHtml += '<div style="font-size:10px; text-transform:uppercase; font-weight:700;">' + directionLabel + '</div>';
                                                 overlayHtml += '</td>';
 
                                                 // Origin
