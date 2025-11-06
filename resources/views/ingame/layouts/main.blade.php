@@ -48,7 +48,7 @@
     <title>{{ config('app.name', 'Laravel') }}</title>
 
     <link rel="stylesheet" href="{{ mix('css/ingame.css') }}">
-    <script src="{{ mix('js/ingame.min.js') }}"></script>
+    <script src="{{ mix('js/ingame.min.js') }}?v={{ filemtime(public_path('js/ingame.min.js')) }}"></script>
 
     <script type="text/javascript">
         window.token = "{{ csrf_token() }}";
