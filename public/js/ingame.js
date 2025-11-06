@@ -69084,7 +69084,7 @@ function reloadEventbox(data) {
         timerHandler.removeCallback(reloadEventBoxTimer.timer);
       }
 
-      reloadEventBoxTimer = new simpleCountdown(getElementByIdWithCache("tempcounter"), evalData["eventTime"], function () {
+      reloadEventBoxTimer = new simpleCountdown(document.getElementById("tempcounter"), evalData["eventTime"], function () {
         setTimeout(getAjaxEventbox, 3000);
       });
     } else {
