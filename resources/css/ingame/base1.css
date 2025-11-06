@@ -165,6 +165,10 @@ input[type="button"],input[type="submit"] {
     visibility: hidden
 }
 
+.own {
+    color: #6f0
+}
+
 .friendly {
     color: #9c0
 }
@@ -4356,6 +4360,14 @@ ul span.level span.textlabel {
     width: 185px
 }
 
+#eventboxFilled .ownmark {
+    color: #6f0 !important
+}
+
+#eventboxFilled .own {
+    color: #6f0 !important
+}
+
 #eventz tr.neutral td,#phalanx tr.neutral td {
     color: #fcce00
 }
@@ -4454,6 +4466,10 @@ table#eventz {
 
 .middlemark {
     color: #d29d00!important
+}
+
+.ownmark {
+    color: #6f0!important
 }
 
 .disabled {
@@ -10607,6 +10623,10 @@ a#recall span,a#federation span {
     cursor: pointer
 }
 
+#movement .own {
+    color: #6f0
+}
+
 #movement .friendly {
     color: #9c0
 }
@@ -11060,6 +11080,10 @@ span.reload {
     left: 640px;
     top: 2px;
     width: 16px
+}
+
+.fleetDetails .own {
+    color: #6f0
 }
 
 .fleetDetails .friendly {
