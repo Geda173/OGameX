@@ -13,6 +13,7 @@ use OGame\Models\Planet;
 use OGame\Models\Resources;
 use OGame\Services\BuddyService;
 use OGame\Services\DebrisFieldService;
+use OGame\Services\HighscoreService;
 use OGame\Services\PlanetService;
 use OGame\Services\PlayerService;
 use OGame\Services\SettingsService;
@@ -427,6 +428,11 @@ class GalaxyController extends OGameController
         $allianceAction = ['available' => false];
         if ($alliance) {
             $memberCount = $alliance->members()->count();
+
+            // Get alliance highscore rank
+            $highscoreService = app(HighscoreService::class);
+            $allianceRank = $highscoreService->getHighscoreAllianceRank($alliance->id);
+
             $allianceAction = [
                 'available' => true,
                 'infoPageLink' => route('alliance.show', $alliance->id),
@@ -434,7 +440,7 @@ class GalaxyController extends OGameController
                 'applicationLink' => $alliance->open_for_applications ? route('alliance.show', $alliance->id) : null,
                 'applicationTitle' => $alliance->open_for_applications ? 'Apply' : null,
                 'highscoreLink' => route('highscore.index', ['type' => 1, 'category' => 2, 'searchRelId' => $alliance->id]),
-                'highscoreTitle' => '#' . ($alliance->id ?? 'N/A'), // Placeholder rank, would need actual calculation
+                'highscoreTitle' => '#' . $allianceRank,
                 'memberCount' => $memberCount,
                 'allianceClassName' => null,
                 'allianceClassCss' => null,
@@ -864,8 +870,19 @@ class GalaxyController extends OGameController
             // Moons cannot be scanned with sensor phalanx (per game rules)
             // Position 16 would be expedition, which also can't be scanned
             // For now, we only allow scanning regular planet positions (1-15)
-            // Note: We don't have a way to check if it's a moon vs planet without loading it
-            // The scan will simply show no fleets if scanning a moon
+
+            // Verify target is not a moon (moons cannot be scanned per OGame rules)
+            $targetPlanet = Planet::where('galaxy', $galaxy)
+                ->where('system', $system)
+                ->where('planet', $position)
+                ->first();
+
+            if ($targetPlanet && $targetPlanet->planet_type === PlanetType::Moon->value) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Sensor phalanx cannot scan moons',
+                ]);
+            }
 
             // Check if player has a moon with phalanx in range
             $moon = $player->getMoonWithPhalanxInRange($galaxy, $system, $position);
