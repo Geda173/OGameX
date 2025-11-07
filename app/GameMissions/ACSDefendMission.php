@@ -184,19 +184,20 @@ class ACSDefendMission extends GameMission
      */
     protected function processReturn(FleetMission $mission): void
     {
-        $originPlanet = $this->planetServiceFactory->make($mission->planet_id_from, true);
+        // For return missions, planet_id_to is where the fleet is returning TO (the original sender)
+        $homePlanet = $this->planetServiceFactory->make($mission->planet_id_to, true);
 
-        // Add units back to origin planet
-        $originPlanet->addUnits($this->fleetMissionService->getFleetUnits($mission));
+        // Add units back to home planet
+        $homePlanet->addUnits($this->fleetMissionService->getFleetUnits($mission));
 
         // Add any remaining resources back
         $return_resources = $this->fleetMissionService->getResources($mission);
         if ($return_resources->any()) {
-            $originPlanet->addResources($return_resources);
+            $homePlanet->addResources($return_resources);
         }
 
-        // Send message to player that the fleet has returned
-        $this->sendFleetReturnMessage($mission, $originPlanet->getPlayer());
+        // Send message to the fleet owner (not the planet they were defending)
+        $this->sendFleetReturnMessage($mission, $homePlanet->getPlayer());
 
         // Mark the return mission as processed
         $mission->processed = 1;
