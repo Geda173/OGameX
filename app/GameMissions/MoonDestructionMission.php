@@ -126,6 +126,75 @@ class MoonDestructionMission extends GameMission
         // Save defenders moon
         $defenderMoon->save();
 
+        // Handle ACS Defend missions that participated in the battle
+        // Calculate survival rate for each unit type and distribute survivors back to defending missions
+        $acsDefendTotalStart = new UnitCollection();
+        foreach ($battleResult->defendingMissions as $defendingMission) {
+            $defendingUnits = $this->fleetMissionService->getFleetUnits($defendingMission);
+            $acsDefendTotalStart->addCollection($defendingUnits);
+        }
+
+        // Calculate the moon's units (ships + defenses) at start
+        $moonUnitsStart = clone $battleResult->defenderUnitsStart;
+        $moonUnitsStart->subtractCollection($acsDefendTotalStart);
+
+        // Calculate how many of the moon's units survived
+        // First, we need to figure out which survivors belong to the moon vs ACS Defend missions
+        // We'll use a proportional distribution based on each unit type
+        foreach ($battleResult->defendingMissions as $defendingMission) {
+            // Get the original units for this mission
+            $missionUnitsStart = $this->fleetMissionService->getFleetUnits($defendingMission);
+
+            // Calculate surviving units for this mission based on overall survival rates
+            $missionUnitsSurvived = new UnitCollection();
+
+            foreach ($missionUnitsStart->units as $unit) {
+                $unitMachineName = $unit->unitObject->machine_name;
+                $originalAmount = $unit->amount;
+
+                // Get the total amount of this unit type at battle start (moon + all ACS Defend)
+                $totalStartAmount = $battleResult->defenderUnitsStart->getAmountByMachineName($unitMachineName);
+
+                if ($totalStartAmount > 0) {
+                    // Get the total survivors of this unit type
+                    $totalSurvived = $battleResult->defenderUnitsResult->getAmountByMachineName($unitMachineName);
+
+                    // Calculate survival rate
+                    $survivalRate = $totalSurvived / $totalStartAmount;
+
+                    // Apply survival rate to this mission's original units (round down)
+                    $survivedAmount = (int)floor($originalAmount * $survivalRate);
+
+                    if ($survivedAmount > 0) {
+                        $missionUnitsSurvived->addUnit($unit->unitObject, $survivedAmount);
+                    }
+                }
+            }
+
+            \Log::info('ACS Defend mission ' . $defendingMission->id . ' participated in moon destruction battle', [
+                'original_units' => $missionUnitsStart->toArray(),
+                'surviving_units' => $missionUnitsSurvived->toArray(),
+                'mission_type' => $defendingMission->mission_type,
+            ]);
+
+            // Update the defending mission's units to reflect battle losses
+            // First, set all original unit types to 0 (destroyed)
+            foreach ($missionUnitsStart->units as $unit) {
+                $defendingMission->{$unit->unitObject->machine_name} = 0;
+            }
+            // Then set the surviving units
+            foreach ($missionUnitsSurvived->units as $unit) {
+                $defendingMission->{$unit->unitObject->machine_name} = $unit->amount;
+            }
+            $defendingMission->save();
+
+            \Log::debug('Updated ACS Defend mission units after moon destruction battle', [
+                'mission_id' => $defendingMission->id,
+                'surviving_units' => $missionUnitsSurvived->toArray(),
+                'will_return_at' => $defendingMission->time_arrival + ($defendingMission->time_holding ?? 0),
+            ]);
+        }
+
         // Check if attacker fleet was destroyed in first round
         $attackerDestroyedFirstRound = false;
         if (count($battleResult->rounds) > 0) {
@@ -152,6 +221,18 @@ class MoonDestructionMission extends GameMission
 
         // Always send full battle report to defender (moon owner)
         $this->messageService->sendBattleReportMessageToPlayer($defenderMoon->getPlayer(), $reportId);
+
+        // Send battle report to all ACS Defend fleet owners (only once per player)
+        $reportedDefenders = [$defenderMoon->getPlayer()->getId()]; // Moon owner already reported
+        foreach ($battleResult->defendingMissions as $defendingMission) {
+            $defendingPlayer = resolve(\OGame\Services\PlayerService::class, ['player_id' => $defendingMission->user_id]);
+
+            // Only send once per unique defending player
+            if (!in_array($defendingPlayer->getId(), $reportedDefenders)) {
+                $this->messageService->sendBattleReportMessageToPlayer($defendingPlayer, $reportId);
+                $reportedDefenders[] = $defendingPlayer->getId();
+            }
+        }
 
         // Determine outcome after battle
         $moonDestroyed = false;
