@@ -844,6 +844,10 @@ class FleetController extends OGameController
             ]);
         }
 
+        // Recall the fleet mission FIRST before modifying ACS relationships
+        // This ensures the mission is properly canceled and return trip is created
+        $fleetMissionService->cancelMission($fleetMission);
+
         // Check if this fleet is part of an ACS group
         $acsFleetMember = \OGame\Models\AcsFleetMember::where('fleet_mission_id', $fleet_mission_id)->first();
 
@@ -920,9 +924,6 @@ class FleetController extends OGameController
                 }
             }
         }
-
-        // Recall the fleet mission
-        $fleetMissionService->cancelMission($fleetMission);
 
         return response()->json([
             'components' => [],

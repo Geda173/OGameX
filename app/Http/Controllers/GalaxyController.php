@@ -431,6 +431,7 @@ class GalaxyController extends OGameController
 
             // Get alliance highscore rank
             $highscoreService = app(HighscoreService::class);
+            $highscoreService->setHighscoreType(0); // 0 = general score
             $allianceRank = $highscoreService->getHighscoreAllianceRank($alliance->id);
 
             $allianceAction = [
@@ -913,29 +914,38 @@ class GalaxyController extends OGameController
             // Deduct deuterium
             $moon->deductResources(new Resources(0, 0, $deuteriumCost, 0));
 
-            // Find all active fleet missions to or from the target coordinates
-            // Only show fleets that haven't arrived yet (future fleets in transit)
+            // Find all active fleet missions ARRIVING at the scanned coordinates
+            // Per OGame rules: Phalanx shows fleets that will STOP at the scanned planet
+            // This includes:
+            // - Original missions targeting the scanned planet (attacks, transports, etc.)
+            // - Return trips where the scanned planet is home (fleets returning from missions)
+            // Excludes:
+            // - Missions to/from moons (type_to must be Planet)
+            // - Missions to debris fields
             $currentTime = time();
-            $fleets = FleetMission::where(function ($query) use ($galaxy, $system, $position) {
-                // Fleets TO the target
-                $query->where(function ($q) use ($galaxy, $system, $position) {
-                    $q->where('galaxy_to', $galaxy)
-                      ->where('system_to', $system)
-                      ->where('position_to', $position);
-                })
-                // OR fleets FROM the target
-                ->orWhere(function ($q) use ($galaxy, $system, $position) {
-                    $q->where('galaxy_from', $galaxy)
-                      ->where('system_from', $system)
-                      ->where('position_from', $position);
-                });
-            })
+            $fleets = FleetMission::where('galaxy_to', $galaxy)
+                ->where('system_to', $system)
+                ->where('position_to', $position)
+                ->where('type_to', PlanetType::Planet->value) // Only fleets arriving at planet (not moon/DF)
                 ->where('processed', 0)
                 ->where('canceled', 0)
-                // Show both outgoing missions and return trips - phalanx should show all fleet movements
+                // NOTE: Do NOT filter by parent_id - we want both original missions and return trips
                 ->where('time_departure', '<=', $currentTime) // Fleet has departed
                 ->where('time_arrival', '>', $currentTime)    // Fleet hasn't arrived yet
                 ->orderBy('time_arrival', 'asc')
+                ->get();
+
+            // Also find missions ORIGINATING from the scanned planet to calculate their return trips
+            // These are missions where the fleet will eventually return home to the scanned planet
+            $outgoingFleets = FleetMission::where('galaxy_from', $galaxy)
+                ->where('system_from', $system)
+                ->where('position_from', $position)
+                ->where('type_from', PlanetType::Planet->value) // Only from planet (not moon)
+                ->where('processed', 0)
+                ->where('canceled', 0)
+                ->whereNull('parent_id') // Only original missions, not return trips
+                ->where('time_departure', '<=', $currentTime) // Fleet has departed
+                ->where('time_arrival', '>', $currentTime)    // Fleet hasn't arrived yet
                 ->get();
 
             // Mission type names for better display
@@ -1000,11 +1010,16 @@ class GalaxyController extends OGameController
                     }
                 }
 
+                // All fleets shown are arriving at the scanned planet
+                // Determine if it's a return trip based on parent_id
+                $isReturn = !empty($fleet->parent_id);
+
+                // Add fleet to results
                 $fleetData[] = [
                     'mission_type' => $fleet->mission_type,
                     'mission_name' => $missionNames[$fleet->mission_type] ?? 'Unknown',
-                    'direction' => $isIncoming ? 'incoming' : 'outgoing',
-                    'is_return' => !empty($fleet->parent_id), // Flag to indicate if this is a return trip
+                    'direction' => $isReturn ? 'returning' : 'incoming',
+                    'is_return' => $isReturn,
                     'fleet_id' => $fleet->id,
                     'time_arrival' => $fleet->time_arrival,
                     'time_departure' => $fleet->time_departure,
@@ -1021,40 +1036,79 @@ class GalaxyController extends OGameController
                         'position' => $fleet->position_to,
                     ],
                 ];
+            }
 
-                // Add calculated return trip for outgoing missions (that don't have a parent_id, meaning they're not already return trips)
-                if (empty($fleet->parent_id) && in_array($fleet->mission_type, $missionTypesWithReturnTrips)) {
-                    // Calculate return trip arrival time (outgoing arrival + travel duration)
-                    $travelDuration = $fleet->time_arrival - $fleet->time_departure;
-                    $returnArrival = $fleet->time_arrival + $travelDuration;
+            // Process outgoing fleets and calculate their return trips
+            // Mission types that have return trips
+            $missionTypesWithReturnTrips = [1, 3, 6, 7, 8, 15]; // Attack, Transport, Espionage, Colonization, Recycle, Expedition
 
-                    // Only show return trip if it hasn't arrived yet
-                    if ($returnArrival > $currentTime) {
-                        $fleetData[] = [
-                            'mission_type' => $fleet->mission_type,
-                            'mission_name' => $missionNames[$fleet->mission_type] ?? 'Unknown',
-                            'direction' => $isIncoming ? 'outgoing' : 'incoming', // Reverse direction for return trip
-                            'is_return' => true,
-                            'fleet_id' => $fleet->id,
-                            'time_arrival' => $returnArrival,
-                            'time_departure' => $fleet->time_arrival, // Return trip departs when outgoing arrives
-                            'total_ships' => $totalShips,
-                            'ship_details' => $shipDetails,
-                            // Swap origin and destination for return trip
-                            'origin' => [
-                                'galaxy' => $fleet->galaxy_to,
-                                'system' => $fleet->system_to,
-                                'position' => $fleet->position_to,
-                            ],
-                            'destination' => [
-                                'galaxy' => $fleet->galaxy_from,
-                                'system' => $fleet->system_from,
-                                'position' => $fleet->position_from,
-                            ],
+            foreach ($outgoingFleets as $fleet) {
+                // Only process missions that have return trips
+                if (!in_array($fleet->mission_type, $missionTypesWithReturnTrips)) {
+                    continue;
+                }
+
+                // Calculate return trip timing
+                $travelDuration = $fleet->time_arrival - $fleet->time_departure;
+                $returnDeparture = $fleet->time_arrival; // Return departs when outgoing arrives
+                $returnArrival = $returnDeparture + $travelDuration;
+
+                // Only show if return hasn't arrived yet
+                if ($returnArrival <= $currentTime) {
+                    continue;
+                }
+
+                // Count total ships
+                $totalShips = 0;
+                foreach ($shipNames as $shipKey => $shipLabel) {
+                    $totalShips += $fleet->{$shipKey};
+                }
+
+                if ($totalShips == 0) {
+                    continue;
+                }
+
+                // Build ship details
+                $shipDetails = [];
+                foreach ($shipNames as $shipKey => $shipLabel) {
+                    $count = $fleet->{$shipKey};
+                    if ($count > 0) {
+                        $shipDetails[] = [
+                            'name' => $shipLabel,
+                            'count' => $count,
                         ];
                     }
                 }
+
+                // Add calculated return trip to results
+                $fleetData[] = [
+                    'mission_type' => $fleet->mission_type,
+                    'mission_name' => $missionNames[$fleet->mission_type] ?? 'Unknown',
+                    'direction' => 'returning',
+                    'is_return' => true,
+                    'fleet_id' => $fleet->id,
+                    'time_arrival' => $returnArrival,
+                    'time_departure' => $returnDeparture,
+                    'total_ships' => $totalShips,
+                    'ship_details' => $shipDetails,
+                    // Return trip: swap origin and destination
+                    'origin' => [
+                        'galaxy' => $fleet->galaxy_to,
+                        'system' => $fleet->system_to,
+                        'position' => $fleet->position_to,
+                    ],
+                    'destination' => [
+                        'galaxy' => $fleet->galaxy_from,
+                        'system' => $fleet->system_from,
+                        'position' => $fleet->position_from,
+                    ],
+                ];
             }
+
+            // Sort all fleets by arrival time
+            usort($fleetData, function($a, $b) {
+                return $a['time_arrival'] <=> $b['time_arrival'];
+            });
 
             return response()->json([
                 'success' => true,
