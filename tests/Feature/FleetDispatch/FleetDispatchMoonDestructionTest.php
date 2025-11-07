@@ -101,7 +101,7 @@ class FleetDispatchMoonDestructionTest extends FleetDispatchTestCase
     }
 
     /**
-     * Assert that moon destruction mission requires at least one Death Star.
+     * Assert that moon destruction mission requires at least one Deathstar.
      */
     public function testFleetCheckWithoutDeathStarError(): void
     {
@@ -164,7 +164,7 @@ class FleetDispatchMoonDestructionTest extends FleetDispatchTestCase
     }
 
     /**
-     * Test that moon destruction with sufficient Death Stars has a chance to destroy the moon.
+     * Test that moon destruction with sufficient Deathstars has a chance to destroy the moon.
      * We'll test with a very small moon (high destruction chance) to increase probability.
      *
      * @throws Exception
@@ -173,7 +173,7 @@ class FleetDispatchMoonDestructionTest extends FleetDispatchTestCase
     {
         $this->basicSetup();
 
-        // Add more Death Stars for higher chance
+        // Add more Deathstars for higher chance
         $this->planetAddUnit('deathstar', 45); // Total of 50
 
         // Send fleet to a nearby foreign moon.
@@ -266,7 +266,7 @@ class FleetDispatchMoonDestructionTest extends FleetDispatchTestCase
         $mission->small_cargo = 1;
         $mission->save();
 
-        // Now send our Death Star fleet to destroy the moon
+        // Now send our Deathstar fleet to destroy the moon
         $this->planetAddUnit('deathstar', 95); // Total of 100
         $unitCollection = new UnitCollection();
         $unitCollection->addUnit(ObjectService::getUnitObjectByMachineName('deathstar'), 100);

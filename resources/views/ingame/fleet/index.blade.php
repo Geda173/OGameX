@@ -843,7 +843,7 @@ Civil ships only count 25%, solar satellites and espionage probes are not consid
 <br />
 Select the option *never* if you would like to deactivate the automatic retreat.<br />
 <br />
-Held fleets are in principle not able to retreat. Death Stars, Espionage Probes and Solar Satellites are also unable to retreat.<br />
+Held fleets are in principle not able to retreat. Deathstars, Espionage Probes and Solar Satellites are also unable to retreat.<br />
 <br />
 Use the Admiral to enable your fleets to retreat from forces three times bigger than your own.<br />
 <br />
@@ -856,7 +856,7 @@ Civil ships only count 25%, solar satellites and espionage probes are not consid
 <br />
 Select the option *never* if you would like to deactivate the automatic retreat.<br />
 <br />
-Held fleets are in principle not able to retreat. Death Stars, Espionage Probes and Solar Satellites are also unable to retreat.<br />
+Held fleets are in principle not able to retreat. Deathstars, Espionage Probes and Solar Satellites are also unable to retreat.<br />
 <br />
 Use the Admiral to enable your fleets to retreat from forces three times bigger than your own.<br />
 <br />

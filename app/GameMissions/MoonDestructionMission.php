@@ -50,7 +50,7 @@ class MoonDestructionMission extends GameMission
             return new MissionPossibleStatus(false);
         }
 
-        // Check if the fleet contains at least one Death Star
+        // Check if the fleet contains at least one Deathstar
         if ($units->getAmountByMachineName('deathstar') < 1) {
             return new MissionPossibleStatus(false);
         }
@@ -110,37 +110,17 @@ class MoonDestructionMission extends GameMission
 
         $battleResult = $battleEngine->simulateBattle();
 
-        // Deduct defender's lost units from the defenders moon.
-        $defenderUnitsLost = clone $battleResult->defenderUnitsStart;
-        $defenderUnitsLost->subtractCollection($battleResult->defenderUnitsResult);
-        $defenderMoon->removeUnits($defenderUnitsLost, false);
-
-        // Calculate repaired defenses (70% chance for each destroyed defense structure)
-        $repairedDefenses = $this->calculateRepairedDefenses($defenderUnitsLost);
-
-        // Add repaired defenses back to the moon
-        if ($repairedDefenses->getAmount() > 0) {
-            $defenderMoon->addUnits($repairedDefenses, false);
-        }
-
-        // Save defenders moon
-        $defenderMoon->save();
-
-        // Handle ACS Defend missions that participated in the battle
+        // Handle ACS Defend missions that participated in the battle FIRST
         // Calculate survival rate for each unit type and distribute survivors back to defending missions
         $acsDefendTotalStart = new UnitCollection();
+        $acsDefendTotalSurvived = new UnitCollection();
+
         foreach ($battleResult->defendingMissions as $defendingMission) {
             $defendingUnits = $this->fleetMissionService->getFleetUnits($defendingMission);
             $acsDefendTotalStart->addCollection($defendingUnits);
         }
 
-        // Calculate the moon's units (ships + defenses) at start
-        $moonUnitsStart = clone $battleResult->defenderUnitsStart;
-        $moonUnitsStart->subtractCollection($acsDefendTotalStart);
-
-        // Calculate how many of the moon's units survived
-        // First, we need to figure out which survivors belong to the moon vs ACS Defend missions
-        // We'll use a proportional distribution based on each unit type
+        // Calculate survivors for each ACS Defend mission using proportional survival rates
         foreach ($battleResult->defendingMissions as $defendingMission) {
             // Get the original units for this mission
             $missionUnitsStart = $this->fleetMissionService->getFleetUnits($defendingMission);
@@ -171,6 +151,9 @@ class MoonDestructionMission extends GameMission
                 }
             }
 
+            // Track total ACS Defend survivors
+            $acsDefendTotalSurvived->addCollection($missionUnitsSurvived);
+
             \Log::info('ACS Defend mission ' . $defendingMission->id . ' participated in moon destruction battle', [
                 'original_units' => $missionUnitsStart->toArray(),
                 'surviving_units' => $missionUnitsSurvived->toArray(),
@@ -194,6 +177,34 @@ class MoonDestructionMission extends GameMission
                 'will_return_at' => $defendingMission->time_arrival + ($defendingMission->time_holding ?? 0),
             ]);
         }
+
+        // Now calculate and apply moon unit losses
+        // Moon's units at start = Total defenders - ACS Defend
+        $moonUnitsStart = clone $battleResult->defenderUnitsStart;
+        $moonUnitsStart->subtractCollection($acsDefendTotalStart);
+
+        // Moon's units survived = Total survivors - ACS Defend survivors
+        $moonUnitsSurvived = clone $battleResult->defenderUnitsResult;
+        $moonUnitsSurvived->subtractCollection($acsDefendTotalSurvived);
+
+        // Moon's units lost = Moon start - Moon survived
+        $moonUnitsLost = clone $moonUnitsStart;
+        $moonUnitsLost->subtractCollection($moonUnitsSurvived);
+
+        // Deduct moon's lost units from the moon
+        $defenderMoon->removeUnits($moonUnitsLost, false);
+
+        // Calculate repaired defenses (70% chance for each destroyed defense structure)
+        // Only moon defenses can be repaired (not ACS Defend ships)
+        $repairedDefenses = $this->calculateRepairedDefenses($moonUnitsLost);
+
+        // Add repaired defenses back to the moon
+        if ($repairedDefenses->getAmount() > 0) {
+            $defenderMoon->addUnits($repairedDefenses, false);
+        }
+
+        // Save defenders moon
+        $defenderMoon->save();
 
         // Check if attacker fleet was destroyed in first round
         $attackerDestroyedFirstRound = false;
@@ -244,7 +255,7 @@ class MoonDestructionMission extends GameMission
             $moonDestructionRoll = random_int(1, 10000) / 100; // Random percentage with 2 decimal precision
             $moonDestroyed = ($moonDestructionRoll <= $moonDestructionChance);
 
-            // Roll for Death Star destruction (INDEPENDENT roll #2)
+            // Roll for Deathstar destruction (INDEPENDENT roll #2)
             $deathStarDestructionRoll = random_int(1, 10000) / 100;
             $fleetDestroyed = ($deathStarDestructionRoll <= $deathStarDestructionChance);
 
@@ -328,7 +339,7 @@ class MoonDestructionMission extends GameMission
      * Formula: (100 - sqrt(moon_size_km)) * sqrt(death_stars)
      *
      * @param int $moonSizeKm Moon size in kilometers
-     * @param int $deathStarCount Number of Death Stars
+     * @param int $deathStarCount Number of Deathstars
      * @return float Percentage chance (0-100)
      */
     private function calculateMoonDestructionChance(int $moonSizeKm, int $deathStarCount): float
@@ -338,7 +349,7 @@ class MoonDestructionMission extends GameMission
     }
 
     /**
-     * Calculate Death Star destruction chance percentage.
+     * Calculate Deathstar destruction chance percentage.
      * Formula: sqrt(moon_size_km) / 2
      *
      * @param int $moonSizeKm Moon size in kilometers
@@ -558,7 +569,7 @@ class MoonDestructionMission extends GameMission
     }
 
     /**
-     * Send fleet destroyed message to attacker (Death Stars explode, moon survives).
+     * Send fleet destroyed message to attacker (Deathstars explode, moon survives).
      */
     private function sendFleetDestroyedMessage(FleetMission $mission, PlayerService $player, PlanetService $originPlanet, PlanetService $targetMoon, float $moonChance, float $deathStarChance): void
     {
