@@ -277,12 +277,14 @@ class FleetMissionService
             $query->where('user_id', $this->player->getId())
                 ->orWhereIn('planet_id_to', $planetIds)
                 // Also include missions targeting player's planets by coordinates (for legacy missions)
+                // Exclude debris field missions (type_to = 2) - other players harvesting debris shouldn't be visible
                 ->orWhere(function ($q) use ($planetCoords) {
                     foreach ($planetCoords as $coords) {
                         $q->orWhere(function ($subQuery) use ($coords) {
                             $subQuery->where('galaxy_to', $coords['galaxy'])
                                 ->where('system_to', $coords['system'])
-                                ->where('position_to', $coords['position']);
+                                ->where('position_to', $coords['position'])
+                                ->whereIn('type_to', [PlanetType::Planet->value, PlanetType::Moon->value]);
                         });
                     }
                 });
