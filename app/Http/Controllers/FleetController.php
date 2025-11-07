@@ -353,19 +353,32 @@ class FleetController extends OGameController
             $holdConsumptionService = new \OGame\Services\FleetHoldConsumptionService();
             $totalConsumptionNeeded = $holdConsumptionService->calculateTotalConsumption($units, $holding_hours);
 
-            // Get target planet to check Alliance Depot
+            // Get target planet/moon to check Alliance Depot
             $targetPlanet = $planetServiceFactory->makeForCoordinate($target_coordinate, true, $planetType);
             if ($targetPlanet === null) {
                 throw new \Exception('Target planet not found.');
             }
 
             // Calculate Alliance Depot supply
-            $depotLevel = $targetPlanet->getObjectLevel('alliance_depot');
+            // For moons, check the parent planet's Alliance Depot (moons don't have depots)
+            $depotLevel = 0;
+            $planetDeuterium = 0;
+
+            if ($planetType === PlanetType::Moon) {
+                // Try to get the parent planet's Alliance Depot
+                $parentPlanet = $planetServiceFactory->makeForCoordinate($target_coordinate, true, PlanetType::Planet);
+                if ($parentPlanet !== null) {
+                    $depotLevel = $parentPlanet->getObjectLevel('alliance_depot');
+                    $planetDeuterium = $parentPlanet->deuterium()->get();
+                }
+            } else {
+                // For planets, use their own Alliance Depot
+                $depotLevel = $targetPlanet->getObjectLevel('alliance_depot');
+                $planetDeuterium = $targetPlanet->deuterium()->get();
+            }
+
             $depotSupplyRate = 20000; // per hour per level
             $depotSupplyAvailable = $depotLevel * $depotSupplyRate * $holding_hours;
-
-            // Check how much deuterium the target planet has
-            $planetDeuterium = $targetPlanet->deuterium()->get();
             $depotSupplyUsable = min($depotSupplyAvailable, $planetDeuterium);
 
             // Calculate how much fleet cargo needs to cover
@@ -374,16 +387,36 @@ class FleetController extends OGameController
             // Validate user loaded enough deuterium
             if ($deuterium < $fleetCargoNeeded) {
                 $shortage = $fleetCargoNeeded - $deuterium;
-                throw new \Exception(sprintf(
-                    'Insufficient deuterium for ACS Defend mission. Fleet needs %s total consumption for %d hours. Alliance Depot (level %d) can supply %s. Fleet must carry at least %s but only has %s loaded. Shortage: %s',
-                    number_format($totalConsumptionNeeded),
-                    $holding_hours,
-                    $depotLevel,
-                    number_format($depotSupplyUsable),
-                    number_format($fleetCargoNeeded),
-                    number_format($deuterium),
-                    number_format($shortage)
-                ));
+
+                // Build user-friendly error message
+                if ($planetType === PlanetType::Moon) {
+                    // For moons, mention parent planet's Alliance Depot
+                    $errorMessage = sprintf(
+                        'Your fleet needs %s deuterium for %d hour(s). Parent planet Alliance Depot (level %d) can supply %s. Please load at least %s more deuterium (currently loaded: %s).',
+                        number_format($totalConsumptionNeeded, 0, '.', ','),
+                        $holding_hours,
+                        $depotLevel,
+                        number_format($depotSupplyUsable, 0, '.', ','),
+                        number_format($shortage, 0, '.', ','),
+                        number_format($deuterium, 0, '.', ',')
+                    );
+                } else {
+                    // Planet - mention Alliance Depot
+                    $errorMessage = sprintf(
+                        'Your fleet needs %s deuterium for %d hour(s). Alliance Depot (level %d) can supply %s. Please load at least %s more deuterium (currently loaded: %s).',
+                        number_format($totalConsumptionNeeded, 0, '.', ','),
+                        $holding_hours,
+                        $depotLevel,
+                        number_format($depotSupplyUsable, 0, '.', ','),
+                        number_format($shortage, 0, '.', ','),
+                        number_format($deuterium, 0, '.', ',')
+                    );
+                }
+
+                return response()->json([
+                    'status' => 'error',
+                    'message' => $errorMessage,
+                ]);
             }
 
             \Log::debug('ACS Defend deuterium validation passed', [

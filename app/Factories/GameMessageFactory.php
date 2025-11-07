@@ -35,6 +35,14 @@ class GameMessageFactory
         'debris_field_harvest' => \OGame\GameMessages\DebrisFieldHarvest::class,
         'acs_invitation' => \OGame\GameMessages\ACSInvitation::class,
 
+        'moon_destruction_success' => \OGame\GameMessages\MoonDestructionSuccess::class,
+        'moon_destruction_failed' => \OGame\GameMessages\MoonDestructionFailed::class,
+        'moon_destruction_fleet_destroyed' => \OGame\GameMessages\MoonDestructionFleetDestroyed::class,
+        'moon_destruction_success_fleet_destroyed' => \OGame\GameMessages\MoonDestructionSuccessButFleetDestroyed::class,
+        'moon_destruction_moon_not_found' => \OGame\GameMessages\MoonDestructionMoonNotFound::class,
+        'moon_destruction_attempt' => \OGame\GameMessages\MoonDestructionAttempt::class,
+        'moon_destroyed' => \OGame\GameMessages\MoonDestroyed::class,
+
         'expedition_battle' => \OGame\GameMessages\ExpeditionBattle::class,
         'expedition_gain_dark_matter' => \OGame\GameMessages\ExpeditionGainDarkMatter::class,
         'expedition_failed' => \OGame\GameMessages\ExpeditionFailed::class,
