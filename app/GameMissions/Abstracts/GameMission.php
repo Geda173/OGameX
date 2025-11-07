@@ -111,8 +111,10 @@ abstract class GameMission
         $mission->processed = 1;
         $mission->save();
 
-        // Start the return mission with the resources and units of the original mission.
-        $this->startReturn($mission, $this->fleetMissionService->getResources($mission), $this->fleetMissionService->getFleetUnits($mission));
+        // Start the return mission with the units of the original mission.
+        // Pass empty resources because the fleet already has all its resources from the parent mission
+        // and startReturn() will add them automatically. Passing the parent's resources would cause duplication.
+        $this->startReturn($mission, new Resources(0, 0, 0, 0), $this->fleetMissionService->getFleetUnits($mission));
     }
 
     /**
