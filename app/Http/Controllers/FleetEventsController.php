@@ -108,7 +108,13 @@ class FleetEventsController extends OGameController
             $eventRowViewModel->origin_planet_name = '';
             $eventRowViewModel->origin_planet_coords = new Coordinate($row->galaxy_from, $row->system_from, $row->position_from);
             $eventRowViewModel->origin_planet_type = PlanetType::from($row->type_from);
-            if ($row->planet_id_from !== null) {
+
+            // Check if this is an expedition return trip (mission type 15 with parent_id)
+            if ($row->mission_type == 15 && !empty($row->parent_id)) {
+                // Expedition return trip: origin is deep space
+                $eventRowViewModel->origin_planet_name = __('Deep space');
+                $eventRowViewModel->origin_planet_type = PlanetType::DeepSpace;
+            } elseif ($row->planet_id_from !== null) {
                 $planetFromService = $planetServiceFactory->make($row->planet_id_from);
                 if ($planetFromService !== null) {
                     $eventRowViewModel->origin_planet_name = $planetFromService->getPlanetName();
@@ -120,8 +126,9 @@ class FleetEventsController extends OGameController
             $eventRowViewModel->destination_planet_coords = new Coordinate($row->galaxy_to, $row->system_to, $row->position_to);
             $eventRowViewModel->destination_planet_type = PlanetType::from($row->type_to);
 
-            // Check if this is an expedition (mission type 15)
-            if ($row->mission_type == 15) {
+            // Check if this is an outbound expedition (mission type 15 without parent_id)
+            if ($row->mission_type == 15 && empty($row->parent_id)) {
+                // Outbound expedition: destination is deep space
                 $eventRowViewModel->destination_planet_name = __('Deep space');
                 $eventRowViewModel->destination_planet_type = PlanetType::DeepSpace;
             } elseif ($row->planet_id_to !== null) {
