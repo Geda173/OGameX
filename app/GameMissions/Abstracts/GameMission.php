@@ -352,11 +352,19 @@ abstract class GameMission
 
         // Set amount of resources to return based on provided resources in parameter.
         // This is the amount of resources that were gained and/or not used during the mission.
-        // IMPORTANT: Add to existing resources from parent mission, don't replace them!
-        // This ensures resources loaded on departure are not lost.
-        $mission->metal = $parentMission->metal + (int)$resources->metal->get();
-        $mission->crystal = $parentMission->crystal + (int)$resources->crystal->get();
-        $mission->deuterium = $parentMission->deuterium + (int)$resources->deuterium->get();
+        // For most missions: Add to existing resources from parent mission (loot from attacks, expedition finds, etc.)
+        // For Transport missions: Only return the resources parameter (don't add parent resources as they were delivered)
+        if ($parentMission->mission_type == 3) { // Transport mission (type 3)
+            // Transport mission: Resources were delivered at destination, return trip should only carry what's specified in $resources parameter
+            $mission->metal = (int)$resources->metal->get();
+            $mission->crystal = (int)$resources->crystal->get();
+            $mission->deuterium = (int)$resources->deuterium->get();
+        } else {
+            // Other missions: Add to existing resources from parent mission to preserve loot/finds
+            $mission->metal = $parentMission->metal + (int)$resources->metal->get();
+            $mission->crystal = $parentMission->crystal + (int)$resources->crystal->get();
+            $mission->deuterium = $parentMission->deuterium + (int)$resources->deuterium->get();
+        }
 
         // Save the new fleet return mission.
         $mission->save();
