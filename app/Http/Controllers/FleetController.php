@@ -1295,7 +1295,7 @@ class FleetController extends OGameController
         }
 
         // Sort by username
-        usort($eligiblePlayers, function($a, $b) {
+        usort($eligiblePlayers, function ($a, $b) {
             return strcmp($a['username'], $b['username']);
         });
 

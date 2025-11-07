@@ -1106,7 +1106,7 @@ class GalaxyController extends OGameController
             }
 
             // Sort all fleets by arrival time
-            usort($fleetData, function($a, $b) {
+            usort($fleetData, function ($a, $b) {
                 return $a['time_arrival'] <=> $b['time_arrival'];
             });
 
