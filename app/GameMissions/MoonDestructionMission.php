@@ -324,6 +324,8 @@ class MoonDestructionMission extends GameMission
             'moon_existed' => $battleResult->moonExisted,
             'moon_chance' => $battleResult->moonChance,
             'moon_created' => $battleResult->moonCreated,
+            'moon_destruction_mission' => true, // Flag to indicate this is a moon destruction mission
+            'defender_moon_name' => $defenderMoon->getPlanetName(), // Store moon name before it's potentially deleted
         ];
 
         $report->attacker = [

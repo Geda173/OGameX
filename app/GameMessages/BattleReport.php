@@ -80,7 +80,10 @@ class BattleReport extends GameMessage
         $coordinate = new Coordinate($this->battleReportModel->planet_galaxy, $this->battleReportModel->planet_system, $this->battleReportModel->planet_position);
         $planet = $this->planetServiceFactory->makeForCoordinate($coordinate, true, PlanetType::from($this->battleReportModel->planet_type));
 
-        if ($planet === null) {
+        // Check if this is a moon destruction mission where the moon was destroyed
+        $isMoonDestructionMission = isset($this->battleReportModel->general['moon_destruction_mission']) && $this->battleReportModel->general['moon_destruction_mission'];
+
+        if ($planet === null && !$isMoonDestructionMission) {
             return __('Planet has been deleted and battle report is no longer available.');
         }
 
@@ -99,7 +102,10 @@ class BattleReport extends GameMessage
         $coordinate = new Coordinate($this->battleReportModel->planet_galaxy, $this->battleReportModel->planet_system, $this->battleReportModel->planet_position);
         $planet = $this->planetServiceFactory->makeForCoordinate($coordinate, true, PlanetType::from($this->battleReportModel->planet_type));
 
-        if ($planet === null) {
+        // Check if this is a moon destruction mission where the moon was destroyed
+        $isMoonDestructionMission = isset($this->battleReportModel->general['moon_destruction_mission']) && $this->battleReportModel->general['moon_destruction_mission'];
+
+        if ($planet === null && !$isMoonDestructionMission) {
             // TODO: add feature test for this behavior to make sure deleting a planet
             // properly handles any existing battle reports by either deleting them or making
             // them unavailable. This also affects other messages that use the planet name.
@@ -140,13 +146,16 @@ class BattleReport extends GameMessage
         $coordinate = new Coordinate($this->battleReportModel->planet_galaxy, $this->battleReportModel->planet_system, $this->battleReportModel->planet_position);
         $planet = $this->planetServiceFactory->makeForCoordinate($coordinate, true, PlanetType::from($this->battleReportModel->planet_type));
 
+        // Check if this is a moon destruction mission
+        $isMoonDestructionMission = isset($this->battleReportModel->general['moon_destruction_mission']) && $this->battleReportModel->general['moon_destruction_mission'];
+
         // Handle defender
         if ($this->battleReportModel->planet_user_id === null) {
             $defender_name = __('Unknown');
             $defender = null;
         } else {
-            // If planet owner is the same as the player, we load the player by planet owner which is already loaded.
-            if ($this->battleReportModel->planet_user_id === $planet->getPlayer()->getId()) {
+            // If planet exists and owner is the same as the player, we load the player by planet owner which is already loaded.
+            if ($planet !== null && $this->battleReportModel->planet_user_id === $planet->getPlayer()->getId()) {
                 $defender = $this->playerServiceFactory->make($planet->getPlayer()->getId());
             } else {
                 // Load player by user_id from the battle report
@@ -296,6 +305,18 @@ class BattleReport extends GameMessage
             }
         }
 
+        // Get planet name - use stored name if moon was destroyed
+        if ($planet !== null) {
+            $defender_planet_name = $planet->getPlanetName();
+            $defender_planet_coords = $planet->getPlanetCoordinates()->asString();
+            $defender_planet_link = route('galaxy.index', ['galaxy' => $planet->getPlanetCoordinates()->galaxy, 'system' => $planet->getPlanetCoordinates()->system, 'position' => $planet->getPlanetCoordinates()->position]);
+        } else {
+            // Moon was destroyed - use stored name and coordinates
+            $defender_planet_name = $this->battleReportModel->general['defender_moon_name'] ?? __('Destroyed Moon');
+            $defender_planet_coords = $coordinate->asString();
+            $defender_planet_link = route('galaxy.index', ['galaxy' => $coordinate->galaxy, 'system' => $coordinate->system, 'position' => $coordinate->position]);
+        }
+
         return [
             'subject' => $this->getSubject(),
             'from' => $this->getFrom(),
@@ -303,9 +324,9 @@ class BattleReport extends GameMessage
             'defender_name' => $defender_name,
             'attacker_class' => ($winner === 'attacker') ? 'undermark' : (($winner === 'draw') ? 'middlemark' : 'overmark'),
             'defender_class' => ($winner === 'defender') ? 'undermark' : (($winner === 'draw') ? 'middlemark' : 'overmark'),
-            'defender_planet_name' => $planet->getPlanetName(),
-            'defender_planet_coords' => $planet->getPlanetCoordinates()->asString(),
-            'defender_planet_link' => route('galaxy.index', ['galaxy' => $planet->getPlanetCoordinates()->galaxy, 'system' => $planet->getPlanetCoordinates()->system, 'position' => $planet->getPlanetCoordinates()->position]),
+            'defender_planet_name' => $defender_planet_name,
+            'defender_planet_coords' => $defender_planet_coords,
+            'defender_planet_link' => $defender_planet_link,
             'attacker_losses' => AppUtil::formatNumberLong($attackerLosses),
             'defender_losses' => AppUtil::formatNumberLong($defenderLosses),
             'loot' => AppUtil::formatNumberShort($lootResources->sum()),
