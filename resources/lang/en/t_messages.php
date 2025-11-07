@@ -317,10 +317,10 @@ You can join this attack by sending your fleet to the same coordinates with the 
     'moon_destruction_success' => [
         'from' => 'Fleet Command',
         'subject' => 'Moon destruction',
-        'body' => 'Your fleet from :from has arrived at the moon :to. The weapons of the Death Star fire an alternating graviton shock at the moon, building up to a massive quake and finally tearing the satellite apart. All buildings on the moon were destroyed. A complete success! The fleet is returning to its home planet.
+        'body' => 'Your fleet from :from has arrived at the moon :to. The weapons of the Deathstar fire an alternating graviton shock at the moon, building up to a massive quake and finally tearing the satellite apart. All buildings on the moon were destroyed. A complete success! The fleet is returning to its home planet.
 
 Moon destruction chance: :moon_chance%
-Death Star destruction chance: :deathstar_chance%',
+Deathstar destruction chance: :deathstar_chance%',
     ],
 
     // ------------------------
@@ -331,7 +331,7 @@ Death Star destruction chance: :deathstar_chance%',
         'body' => 'Your fleet from :from has arrived at the moon :to. The structure of the moon was not sufficiently weakened, and the fleet is returning to its home planet.
 
 Moon destruction chance: :moon_chance%
-Death Star destruction chance: :deathstar_chance%',
+Deathstar destruction chance: :deathstar_chance%',
     ],
 
     // ------------------------
@@ -339,10 +339,10 @@ Death Star destruction chance: :deathstar_chance%',
     'moon_destruction_fleet_destroyed' => [
         'from' => 'Fleet Command',
         'subject' => 'Moon destruction',
-        'body' => 'Your fleet from :from has arrived at the moon :to. Your Death Star aims its alternating graviton shock cannon at the satellite. Light quakes shake the surface of the moon. But something is wrong. The graviton cannon causes the Death Star to vibrate. There is feedback. The Death Star ruptures into millions of pieces. The resulting shock waves destroy your entire fleet.
+        'body' => 'Your fleet from :from has arrived at the moon :to. Your Deathstar aims its alternating graviton shock cannon at the satellite. Light quakes shake the surface of the moon. But something is wrong. The graviton cannon causes the Deathstar to vibrate. There is feedback. The Deathstar ruptures into millions of pieces. The resulting shock waves destroy your entire fleet.
 
 Moon destruction chance: :moon_chance%
-Death Star destruction chance: :deathstar_chance%',
+Deathstar destruction chance: :deathstar_chance%',
     ],
 
     // ------------------------
@@ -350,10 +350,10 @@ Death Star destruction chance: :deathstar_chance%',
     'moon_destruction_success_fleet_destroyed' => [
         'from' => 'Fleet Command',
         'subject' => 'Moon destruction',
-        'body' => 'Your fleet from :from has arrived at the moon :to. The weapons of the Death Star fire an alternating graviton shock at the moon, building up to a massive quake and finally tearing the satellite apart. All buildings on the moon were destroyed. However, the graviton feedback destroys the Death Star and your entire fleet.
+        'body' => 'Your fleet from :from has arrived at the moon :to. The weapons of the Deathstar fire an alternating graviton shock at the moon, building up to a massive quake and finally tearing the satellite apart. All buildings on the moon were destroyed. However, the graviton feedback destroys the Deathstar and your entire fleet.
 
 Moon destruction chance: :moon_chance%
-Death Star destruction chance: :deathstar_chance%',
+Deathstar destruction chance: :deathstar_chance%',
     ],
 
     // ------------------------
@@ -379,6 +379,6 @@ Result: :result',
     'moon_destroyed' => [
         'from' => 'Defense Command',
         'subject' => 'Moon destroyed!',
-        'body' => 'Your moon at :coordinates has been completely destroyed by a Death Star attack! All buildings, ships, and defenses on the moon have been lost.',
+        'body' => 'Your moon at :coordinates has been completely destroyed by a Deathstar attack! All buildings, ships, and defenses on the moon have been lost.',
     ],
 ];
