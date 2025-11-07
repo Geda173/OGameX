@@ -159,51 +159,49 @@ class MoonDestructionMission extends GameMission
 
         // If attacker won the battle, attempt moon destruction
         if ($battleResult->attackerUnitsResult->getAmount() > 0) {
-            // Roll for moon destruction
+            // Roll for moon destruction (INDEPENDENT roll #1)
             $moonDestructionRoll = random_int(1, 10000) / 100; // Random percentage with 2 decimal precision
+            $moonDestroyed = ($moonDestructionRoll <= $moonDestructionChance);
 
-            if ($moonDestructionRoll <= $moonDestructionChance) {
-                // Moon is destroyed!
-                $moonDestroyed = true;
+            // Roll for Death Star destruction (INDEPENDENT roll #2)
+            $deathStarDestructionRoll = random_int(1, 10000) / 100;
+            $fleetDestroyed = ($deathStarDestructionRoll <= $deathStarDestructionChance);
 
+            // Handle moon destruction if successful
+            if ($moonDestroyed) {
                 // Redirect all fleets heading to this moon to the planet
                 $this->redirectFleetsToMoon($defenderMoon);
 
                 // Delete the moon
                 $defenderMoon->abandonPlanet();
 
-                // Send moon destruction success message to attacker
-                $this->sendMoonDestructionSuccessMessage($mission, $attackerPlayer, $origin_planet, $defenderMoon, $moonDestructionChance, $deathStarDestructionChance);
-
                 // Send moon destroyed message to defender
                 $this->sendMoonDestroyedMessage($defenderMoon->getPlayer(), $defenderMoon);
-            } else {
-                // Moon destruction failed, check if Death Stars are destroyed
-                $deathStarDestructionRoll = random_int(1, 10000) / 100;
-
-                if ($deathStarDestructionRoll <= $deathStarDestructionChance) {
-                    // Death Stars and entire fleet are destroyed
-                    $fleetDestroyed = true;
-
-                    // Send fleet destroyed message to attacker
-                    $this->sendFleetDestroyedMessage($mission, $attackerPlayer, $origin_planet, $defenderMoon, $moonDestructionChance, $deathStarDestructionChance);
-
-                    // Send moon destruction attempt failed message to defender
-                    $this->sendMoonDestructionAttemptMessage($defenderMoon->getPlayer(), $defenderMoon, true);
-                } else {
-                    // Moon destruction failed but fleet survives
-                    $this->sendMoonDestructionFailedMessage($mission, $attackerPlayer, $origin_planet, $defenderMoon, $moonDestructionChance, $deathStarDestructionChance);
-
-                    // Send moon destruction attempt failed message to defender
-                    $this->sendMoonDestructionAttemptMessage($defenderMoon->getPlayer(), $defenderMoon, false);
-                }
             }
+
+            // Send appropriate message to attacker based on the 4 possible outcomes
+            if ($moonDestroyed && !$fleetDestroyed) {
+                // Outcome 1: Moon destroyed, Fleet survives
+                $this->sendMoonDestructionSuccessMessage($mission, $attackerPlayer, $origin_planet, $defenderMoon, $moonDestructionChance, $deathStarDestructionChance);
+            } elseif ($moonDestroyed && $fleetDestroyed) {
+                // Outcome 2: Moon destroyed, Fleet destroyed
+                $this->sendMoonDestructionSuccessButFleetDestroyedMessage($mission, $attackerPlayer, $origin_planet, $defenderMoon, $moonDestructionChance, $deathStarDestructionChance);
+            } elseif (!$moonDestroyed && $fleetDestroyed) {
+                // Outcome 3: Moon survives, Fleet destroyed
+                $this->sendFleetDestroyedMessage($mission, $attackerPlayer, $origin_planet, $defenderMoon, $moonDestructionChance, $deathStarDestructionChance);
+            } else {
+                // Outcome 4: Moon survives, Fleet survives
+                $this->sendMoonDestructionFailedMessage($mission, $attackerPlayer, $origin_planet, $defenderMoon, $moonDestructionChance, $deathStarDestructionChance);
+            }
+
+            // Send message to defender
+            $this->sendMoonDestructionAttemptMessage($defenderMoon->getPlayer(), $defenderMoon, $fleetDestroyed, $moonDestroyed);
         } else {
             // Attacker lost the battle, fleet is already destroyed
             $fleetDestroyed = true;
 
             // Send battle loss message to defender
-            $this->sendMoonDestructionAttemptMessage($defenderMoon->getPlayer(), $defenderMoon, false);
+            $this->sendMoonDestructionAttemptMessage($defenderMoon->getPlayer(), $defenderMoon, false, false);
         }
 
         // Mark the arrival mission as processed
@@ -464,7 +462,20 @@ class MoonDestructionMission extends GameMission
     }
 
     /**
-     * Send fleet destroyed message to attacker (Death Stars explode).
+     * Send moon destruction success but fleet destroyed message to attacker.
+     */
+    private function sendMoonDestructionSuccessButFleetDestroyedMessage(FleetMission $mission, PlayerService $player, PlanetService $originPlanet, PlanetService $targetMoon, float $moonChance, float $deathStarChance): void
+    {
+        $this->messageService->sendSystemMessageToPlayer($player, \OGame\GameMessages\MoonDestructionSuccessButFleetDestroyed::class, [
+            'from' => '[planet]' . $originPlanet->getPlanetId() . '[/planet]',
+            'to' => '[coordinates]' . $targetMoon->getPlanetCoordinates()->asString() . '[/coordinates]',
+            'moon_chance' => number_format($moonChance, 2),
+            'deathstar_chance' => number_format($deathStarChance, 2),
+        ]);
+    }
+
+    /**
+     * Send fleet destroyed message to attacker (Death Stars explode, moon survives).
      */
     private function sendFleetDestroyedMessage(FleetMission $mission, PlayerService $player, PlanetService $originPlanet, PlanetService $targetMoon, float $moonChance, float $deathStarChance): void
     {
@@ -479,11 +490,12 @@ class MoonDestructionMission extends GameMission
     /**
      * Send message to defender about moon destruction attempt.
      */
-    private function sendMoonDestructionAttemptMessage(PlayerService $player, PlanetService $moon, bool $attackerFleetDestroyed): void
+    private function sendMoonDestructionAttemptMessage(PlayerService $player, PlanetService $moon, bool $attackerFleetDestroyed, bool $moonDestroyed): void
     {
         $this->messageService->sendSystemMessageToPlayer($player, \OGame\GameMessages\MoonDestructionAttempt::class, [
             'coordinates' => '[coordinates]' . $moon->getPlanetCoordinates()->asString() . '[/coordinates]',
             'fleet_destroyed' => $attackerFleetDestroyed ? '1' : '0',
+            'moon_destroyed' => $moonDestroyed ? '1' : '0',
         ]);
     }
 
