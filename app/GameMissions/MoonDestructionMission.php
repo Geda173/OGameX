@@ -492,10 +492,20 @@ class MoonDestructionMission extends GameMission
      */
     private function sendMoonDestructionAttemptMessage(PlayerService $player, PlanetService $moon, bool $attackerFleetDestroyed, bool $moonDestroyed): void
     {
+        // Determine result text based on outcome
+        if ($moonDestroyed && $attackerFleetDestroyed) {
+            $result = 'Your moon was destroyed, but the attacking fleet was also destroyed in the process.';
+        } elseif ($moonDestroyed && !$attackerFleetDestroyed) {
+            $result = 'Your moon was destroyed. The attacking fleet is returning.';
+        } elseif (!$moonDestroyed && $attackerFleetDestroyed) {
+            $result = 'Your moon survived! The attacking fleet was destroyed by graviton feedback.';
+        } else {
+            $result = 'Your moon survived and the attacking fleet is returning.';
+        }
+
         $this->messageService->sendSystemMessageToPlayer($player, \OGame\GameMessages\MoonDestructionAttempt::class, [
             'coordinates' => '[coordinates]' . $moon->getPlanetCoordinates()->asString() . '[/coordinates]',
-            'fleet_destroyed' => $attackerFleetDestroyed ? '1' : '0',
-            'moon_destroyed' => $moonDestroyed ? '1' : '0',
+            'result' => $result,
         ]);
     }
 

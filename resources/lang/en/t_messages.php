@@ -311,4 +311,74 @@ Arrival Time: :arrival_time
 
 You can join this attack by sending your fleet to the same coordinates with the ACS Attack mission and selecting this group.',
     ],
+
+    // ------------------------
+    // Moon Destruction - Success (fleet survives)
+    'moon_destruction_success' => [
+        'from' => 'Fleet Command',
+        'subject' => 'Moon destruction',
+        'body' => 'Your fleet from :from has arrived at the moon :to. The weapons of the Death Star fire an alternating graviton shock at the moon, building up to a massive quake and finally tearing the satellite apart. All buildings on the moon were destroyed. A complete success! The fleet is returning to its home planet.
+
+Moon destruction chance: :moon_chance%
+Death Star destruction chance: :deathstar_chance%',
+    ],
+
+    // ------------------------
+    // Moon Destruction - Failed (fleet survives)
+    'moon_destruction_failed' => [
+        'from' => 'Fleet Command',
+        'subject' => 'Moon destruction',
+        'body' => 'Your fleet from :from has arrived at the moon :to. The structure of the moon was not sufficiently weakened, and the fleet is returning to its home planet.
+
+Moon destruction chance: :moon_chance%
+Death Star destruction chance: :deathstar_chance%',
+    ],
+
+    // ------------------------
+    // Moon Destruction - Failed, fleet destroyed (moon survives)
+    'moon_destruction_fleet_destroyed' => [
+        'from' => 'Fleet Command',
+        'subject' => 'Moon destruction',
+        'body' => 'Your fleet from :from has arrived at the moon :to. Your Death Star aims its alternating graviton shock cannon at the satellite. Light quakes shake the surface of the moon. But something is wrong. The graviton cannon causes the Death Star to vibrate. There is feedback. The Death Star ruptures into millions of pieces. The resulting shock waves destroy your entire fleet.
+
+Moon destruction chance: :moon_chance%
+Death Star destruction chance: :deathstar_chance%',
+    ],
+
+    // ------------------------
+    // Moon Destruction - Success but fleet destroyed
+    'moon_destruction_success_fleet_destroyed' => [
+        'from' => 'Fleet Command',
+        'subject' => 'Moon destruction',
+        'body' => 'Your fleet from :from has arrived at the moon :to. The weapons of the Death Star fire an alternating graviton shock at the moon, building up to a massive quake and finally tearing the satellite apart. All buildings on the moon were destroyed. However, the graviton feedback destroys the Death Star and your entire fleet.
+
+Moon destruction chance: :moon_chance%
+Death Star destruction chance: :deathstar_chance%',
+    ],
+
+    // ------------------------
+    // Moon Destruction - Moon not found
+    'moon_destruction_moon_not_found' => [
+        'from' => 'Fleet Command',
+        'subject' => 'Fleet Mission Failed',
+        'body' => 'Your fleet from :from was supposed to destroy the moon at :to, but upon arrival found no moon at the target coordinates. The fleet had to turn back without completing its mission.',
+    ],
+
+    // ------------------------
+    // Moon Destruction - Attempt notification (defender)
+    'moon_destruction_attempt' => [
+        'from' => 'Defense Command',
+        'subject' => 'Moon under attack!',
+        'body' => 'Your moon at :coordinates has been attacked with a moon destruction mission!
+
+Result: :result',
+    ],
+
+    // ------------------------
+    // Moon Destroyed notification (defender)
+    'moon_destroyed' => [
+        'from' => 'Defense Command',
+        'subject' => 'Moon destroyed!',
+        'body' => 'Your moon at :coordinates has been completely destroyed by a Death Star attack! All buildings, ships, and defenses on the moon have been lost.',
+    ],
 ];
