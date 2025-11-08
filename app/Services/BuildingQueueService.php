@@ -215,6 +215,7 @@ class BuildingQueueService
                 $item['time_end'] - $item['time_start'],
                 $item['building'],
                 $item['object_level_target'],
+                $item['teardown'] ?? false,
             );
 
             $list[] = $viewModel;
