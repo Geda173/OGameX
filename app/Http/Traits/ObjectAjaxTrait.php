@@ -147,6 +147,22 @@ trait ObjectAjaxTrait
             $build_queue_max = true;
         }
 
+        // Teardown data for buildings and stations
+        $can_teardown = false;
+        $teardown_price = null;
+        $teardown_time = '';
+        $teardown_datetime = '';
+        $ion_tech_level = 0;
+        if ($object->type == GameObjectType::Building || $object->type == GameObjectType::Station) {
+            $can_teardown = ObjectService::canTeardown($object->machine_name, $planet);
+            if ($can_teardown) {
+                $teardown_price = ObjectService::getObjectTeardownPrice($object->machine_name, $planet);
+                $teardown_time = AppUtil::formatTimeDuration($planet->getBuildingTeardownTime($object->machine_name));
+                $teardown_datetime = AppUtil::formatDateTimeDuration($planet->getBuildingTeardownTime($object->machine_name));
+                $ion_tech_level = $player->getResearchLevel('ion_technology');
+            }
+        }
+
         $view_html = view('ingame.ajax.object')->with([
             'object' => $object,
             'object_type' => $object->type,
@@ -177,6 +193,11 @@ trait ObjectAjaxTrait
             'research_in_progress' => $research_in_progress ?? false,
             'shipyard_upgrading' => $shipyard_upgrading ?? false,
             'ship_or_defense_in_progress' => $ship_or_defense_in_progress ?? false,
+            'can_teardown' => $can_teardown,
+            'teardown_price' => $teardown_price,
+            'teardown_time' => $teardown_time,
+            'teardown_datetime' => $teardown_datetime,
+            'ion_tech_level' => $ion_tech_level,
         ]);
 
         return response()->json([

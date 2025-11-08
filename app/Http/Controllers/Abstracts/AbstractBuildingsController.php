@@ -229,4 +229,39 @@ abstract class AbstractBuildingsController extends OGameController
             'message' => 'Building construction canceled.',
         ]);
     }
+
+    /**
+     * Handles an incoming add teardown request.
+     *
+     * @param Request $request
+     * @param PlayerService $player
+     * @return JsonResponse
+     * @throws Exception
+     */
+    public function addTeardownRequest(Request $request, PlayerService $player): JsonResponse
+    {
+        // Explicitly verify CSRF token because this request supports both POST and GET.
+        if (!hash_equals($request->session()->token(), $request->input('_token'))) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid token.',
+            ]);
+        }
+
+        $building_id = $request->input('technologyId');
+
+        try {
+            $this->queue->addTeardown($player->planets->current(), $building_id);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Building teardown started.',
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ]);
+        }
+    }
 }

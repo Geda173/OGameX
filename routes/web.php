@@ -57,6 +57,8 @@ Route::middleware(['auth', 'globalgame', 'locale'])->group(function () {
     Route::get('/resources/add-buildrequest', [ResourcesController::class, 'addBuildRequest'])->name('resources.addbuildrequest');
     Route::post('/resources/add-buildrequest', [ResourcesController::class, 'addBuildRequest'])->name('resources.addbuildrequest.post');
     Route::post('/resources/cancel-buildrequest', [ResourcesController::class, 'cancelBuildRequest'])->name('resources.cancelbuildrequest');
+    Route::get('/resources/add-teardownrequest', [ResourcesController::class, 'addTeardownRequest'])->name('resources.addteardownrequest');
+    Route::post('/resources/add-teardownrequest', [ResourcesController::class, 'addTeardownRequest'])->name('resources.addteardownrequest.post');
 
     // Facilities
     Route::get('/facilities', [FacilitiesController::class, 'index'])->name('facilities.index');
@@ -64,6 +66,8 @@ Route::middleware(['auth', 'globalgame', 'locale'])->group(function () {
     Route::get('/facilities/add-buildrequest', [FacilitiesController::class, 'addBuildRequest'])->name('facilities.addbuildrequest');
     Route::post('/facilities/add-buildrequest', [FacilitiesController::class, 'addBuildRequest'])->name('facilities.addbuildrequest.get');
     Route::post('/facilities/cancel-buildrequest', [FacilitiesController::class, 'cancelBuildRequest'])->name('facilities.cancelbuildrequest');
+    Route::get('/facilities/add-teardownrequest', [FacilitiesController::class, 'addTeardownRequest'])->name('facilities.addteardownrequest');
+    Route::post('/facilities/add-teardownrequest', [FacilitiesController::class, 'addTeardownRequest'])->name('facilities.addteardownrequest.post');
 
     // Research
     Route::get('/research', [ResearchController::class, 'index'])->name('research.index');

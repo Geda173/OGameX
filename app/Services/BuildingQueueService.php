@@ -112,6 +112,82 @@ class BuildingQueueService
     }
 
     /**
+     * Add a building teardown to the building queue for the current planet.
+     *
+     * @param PlanetService $planet
+     * @param int $building_id
+     * @throws Exception
+     */
+    public function addTeardown(PlanetService $planet, int $building_id): void
+    {
+        $build_queue = $this->retrieveQueue($planet);
+
+        // Max amount of buildings that can be in the queue in a given time.
+        if ($build_queue->isQueueFull()) {
+            throw new Exception('Maximum number of items already in queue.');
+        }
+
+        // Check if user satisfies requirements to tear down this object.
+        $building = ObjectService::getObjectById($building_id);
+
+        // Check if building can be torn down
+        if (!ObjectService::canTeardown($building->machine_name, $planet)) {
+            throw new Exception('This building cannot be torn down at this time.');
+        }
+
+        // Check if building can be built on this planet type (planet or moon).
+        $correct_planet_type = ObjectService::objectValidPlanetType($building->machine_name, $planet);
+        if (!$correct_planet_type) {
+            throw new Exception('This building is not valid for this planet type (planet or moon specific).');
+        }
+
+        $current_level = $planet->getObjectLevel($building->machine_name);
+
+        // Check to see how many other items of this building there are already
+        // in the queue, because if so then the level needs to be adjusted.
+        $teardown_count = $this->activeTeardownQueueItemCount($planet, $building->id);
+        $build_count = $this->activeBuildingQueueItemCount($planet, $building->id);
+        $target_level = $current_level + $build_count - $teardown_count - 1;
+
+        // Cannot tear down below level 0
+        if ($target_level < 0) {
+            throw new Exception('Cannot tear down building below level 0.');
+        }
+
+        $queue = new BuildingQueue();
+        $queue->planet_id = $planet->getPlanetId();
+        $queue->object_id = $building->id;
+        $queue->object_level_target = $target_level;
+        $queue->teardown = 1;
+
+        // Save the new queue item
+        $queue->save();
+
+        // Set the new queue item to start (if applicable)
+        $this->start($planet);
+    }
+
+    /**
+     * Get the amount of already existing teardown queue items for a particular building.
+     *
+     * @param PlanetService $planet
+     * @param int $building_id
+     * @return int
+     */
+    public function activeTeardownQueueItemCount(PlanetService $planet, int $building_id): int
+    {
+        // Fetch queue items from model
+        return BuildingQueue::where([
+            ['planet_id', $planet->getPlanetId()],
+            ['object_id', $building_id],
+            ['teardown', 1],
+            ['processed', 0],
+            ['canceled', 0],
+        ])
+            ->count();
+    }
+
+    /**
      * Retrieve full building queue for a planet (including currently building).
      *
      * @param PlanetService $planet
@@ -198,9 +274,17 @@ class BuildingQueueService
         foreach ($queue_items as $queue_item) {
             $object = ObjectService::getObjectById($queue_item->object_id);
 
-            // See if the planet has enough resources for this build attempt.
-            $price = ObjectService::getObjectPrice($object->machine_name, $planet);
-            $build_time = $planet->getBuildingConstructionTime($object->machine_name);
+            // Determine if this is a teardown or construction
+            $is_teardown = $queue_item->teardown === 1;
+
+            // See if the planet has enough resources for this build/teardown attempt.
+            if ($is_teardown) {
+                $price = ObjectService::getObjectTeardownPrice($object->machine_name, $planet);
+                $build_time = $planet->getBuildingTeardownTime($object->machine_name);
+            } else {
+                $price = ObjectService::getObjectPrice($object->machine_name, $planet);
+                $build_time = $planet->getBuildingConstructionTime($object->machine_name);
+            }
 
             // Only start the queue item if there are no other queue items building
             // for this planet.
@@ -212,14 +296,29 @@ class BuildingQueueService
             }
 
             // Sanity check: check if the target level as stored in the database
-            // is 1 higher than the current level. If not, then it means something
-            // is wrong.
+            // is correct based on whether this is a teardown or construction.
             $current_level = $planet->getObjectLevel($object->machine_name);
-            if ($queue_item->object_level_target != ($current_level + 1)) {
-                // Error, cancel build queue item.
-                $this->cancel($planet, $queue_item->id, $queue_item->object_id);
+            if ($is_teardown) {
+                // For teardown, target level should be 1 less than current level
+                if ($queue_item->object_level_target != ($current_level - 1)) {
+                    // Error, cancel queue item.
+                    $this->cancel($planet, $queue_item->id, $queue_item->object_id);
+                    continue;
+                }
 
-                continue;
+                // Re-check if building can still be torn down
+                if (!ObjectService::canTeardown($object->machine_name, $planet)) {
+                    // Error, cancel queue item.
+                    $this->cancel($planet, $queue_item->id, $queue_item->object_id);
+                    continue;
+                }
+            } else {
+                // For construction, target level should be 1 higher than current level
+                if ($queue_item->object_level_target != ($current_level + 1)) {
+                    // Error, cancel build queue item.
+                    $this->cancel($planet, $queue_item->id, $queue_item->object_id);
+                    continue;
+                }
             }
 
             // Sanity check: check if the Research Lab is tried to upgrade when research is in progress
@@ -240,11 +339,12 @@ class BuildingQueueService
             }
 
             // Sanity check: check if the building requirements are still met. If not,
-            // then cancel build request.
-            if (!ObjectService::objectRequirementsWithLevelsMet($object->machine_name, $queue_item->object_level_target, $planet)) {
-                $this->cancel($planet, $queue_item->id, $queue_item->object_id);
-
-                continue;
+            // then cancel build request. (Only for construction, not teardown)
+            if (!$is_teardown) {
+                if (!ObjectService::objectRequirementsWithLevelsMet($object->machine_name, $queue_item->object_level_target, $planet)) {
+                    $this->cancel($planet, $queue_item->id, $queue_item->object_id);
+                    continue;
+                }
             }
 
             // All OK, deduct resources and start building process.

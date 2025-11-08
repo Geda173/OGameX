@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property float $crystal
  * @property float $deuterium
  * @property int $building
+ * @property int $teardown
  * @property int $processed
  * @property int $canceled
  * @property \Illuminate\Support\Carbon|null $created_at
