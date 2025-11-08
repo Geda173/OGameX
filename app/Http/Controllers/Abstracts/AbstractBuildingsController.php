@@ -180,6 +180,11 @@ abstract class AbstractBuildingsController extends OGameController
      */
     public function addBuildRequest(Request $request, PlayerService $player): JsonResponse
     {
+        // Check if this is a teardown/demolish request (mode=3)
+        if ($request->input('mode') == 3) {
+            return $this->addTeardownRequest($request, $player);
+        }
+
         // If the technology is a shipyard, it shouldn't be able to upgrade while ships are built.
         if ($request->input('technologyId') === '21' && $player->isBuildingShipsOrDefense()) {
             return response()->json([
