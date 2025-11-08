@@ -45,5 +45,24 @@ use Illuminate\Database\Eloquent\Model;
  */
 class BuildingQueue extends Model
 {
-    //
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        'planet_id',
+        'object_id',
+        'object_level_target',
+        'time_duration',
+        'time_start',
+        'time_end',
+        'metal',
+        'crystal',
+        'deuterium',
+        'building',
+        'teardown',
+        'processed',
+        'canceled',
+    ];
 }
