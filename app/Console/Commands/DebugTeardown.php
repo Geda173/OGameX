@@ -5,8 +5,8 @@ namespace OGame\Console\Commands;
 use Illuminate\Console\Command;
 use OGame\Models\Planet;
 use OGame\Models\BuildingQueue;
-use OGame\Services\PlanetService;
 use OGame\Services\BuildingQueueService;
+use OGame\Factories\PlanetServiceFactory;
 
 class DebugTeardown extends Command
 {
@@ -42,7 +42,8 @@ class DebugTeardown extends Command
         $this->info("Planet name: {$planet->name}");
 
         // Get a building that exists on this planet
-        $planetService = new PlanetService($planet);
+        $planetServiceFactory = resolve(PlanetServiceFactory::class);
+        $planetService = $planetServiceFactory->make($planet->id);
 
         // List available buildings with their levels
         $this->info("\nBuildings on this planet:");
