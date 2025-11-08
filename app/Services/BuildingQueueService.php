@@ -295,12 +295,11 @@ class BuildingQueueService
                 break;
             }
 
-            // Sanity check: check if the target level as stored in the database
-            // is correct based on whether this is a teardown or construction.
+            // Sanity check: check if the target level is valid based on whether this is a teardown or construction.
             $current_level = $planet->getObjectLevel($object->machine_name);
             if ($is_teardown) {
-                // For teardown, target level should be 1 less than current level
-                if ($queue_item->object_level_target != ($current_level - 1)) {
+                // For teardown, target level should be less than current level and >= 0
+                if ($queue_item->object_level_target >= $current_level || $queue_item->object_level_target < 0) {
                     // Error, cancel queue item.
                     $this->cancel($planet, $queue_item->id, $queue_item->object_id);
                     continue;
@@ -313,8 +312,8 @@ class BuildingQueueService
                     continue;
                 }
             } else {
-                // For construction, target level should be 1 higher than current level
-                if ($queue_item->object_level_target != ($current_level + 1)) {
+                // For construction, target level should be higher than current level
+                if ($queue_item->object_level_target <= $current_level) {
                     // Error, cancel build queue item.
                     $this->cancel($planet, $queue_item->id, $queue_item->object_id);
                     continue;
