@@ -96,6 +96,19 @@ class DebugTeardown extends Command
         $this->info("\n" . str_repeat('=', 50));
         $this->info("Test 2: Using BuildingQueueService");
 
+        // Check validations before adding
+        $this->info("\nPre-flight checks:");
+        $this->info("  Current level: " . $planetService->getObjectLevel($selectedBuilding));
+        $this->info("  Can teardown: " . (\OGame\Services\ObjectService::canTeardown($selectedBuilding, $planetService) ? 'YES' : 'NO'));
+
+        $object = \OGame\Services\ObjectService::getObjectByMachineName($selectedBuilding);
+        $price = \OGame\Services\ObjectService::getObjectTeardownPrice($selectedBuilding, $planetService);
+        $this->info("  Teardown price - Metal: {$price->metal->get()}, Crystal: {$price->crystal->get()}, Deuterium: {$price->deuterium->get()}");
+
+        $resources = $planetService->getResources();
+        $this->info("  Current resources - Metal: {$resources->metal->get()}, Crystal: {$resources->crystal->get()}, Deuterium: {$resources->deuterium->get()}");
+        $this->info("  Has enough resources: " . ($planetService->hasResources($price) ? 'YES' : 'NO'));
+
         try {
             $buildingQueueService = resolve(BuildingQueueService::class);
             $buildingQueueService->addTeardown($planetService, $selectedObjectId);
@@ -106,13 +119,21 @@ class DebugTeardown extends Command
                 ->first();
 
             if ($latest) {
-                $this->info("Latest queue item created:");
+                $this->info("\nLatest queue item created:");
                 $this->info("  ID: {$latest->id}");
                 $this->info("  Object ID: {$latest->object_id}");
                 $this->info("  Target Level: {$latest->object_level_target}");
                 $this->info("  Teardown: {$latest->teardown}");
                 $this->info("  Building: {$latest->building}");
+                $this->info("  Canceled: {$latest->canceled}");
+                $this->info("  Time Start: {$latest->time_start}");
+                $this->info("  Time End: {$latest->time_end}");
                 $this->info("\nFull record: " . json_encode($latest->toArray()));
+
+                if ($latest->canceled == 1) {
+                    $this->error("\n*** QUEUE ITEM WAS CANCELED! ***");
+                    $this->error("This means it failed validation in BuildingQueueService::start()");
+                }
             } else {
                 $this->error("No queue item was created!");
             }
