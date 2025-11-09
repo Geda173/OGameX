@@ -20,7 +20,7 @@
 
         @if ($object_type == \OGame\GameObjects\Models\Enums\GameObjectType::Building || $object_type == \OGame\GameObjects\Models\Enums\GameObjectType::Station || $object_type == \OGame\GameObjects\Models\Enums\GameObjectType::Research)
             @if (!empty($build_active_current) && $build_active_current->object->id == $object->id)
-                <a role="button" href="javascript:void(0);" class="tooltip abort_link js_hideTipOnMobile" title="" onclick="cancelbuilding({{ $object->id }},{{ $build_active_current->id }},'Cancel expansion of {{ $object->title }} to level {{ $build_active_current->level_target }}?'); return false;"></a>
+                <a role="button" href="javascript:void(0);" class="tooltip abort_link js_hideTipOnMobile" title="" onclick="cancelbuilding({{ $object->id }},{{ $build_active_current->id }},'Cancel {{ $build_active_current->teardown ? 'teardown' : 'expansion' }} of {{ $object->title }} to level {{ $build_active_current->level_target }}?'); return false;"></a>
             @endif
         @endif
     </div>
@@ -128,59 +128,89 @@
 
             </div>
 
-            <div id="demolition_costs_tooltip" class="htmlTooltip">
-                <h1>Deconstruction costs</h1>
+            @if ($can_teardown && $teardown_price)
+                <div id="demolition_costs_tooltip" class="htmlTooltip">
+                    <h1>Deconstruction costs</h1>
 
-                <div class="splitLine"></div>
+                    <div class="splitLine"></div>
 
-                <table class="demolition_costs">
+                    <table class="demolition_costs">
+                        @if ($ion_tech_level > 0)
+                            <tr class="demolition_costs_bonus">
+                                <th>Ion technology bonus:</th>
+                                <td data-value="{{ $ion_tech_level * 4 }}">-{{ $ion_tech_level * 4 }}%</td>
+                            </tr>
+                        @endif
+                        @if (!empty($teardown_price->metal->get()))
+                            <tr class="metal">
+                                <th>Metal:</th>
+                                <td class="@if ($planet->metal()->get() >= $teardown_price->metal->get()) sufficient @else insufficient @endif"
+                                    data-value="{{ $teardown_price->metal->get() }}">{{ $teardown_price->metal->getFormatted() }}</td>
+                            </tr>
+                        @endif
+                        @if (!empty($teardown_price->crystal->get()))
+                            <tr class="crystal">
+                                <th>Crystal:</th>
+                                <td class="@if ($planet->crystal()->get() >= $teardown_price->crystal->get()) sufficient @else insufficient @endif"
+                                    data-value="{{ $teardown_price->crystal->get() }}">{{ $teardown_price->crystal->getFormatted() }}</td>
+                            </tr>
+                        @endif
+                        @if (!empty($teardown_price->deuterium->get()))
+                            <tr class="deuterium">
+                                <th>Deuterium:</th>
+                                <td class="@if ($planet->deuterium()->get() >= $teardown_price->deuterium->get()) sufficient @else insufficient @endif"
+                                    data-value="{{ $teardown_price->deuterium->get() }}">{{ $teardown_price->deuterium->getFormatted() }}</td>
+                            </tr>
+                        @endif
+                        <tr class="demolition_duration">
+                            <th>Duration:</th>
+                            <td>
+                                <time datetime="{{ $teardown_datetime }}"></time>{{ $teardown_time }}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
 
-                    <tr class="demolition_costs_bonus">
-                        <th>Ion technology bonus:</th>
-                        <td data-value="24">-24%</td>
-                    </tr>
-                    <tr class="metal">
-                        <th>Metal:</th>
-                        <td class="sufficient" data-value="33279">33,279</td>
-                    </tr>
-                    <tr class="crystal">
-                        <th>Crystal:</th>
-                        <td class="sufficient" data-value="11092">11,092</td>
-                    </tr>
-                    <tr class="demolition_duration">
-                        <th>Duration:</th>
-                        <td>
-                            <time datetime="PT6M22S"></time>6m 22s
-                        </td>
-                    </tr>
-                </table>
-            </div>
-
-            <div id="demolition_costs_tooltip_oneTimeelement" class="htmlTooltip" style="display: none">
-                <h1>Deconstruction costs</h1>
-                <div class="splitLine"></div>
-                <table class="demolition_costs">
-                    <tr class="demolition_costs_bonus">
-                        <th>Ion technology bonus:</th>
-                        <td data-value="24">-24%</td>
-                    </tr>
-                    <tr class="metal">
-                        <th>Metal:</th>
-                        <td class="sufficient" data-value="33279">33,279</td>
-                    </tr>
-                    <tr class="crystal">
-                        <th>Crystal:</th>
-                        <td class="sufficient" data-value="11092">11,092</td>
-                    </tr>
-                    <tr class="demolition_duration">
-                        <th>Duration:</th>
-                        <td>
-                            <time datetime="PT6M22S"></time>6m 22s
-                        </td>
-                    </tr>
-                </table>
-
-            </div>
+                <div id="demolition_costs_tooltip_oneTimeelement" class="htmlTooltip" style="display: none">
+                    <h1>Deconstruction costs</h1>
+                    <div class="splitLine"></div>
+                    <table class="demolition_costs">
+                        @if ($ion_tech_level > 0)
+                            <tr class="demolition_costs_bonus">
+                                <th>Ion technology bonus:</th>
+                                <td data-value="{{ $ion_tech_level * 4 }}">-{{ $ion_tech_level * 4 }}%</td>
+                            </tr>
+                        @endif
+                        @if (!empty($teardown_price->metal->get()))
+                            <tr class="metal">
+                                <th>Metal:</th>
+                                <td class="@if ($planet->metal()->get() >= $teardown_price->metal->get()) sufficient @else insufficient @endif"
+                                    data-value="{{ $teardown_price->metal->get() }}">{{ $teardown_price->metal->getFormatted() }}</td>
+                            </tr>
+                        @endif
+                        @if (!empty($teardown_price->crystal->get()))
+                            <tr class="crystal">
+                                <th>Crystal:</th>
+                                <td class="@if ($planet->crystal()->get() >= $teardown_price->crystal->get()) sufficient @else insufficient @endif"
+                                    data-value="{{ $teardown_price->crystal->get() }}">{{ $teardown_price->crystal->getFormatted() }}</td>
+                            </tr>
+                        @endif
+                        @if (!empty($teardown_price->deuterium->get()))
+                            <tr class="deuterium">
+                                <th>Deuterium:</th>
+                                <td class="@if ($planet->deuterium()->get() >= $teardown_price->deuterium->get()) sufficient @else insufficient @endif"
+                                    data-value="{{ $teardown_price->deuterium->get() }}">{{ $teardown_price->deuterium->getFormatted() }}</td>
+                            </tr>
+                        @endif
+                        <tr class="demolition_duration">
+                            <th>Duration:</th>
+                            <td>
+                                <time datetime="{{ $teardown_datetime }}"></time>{{ $teardown_time }}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            @endif
 
             @if ($max_build_amount && ($object_type == \OGame\GameObjects\Models\Enums\GameObjectType::Ship || $object_type == \OGame\GameObjects\Models\Enums\GameObjectType::Defense))
                 <div class="build_amount">
@@ -189,12 +219,13 @@
                     <button class="maximum">[max. {{ $max_build_amount }}]</button>
                 </div>
             @elseif ($object_type == \OGame\GameObjects\Models\Enums\GameObjectType::Building || $object_type == \OGame\GameObjects\Models\Enums\GameObjectType::Station)
-                <!-- TODO: implement downgrade feature -->
-                <!--<button class="downgrade" data-technology="3" data-name="{{ $title }}">
-                    <div class="demolish_img tooltipRel ipiHintable" rel="demolition_costs_tooltip_oneTimeelement"
-                         data-ipi-hint="ipiTechnologyTearDowndeuteriumSynthesizer"></div>
-                    <span class="label">tear down</span>
-                </button>-->
+                @if ($can_teardown)
+                    <button class="downgrade" data-technology="{{ $object->id }}" data-name="{{ $title }}" onclick="teardownBuilding({{ $object->id }}, '{{ addslashes($title) }}'); return false;">
+                        <div class="demolish_img tooltipRel ipiHintable" rel="demolition_costs_tooltip_oneTimeelement"
+                             data-ipi-hint="ipiTechnologyTearDown{{ $object->class_name }}"></div>
+                        <span class="label">tear down</span>
+                    </button>
+                @endif
             @endif
 
             <div class="build-it_wrap">
@@ -343,5 +374,43 @@
     var showNoPremiumError = 0;
     var pageToReload = "{{ route('resources.index') }}";
     var isBusy = 0;
+
+    // Teardown function
+    function teardownBuilding(technologyId, buildingName) {
+        errorBoxDecision('Caution', 'Do you really want to tear down ' + buildingName + '?', 'yes', 'No', function () {
+            var teardownUrl = '{{ route('resources.addteardownrequest') }}';
+            if (window.location.pathname.indexOf('/facilities') !== -1) {
+                teardownUrl = '{{ route('facilities.addteardownrequest') }}';
+            }
+
+            $.ajax({
+                url: teardownUrl,
+                data: {
+                    technologyId: technologyId,
+                    _token: token
+                },
+                type: "POST",
+                dataType: "json",
+                success: function (json) {
+                    if (json.status === "success") {
+                        if (json.message) {
+                            fadeBox(json.message);
+                        }
+                        window.location.reload();
+                    } else {
+                        token = json.newAjaxToken;
+                        if (json.message) {
+                            fadeBox(json.message, true);
+                        } else if (json.errors && json.errors.length) {
+                            fadeBox(json.errors[0].message, true);
+                        }
+                    }
+                },
+                error: function () {
+                    fadeBox('An error occurred while trying to tear down the building.', true);
+                }
+            });
+        });
+    }
 
 </script>

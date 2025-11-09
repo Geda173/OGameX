@@ -686,6 +686,44 @@ abstract class AccountTestCase extends TestCase
     }
 
     /**
+     * Add a resource teardown request to the current users current planet.
+     * @param string $machine_name
+     * @return void
+     * @throws Exception
+     */
+    protected function addResourceTeardownRequest(string $machine_name): void
+    {
+        $object = ObjectService::getObjectByMachineName($machine_name);
+
+        $response = $this->post('/resources/add-teardownrequest', [
+            '_token' => csrf_token(),
+            'technologyId' => $object->id,
+        ]);
+
+        // Assert the response status is successful
+        $response->assertStatus(200);
+    }
+
+    /**
+     * Add a facilities teardown request to the current users current planet.
+     * @param string $machine_name
+     * @return void
+     * @throws Exception
+     */
+    protected function addFacilitiesTeardownRequest(string $machine_name): void
+    {
+        $object = ObjectService::getObjectByMachineName($machine_name);
+
+        $response = $this->post('/facilities/add-teardownrequest', [
+            '_token' => csrf_token(),
+            'technologyId' => $object->id,
+        ]);
+
+        // Assert the response status is successful
+        $response->assertStatus(200);
+    }
+
+    /**
      * Add a research build request to the current users current planet.
      * @param string $machine_name
      * @return void

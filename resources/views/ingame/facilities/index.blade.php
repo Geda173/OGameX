@@ -78,7 +78,10 @@
                                 </button>
                             @endif
                             @if ($building->currently_building)
-                                <span class="targetlevel" data-value="{{ $building->current_level + 1 }}" data-bonus="0">{{ $building->current_level + 1 }}</span>
+                                @php
+                                    $target_level = $building->currently_tearing_down ? $building->current_level - 1 : $building->current_level + 1;
+                                @endphp
+                                <span class="targetlevel" data-value="{{ $target_level }}" data-bonus="0">{{ $target_level }}</span>
                                 <div class="cooldownBackground"></div>
                                 <time-counter><time class="countdown buildingCountdown" id="countdownbuildingDetails" data-segments="2">...</time></time-counter>
                             @endif

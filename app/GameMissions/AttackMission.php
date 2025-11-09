@@ -194,7 +194,7 @@ class AttackMission extends GameMission
             }
         }
 
-        // Create battle report
+        // Create battle report (always created with full details)
         $reportId = $this->createBattleReport($attackerPlayer, $defenderPlanet, $battleResult, $repairedDefenses);
 
         // Send appropriate messages based on battle outcome
@@ -204,13 +204,16 @@ class AttackMission extends GameMission
             $this->messageService->sendSystemMessageToPlayer($attackerPlayer, \OGame\GameMessages\FleetLostContact::class, [
                 'coordinates' => $coordinates,
             ]);
-        } else {
-            // Normal: send full battle report to attacker
-            $this->messageService->sendBattleReportMessageToPlayer($attackerPlayer, $reportId);
-        }
 
-        // Always send full battle report to defender (planet owner)
-        $this->messageService->sendBattleReportMessageToPlayer($defenderPlanet->getPlayer(), $reportId);
+            // Send full battle report only to defender (not to attacker who lost in first round)
+            $this->messageService->sendBattleReportMessageToPlayer($defenderPlanet->getPlayer(), $reportId);
+        } else {
+            // Normal behavior: send battle report to both attacker and defender
+            // Send to attacker.
+            $this->messageService->sendBattleReportMessageToPlayer($attackerPlayer, $reportId);
+            // Send to defender.
+            $this->messageService->sendBattleReportMessageToPlayer($defenderPlanet->getPlayer(), $reportId);
+        }
 
         // Send battle report to all ACS Defend fleet owners (only once per player)
         $reportedDefenders = [$defenderPlanet->getPlayer()->getId()]; // Planet owner already reported

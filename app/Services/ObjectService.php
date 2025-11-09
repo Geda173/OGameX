@@ -582,6 +582,109 @@ class ObjectService
     }
 
     /**
+     * Gets the teardown cost for a building at the current level.
+     * Teardown cost of level X = Build cost of level (X-1)
+     * Then apply Ion Technology reduction: cost * (1 - ion_tech_level * 0.04)
+     *
+     * @param string $machine_name
+     * @param PlanetService $planet
+     * @return Resources
+     * @throws Exception
+     */
+    public static function getObjectTeardownPrice(string $machine_name, PlanetService $planet): Resources
+    {
+        $object = self::getObjectByMachineName($machine_name);
+
+        // Only buildings and stations can be torn down
+        if ($object->type !== GameObjectType::Building && $object->type !== GameObjectType::Station) {
+            return new Resources(0, 0, 0, 0);
+        }
+
+        $current_level = $planet->getObjectLevel($object->machine_name);
+
+        // Cannot tear down if at level 0
+        if ($current_level === 0) {
+            return new Resources(0, 0, 0, 0);
+        }
+
+        // Get raw teardown price (same as build cost of current level)
+        $price = self::getObjectRawPrice($machine_name, $current_level);
+
+        // Apply Ion Technology discount (4% per level)
+        $ion_tech_level = $planet->getPlayer()->getResearchLevel('ion_technology');
+        $discount_factor = 1 - ($ion_tech_level * 0.04);
+
+        // Apply discount
+        $metal = floor($price->metal->get() * $discount_factor);
+        $crystal = floor($price->crystal->get() * $discount_factor);
+        $deuterium = floor($price->deuterium->get() * $discount_factor);
+        $energy = floor($price->energy->get() * $discount_factor);
+
+        return new Resources($metal, $crystal, $deuterium, $energy);
+    }
+
+    /**
+     * Check if a building can be torn down.
+     *
+     * @param string $machine_name
+     * @param PlanetService $planet
+     * @return bool
+     */
+    public static function canTeardown(string $machine_name, PlanetService $planet): bool
+    {
+        try {
+            $object = self::getObjectByMachineName($machine_name);
+        } catch (Exception $e) {
+            return false;
+        }
+
+        // Only buildings and stations can be torn down
+        if ($object->type !== GameObjectType::Building && $object->type !== GameObjectType::Station) {
+            return false;
+        }
+
+        $current_level = $planet->getObjectLevel($object->machine_name);
+
+        // Cannot tear down if at level 0
+        if ($current_level === 0) {
+            return false;
+        }
+
+        // Terraformer cannot be torn down
+        if ($machine_name === 'terraformer') {
+            return false;
+        }
+
+        // Lunar Base cannot be torn down
+        if ($machine_name === 'lunar_base') {
+            return false;
+        }
+
+        // Shipyard cannot be torn down if ships or defenses are being built
+        if ($machine_name === 'shipyard') {
+            $unit_queue = resolve(UnitQueueService::class);
+            if ($unit_queue->retrieveQueue($planet)->getCurrentlyBuildingFromQueue() !== null) {
+                return false;
+            }
+        }
+
+        // Nano Factory cannot be torn down if ships or defenses are being built
+        if ($machine_name === 'nano_factory') {
+            $unit_queue = resolve(UnitQueueService::class);
+            if ($unit_queue->retrieveQueue($planet)->getCurrentlyBuildingFromQueue() !== null) {
+                return false;
+            }
+        }
+
+        // Research Lab cannot be torn down if research is in progress
+        if ($machine_name === 'research_lab' && $planet->getPlayer()->isResearching()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Filter out completed requirements.
      *
      * @param array<GameObjectRequirement> $requirements
