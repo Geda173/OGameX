@@ -45953,9 +45953,14 @@ FleetDispatcher.prototype.init = function () {
 
 FleetDispatcher.prototype.displayErrors = function (errors) {
   // only display the first error
-  let error = errors[0] || undefined;
+  // Check if errors exists and is an array before accessing
+  if (!errors || !Array.isArray(errors) || errors.length === 0) {
+    return;
+  }
 
-  if (error) {
+  let error = errors[0];
+
+  if (error && error.message) {
     fadeBox(error.message, true);
   }
 };

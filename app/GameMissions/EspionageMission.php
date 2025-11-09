@@ -204,7 +204,17 @@ class EspionageMission extends GameMission
 
         // Fleets
         if ($this->canRevealData($remainingProbes, $attackerEspionageLevel, $defenderEspionageLevel, 2, 1)) {
-            $report->ships = $targetPlanet->getShipUnits()->toArray();
+            // Get planet's own ships
+            $allShips = $targetPlanet->getShipUnits();
+
+            // Add ACS Defend mission ships that are currently holding at this planet
+            $defendingMissions = $this->fleetMissionService->getDefendingMissionsAtPlanet($targetPlanet->getPlanetId());
+            foreach ($defendingMissions as $defendingMission) {
+                $defendingUnits = $this->fleetMissionService->getFleetUnits($defendingMission);
+                $allShips->addCollection($defendingUnits);
+            }
+
+            $report->ships = $allShips->toArray();
         }
 
         // Defense
@@ -266,8 +276,16 @@ class EspionageMission extends GameMission
         // Number of probes sent by attacker
         $probesSent = $mission->espionage_probe;
 
-        // Defender's total fleet size (all ships on the planet)
+        // Defender's total fleet size (all ships on the planet + ACS Defend missions)
         $defenderShips = $defenderPlanet->getShipUnits();
+
+        // Add ACS Defend mission ships that are currently holding at this planet
+        $defendingMissions = $this->fleetMissionService->getDefendingMissionsAtPlanet($defenderPlanet->getPlanetId());
+        foreach ($defendingMissions as $defendingMission) {
+            $defendingUnits = $this->fleetMissionService->getFleetUnits($defendingMission);
+            $defenderShips->addCollection($defendingUnits);
+        }
+
         $defenderFleetSize = $defenderShips->getAmount();
 
         // Apply the formula: 2^(E-O) * S * F * 0.25%
@@ -299,7 +317,17 @@ class EspionageMission extends GameMission
         UnitCollection $attackerUnits,
         int $counterEspionageChance
     ): UnitCollection {
-        $defenderFleetAmount = $defenderPlanet->getShipUnits()->getAmount();
+        // Get defender's total fleet size (planet ships + ACS Defend missions)
+        $defenderShips = $defenderPlanet->getShipUnits();
+
+        // Add ACS Defend mission ships
+        $defendingMissions = $this->fleetMissionService->getDefendingMissionsAtPlanet($defenderPlanet->getPlanetId());
+        foreach ($defendingMissions as $defendingMission) {
+            $defendingUnits = $this->fleetMissionService->getFleetUnits($defendingMission);
+            $defenderShips->addCollection($defendingUnits);
+        }
+
+        $defenderFleetAmount = $defenderShips->getAmount();
 
         // If no chance or no defender ships, no counter-espionage possible
         if ($counterEspionageChance <= 0 || $defenderFleetAmount === 0) {

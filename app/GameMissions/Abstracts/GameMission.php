@@ -99,8 +99,12 @@ abstract class GameMission
      */
     public function cancel(FleetMission $mission): void
     {
-        // Update the mission arrived time to now instead of original planned arrival time if the mission would finish by itself.
-        // This arrival time is used by the return mission to calculate the return time.
+        // Preserve original departure time for return trip duration calculation
+        $originalTimeDeparture = $mission->time_departure;
+
+        // Update the mission arrived time to now (when the recall happens)
+        // This is critical for correct return time calculation:
+        // Return duration = NOW - departure = time already flown
         $mission->time_arrival = (int)Carbon::now()->timestamp;
 
         // Clear the holding time for recalled missions - recalled fleets return immediately without waiting
@@ -111,10 +115,25 @@ abstract class GameMission
         $mission->processed = 1;
         $mission->save();
 
-        // Start the return mission with the units of the original mission.
-        // Pass empty resources because the fleet already has all its resources from the parent mission
-        // and startReturn() will add them automatically. Passing the parent's resources would cause duplication.
-        $this->startReturn($mission, new Resources(0, 0, 0, 0), $this->fleetMissionService->getFleetUnits($mission));
+        // Create a clone for return trip calculation
+        // Keep time_arrival as NOW (not original) so return duration = time already flown
+        // Only restore time_departure to original value
+        $missionForReturn = clone $mission;
+        $missionForReturn->time_departure = $originalTimeDeparture;
+
+        // Start the return mission with the units and resources of the original mission.
+        // For transport missions (type 3), we must pass the resources explicitly because startReturn()
+        // only uses the passed resources parameter for transport missions.
+        // For other mission types, startReturn() adds to parent resources, so we pass empty to avoid duplication.
+        if ($mission->mission_type == 3) {
+            // Transport mission: Must pass parent resources explicitly
+            $resourcesToReturn = $this->fleetMissionService->getResources($mission);
+        } else {
+            // Other missions: Pass empty resources (they'll be added from parent automatically)
+            $resourcesToReturn = new Resources(0, 0, 0, 0);
+        }
+
+        $this->startReturn($missionForReturn, $resourcesToReturn, $this->fleetMissionService->getFleetUnits($mission));
     }
 
     /**

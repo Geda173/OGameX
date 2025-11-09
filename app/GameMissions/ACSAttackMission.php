@@ -231,10 +231,38 @@ class ACSAttackMission extends GameMission
         // Deduct loot from the target planet.
         $defenderPlanet->deductResources($battleResult->loot);
 
-        // Deduct defender's lost units from the defenders planet.
+        // Calculate total defender losses
         $defenderUnitsLost = clone $battleResult->defenderUnitsStart;
         $defenderUnitsLost->subtractCollection($battleResult->defenderUnitsResult);
-        $defenderPlanet->removeUnits($defenderUnitsLost, false);
+
+        // Calculate ACS Defend units that participated (these are NOT on the planet)
+        $acsDefendUnitsStart = new UnitCollection();
+        foreach ($battleResult->defendingMissions as $defendingMission) {
+            $defendingUnits = $this->fleetMissionService->getFleetUnits($defendingMission);
+            $acsDefendUnitsStart->addCollection($defendingUnits);
+        }
+
+        // Only remove planet's own losses (exclude ACS Defend units that were in fleet missions)
+        // We need to calculate which losses belong to the planet vs ACS Defend fleets
+        $planetUnitsLost = new UnitCollection();
+        foreach ($defenderUnitsLost->units as $unit) {
+            $unitMachineName = $unit->unitObject->machine_name;
+            $totalLost = $unit->amount;
+
+            // Get how many of this unit type were from ACS Defend missions
+            $acsDefendAmount = $acsDefendUnitsStart->getAmountByMachineName($unitMachineName);
+
+            // The planet can only lose units it actually had, not ACS Defend units
+            // So we subtract the ACS Defend starting amount from the losses
+            $planetActualLoss = max(0, $totalLost - $acsDefendAmount);
+
+            // Only add to planet losses if planet actually lost units
+            if ($planetActualLoss > 0) {
+                $planetUnitsLost->addUnit($unit->unitObject, $planetActualLoss);
+            }
+        }
+
+        $defenderPlanet->removeUnits($planetUnitsLost, false);
 
         // Calculate repaired defenses (70% chance for each destroyed defense structure)
         $repairedDefenses = $this->calculateRepairedDefenses($defenderUnitsLost);
@@ -513,10 +541,38 @@ class ACSAttackMission extends GameMission
         // Deduct loot from the target planet.
         $defenderPlanet->deductResources($battleResult->loot);
 
-        // Deduct defender's lost units from the defenders planet.
+        // Calculate total defender losses
         $defenderUnitsLost = clone $battleResult->defenderUnitsStart;
         $defenderUnitsLost->subtractCollection($battleResult->defenderUnitsResult);
-        $defenderPlanet->removeUnits($defenderUnitsLost, false);
+
+        // Calculate ACS Defend units that participated (these are NOT on the planet)
+        $acsDefendUnitsStart = new UnitCollection();
+        foreach ($battleResult->defendingMissions as $defendingMission) {
+            $defendingUnits = $this->fleetMissionService->getFleetUnits($defendingMission);
+            $acsDefendUnitsStart->addCollection($defendingUnits);
+        }
+
+        // Only remove planet's own losses (exclude ACS Defend units that were in fleet missions)
+        // We need to calculate which losses belong to the planet vs ACS Defend fleets
+        $planetUnitsLost = new UnitCollection();
+        foreach ($defenderUnitsLost->units as $unit) {
+            $unitMachineName = $unit->unitObject->machine_name;
+            $totalLost = $unit->amount;
+
+            // Get how many of this unit type were from ACS Defend missions
+            $acsDefendAmount = $acsDefendUnitsStart->getAmountByMachineName($unitMachineName);
+
+            // The planet can only lose units it actually had, not ACS Defend units
+            // So we subtract the ACS Defend starting amount from the losses
+            $planetActualLoss = max(0, $totalLost - $acsDefendAmount);
+
+            // Only add to planet losses if planet actually lost units
+            if ($planetActualLoss > 0) {
+                $planetUnitsLost->addUnit($unit->unitObject, $planetActualLoss);
+            }
+        }
+
+        $defenderPlanet->removeUnits($planetUnitsLost, false);
 
         // Calculate repaired defenses (70% chance for each destroyed defense structure)
         $repairedDefenses = $this->calculateRepairedDefenses($defenderUnitsLost);
