@@ -395,6 +395,14 @@ abstract class GameMission
         // Save the new fleet return mission.
         $mission->save();
 
+        // Clear all ship units from the parent mission to prevent duplication.
+        // The ships are now stored in the return mission, so the parent mission should have 0 ships.
+        // This prevents bugs where the parent mission is re-read and ships are added again.
+        foreach ($units->units as $unit) {
+            $parentMission->{$unit->unitObject->machine_name} = 0;
+        }
+        $parentMission->save();
+
         // Check if the created mission arrival time is in the past. This can happen if the planet hasn't been updated
         // for some time and missions have already played out in the meantime.
         // If the mission is in the past, process it immediately.
