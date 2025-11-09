@@ -751,6 +751,47 @@ class PlanetService
     }
 
     /**
+     * Gets the teardown time for a building on this planet at the current level.
+     * Formula is the same as construction time, but using teardown costs instead.
+     *
+     * @param string $machine_name
+     * @return int
+     * @throws Exception
+     */
+    public function getBuildingTeardownTime(string $machine_name): int
+    {
+        $price = ObjectService::getObjectTeardownPrice($machine_name, $this);
+
+        $robotfactory_level = $this->getObjectLevel('robot_factory');
+        $nanitefactory_level = $this->getObjectLevel('nano_factory');
+        $universe_speed = $this->settingsService->economySpeed();
+
+        // Sanity check: if universe speed is 0, set it to 1 to prevent division by zero.
+        if ($universe_speed == 0) {
+            $universe_speed = 1;
+        }
+
+        $current_level = $this->getObjectLevel($machine_name);
+
+        // The actual formula which return time in seconds
+        $time_hours =
+            (
+                ($price->metal->get() + $price->crystal->get())
+                /
+                (2500 * max((4 - ($current_level / 2)), 1) * (1 + $robotfactory_level) * $universe_speed * (2 ** $nanitefactory_level))
+            );
+
+        $time_seconds = (int)($time_hours * 3600);
+
+        // Minimum time is always 1 second for all objects/units.
+        if ($time_seconds < 1) {
+            $time_seconds = 1;
+        }
+
+        return $time_seconds;
+    }
+
+    /**
      * Gets the level of a building on this planet.
      *
      * @param string $machine_name

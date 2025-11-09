@@ -205,6 +205,18 @@ class AttackMission extends GameMission
             $this->messageService->sendSystemMessageToPlayer($attackerPlayer, \OGame\GameMessages\FleetLostContact::class, [
                 'coordinates' => $coordinates,
             ]);
+
+            // Send full battle report to defender
+            $reportId = $this->createBattleReport($attackerPlayer, $defenderPlanet, $battleResult);
+            $this->messageService->sendBattleReportMessageToPlayer($defenderPlanet->getPlayer(), $reportId);
+        } else {
+            // Normal behavior: send battle report to both attacker and defender
+            $reportId = $this->createBattleReport($attackerPlayer, $defenderPlanet, $battleResult);
+            // Send to attacker.
+            $this->messageService->sendBattleReportMessageToPlayer($attackerPlayer, $reportId);
+            // Send to defender.
+            $this->messageService->sendBattleReportMessageToPlayer($defenderPlanet->getPlayer(), $reportId);
+        }
         } else {
             // Normal: send full battle report to attacker
             $this->messageService->sendBattleReportMessageToPlayer($attackerPlayer, $reportId);
