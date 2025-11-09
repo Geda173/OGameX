@@ -182,8 +182,13 @@ abstract class AbstractBuildingsController extends OGameController
     public function addBuildRequest(Request $request, PlayerService $player): JsonResponse
     {
         // Explicitly verify CSRF token because this request supports both POST and GET.
-        // Cast to string and provide default to avoid null errors
-        if (!hash_equals($request->session()->token(), (string)$request->input('_token', ''))) {
+        // Check for token in both request input and headers (X-CSRF-TOKEN, X-XSRF-TOKEN)
+        $token = $request->input('_token')
+            ?? $request->header('X-CSRF-TOKEN')
+            ?? $request->header('X-XSRF-TOKEN')
+            ?? '';
+
+        if (!hash_equals($request->session()->token(), (string)$token)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid token.',
@@ -249,11 +254,18 @@ abstract class AbstractBuildingsController extends OGameController
     {
         // Token is validated in addBuildRequest before this method is called via mode=3
         // Only validate token if called directly (not via addBuildRequest)
-        if ($request->input('mode') !== '3' && !hash_equals($request->session()->token(), (string)$request->input('_token', ''))) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid token.',
-            ]);
+        if ($request->input('mode') !== '3') {
+            $token = $request->input('_token')
+                ?? $request->header('X-CSRF-TOKEN')
+                ?? $request->header('X-XSRF-TOKEN')
+                ?? '';
+
+            if (!hash_equals($request->session()->token(), (string)$token)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid token.',
+                ]);
+            }
         }
 
         $building_id = $request->input('technologyId');
