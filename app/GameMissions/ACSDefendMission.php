@@ -158,17 +158,8 @@ class ACSDefendMission extends GameMission
             'fleet_cargo_remaining' => $mission->deuterium,
         ]);
 
-        // Send a message to the fleet owner
-        $this->messageService->sendSystemMessageToPlayer($originPlanet->getPlayer(), FleetDeployment::class, [
-            'from' => '[planet]' . $mission->planet_id_from . '[/planet]',
-            'to' => '[planet]' . $mission->planet_id_to . '[/planet]',
-        ]);
-
-        // Send message to planet owner that defense has ended
-        $this->messageService->sendSystemMessageToPlayer($targetPlanet->getPlayer(), FleetDeployment::class, [
-            'from' => '[planet]' . $mission->planet_id_from . '[/planet]',
-            'to' => '[planet]' . $mission->planet_id_to . '[/planet]',
-        ]);
+        // No messages sent here - fleet owner will receive return message when fleet arrives home
+        // Host planet owner doesn't need notification when defending fleet leaves
 
         // Mark the arrival mission as processed
         $mission->processed = 1;

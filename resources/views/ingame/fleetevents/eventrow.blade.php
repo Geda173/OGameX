@@ -312,8 +312,8 @@
             @endif
         </td>
         <td class="sendProbe">
-            {{-- Convert regular attack to ACS attack - only show if mission is attack (type 1) and not in an ACS group yet --}}
-            @if ($fleet_event_row->mission_type === 1 && empty($fleet_event_row->acs_group_id))
+            {{-- Convert regular attack to ACS attack - only show if mission is player's own attack (type 1) and not in an ACS group yet --}}
+            @if ($fleet_event_row->mission_type === 1 && empty($fleet_event_row->acs_group_id) && $fleet_event_row->mission_status === 'own')
                 <a href="javascript:void(0);"
                    class="convertToACS"
                    data-fleet-id="{{ $fleet_event_row->id }}"
