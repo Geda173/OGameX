@@ -20,7 +20,7 @@
 
         @if ($object_type == \OGame\GameObjects\Models\Enums\GameObjectType::Building || $object_type == \OGame\GameObjects\Models\Enums\GameObjectType::Station || $object_type == \OGame\GameObjects\Models\Enums\GameObjectType::Research)
             @if (!empty($build_active_current) && $build_active_current->object->id == $object->id)
-                <a role="button" href="javascript:void(0);" class="tooltip abort_link js_hideTipOnMobile" title="" onclick="cancelbuilding({{ $object->id }},{{ $build_active_current->id }},'Cancel expansion of {{ $object->title }} to level {{ $build_active_current->level_target }}?'); return false;"></a>
+                <a role="button" href="javascript:void(0);" class="tooltip abort_link js_hideTipOnMobile" title="" onclick="cancelbuilding({{ $object->id }},{{ $build_active_current->id }},'Cancel {{ $build_active_current->teardown ? 'teardown' : 'expansion' }} of {{ $object->title }} to level {{ $build_active_current->level_target }}?'); return false;"></a>
             @endif
         @endif
     </div>
