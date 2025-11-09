@@ -119,6 +119,7 @@ input[type="submit"] { border: none; }
 /*
 	COLORS
 */
+.own {color:#99CC00;}
 .friendly {color:#9c0;}
 .neutral {color:#D29D00;}
 .hostile {color:#D43635;}
@@ -4304,6 +4305,14 @@ a#message_alert_box_default,
     width: 185px;
 }
 
+#eventboxFilled .ownmark {
+    color: #99CC00 !important;
+}
+
+#eventboxFilled .own {
+    color: #99CC00 !important;
+}
+
 #eventz tr.neutral td,
 #phalanx tr.neutral td {color:#fcce00;}
 
@@ -4395,6 +4404,7 @@ table#eventz {
     line-height: 0;
 }
 
+.ownmark { color:#99CC00 !important;}
 .undermark { color:#99CC00 !important;}
 .overmark { color: #D43635 !important;}
 .middlemark { color: #D29D00 !important;}
@@ -28553,6 +28563,7 @@ a#federation span {
 }
 
 
+#movementcomponent .own {color:#99CC00;}
 #movementcomponent .friendly {color:#9c0;}
 #movementcomponent .neutral {color:#D29D00;}
 #movementcomponent .hostile {color:#D43635;}
@@ -28931,6 +28942,7 @@ span.reload { margin-left:7px;}
     width: 16px;
 }
 
+.fleetDetails .own {	color:#99CC00;	}
 .fleetDetails .friendly {	color:#4af74d;	}
 .fleetDetails .neutral {	color:#fcce00;	}
 .fleetDetails .hostile {	color:#d43635;	}

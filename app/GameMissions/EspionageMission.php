@@ -3,6 +3,7 @@
 namespace OGame\GameMissions;
 
 use OGame\GameMissions\Abstracts\GameMission;
+use OGame\GameMissions\BattleEngine\Models\BattleResult;
 use OGame\GameMissions\Models\MissionPossibleStatus;
 use OGame\GameObjects\Models\Units\UnitCollection;
 use OGame\Models\Enums\PlanetType;
@@ -11,6 +12,7 @@ use OGame\Models\FleetMission;
 use OGame\Models\Planet\Coordinate;
 use OGame\Services\DebrisFieldService;
 use OGame\Services\PlanetService;
+use OGame\Services\PlayerService;
 use Throwable;
 
 class EspionageMission extends GameMission
@@ -66,12 +68,46 @@ class EspionageMission extends GameMission
         // Trigger target planet update to make sure the espionage report is accurate.
         $target_planet->update();
 
-        $reportId = $this->createEspionageReport($mission, $origin_planet, $target_planet);
+        // Calculate counter-espionage chance
+        $counterEspionageChance = $this->calculateCounterEspionageChance($mission, $origin_planet, $target_planet);
+
+        $reportId = $this->createEspionageReport($mission, $origin_planet, $target_planet, $counterEspionageChance);
+
+        // --- Defender notification (mirror official OGame "you were spied" message)
+        // Defender is the owner of the target planet
+        $defenderUserId = $target_planet->getPlayer()->getId();
+
+        if ($defenderUserId) {
+            // Params expected by t_messages.espionage_detected.*
+            $attackerName = $origin_planet->getPlayer()->getUsername();
+
+            $params = [
+// IMPORTANT: pass the raw mission planet id inside [planet]...[/planet]
+                'planet'        => '[planet]' . $mission->planet_id_from . '[/planet]',
+                'attacker_name' => $attackerName,
+
+// NEW:
+    'defender'       => '[planet]' . $mission->planet_id_to . '[/planet]',   // defender planet
+    'defender_name'  => $target_planet->getPlayer()->getUsername(),          // defender player name
+
+                'chance'        => $counterEspionageChance,
+            ];
+
+            $playerServiceFactory = resolve(\OGame\Factories\PlayerServiceFactory::class);
+            $defenderService      = $playerServiceFactory->make($defenderUserId);
+
+            (new \OGame\Services\MessageService($defenderService))
+                ->sendSystemMessageToPlayer(
+                    $defenderService,
+                    \OGame\GameMessages\DefenderEspionageDetected::class,
+                    $params
+                );
+        }
 
         // Send a message to the player with a reference to the espionage report.
         $this->messageService->sendEspionageReportMessageToPlayer(
             $origin_planet->getPlayer(),
-            $reportId,
+            $reportId
         );
 
         // Mark the arrival mission as processed
@@ -80,7 +116,9 @@ class EspionageMission extends GameMission
 
         // Assembly new unit collection.
         $units = $this->fleetMissionService->getFleetUnits($mission);
-        // TODO: a battle can happen if counter-espionage has taken place. Add logic for this using the battle system.
+
+        // Counter-espionage: check if defending fleet destroys attacking probes
+        $units = $this->processCounterEspionage($mission, $origin_planet, $target_planet, $units, $counterEspionageChance);
 
         // Create and start the return mission.
         $this->startReturn($mission, $this->fleetMissionService->getResources($mission), $units);
@@ -116,9 +154,10 @@ class EspionageMission extends GameMission
      * @param FleetMission $mission
      * @param PlanetService $originPlanet
      * @param PlanetService $targetPlanet
+     * @param int $counterEspionageChance
      * @return int
      */
-    private function createEspionageReport(FleetMission $mission, PlanetService $originPlanet, PlanetService $targetPlanet): int
+    private function createEspionageReport(FleetMission $mission, PlanetService $originPlanet, PlanetService $targetPlanet, int $counterEspionageChance): int
     {
         // Create new espionage report record.
         $report = new EspionageReport();
@@ -128,6 +167,7 @@ class EspionageMission extends GameMission
         $report->planet_type = $targetPlanet->getPlanetType()->value;
 
         $report->planet_user_id = $targetPlanet->getPlayer()->getId();
+        $report->counter_espionage_chance = $counterEspionageChance;
 
         $report->player_info = [
             'player_id' => (string)$targetPlanet->getPlayer()->getId(),
@@ -200,5 +240,242 @@ class EspionageMission extends GameMission
     private function canRevealData(int $remainingProbes, int $attackerLevel, int $defenderLevel, int $probeThreshold, int $levelThreshold): bool
     {
         return $remainingProbes >= $probeThreshold || $attackerLevel - $levelThreshold >= $defenderLevel;
+    }
+
+    /**
+     * Calculate the counter-espionage chance percentage.
+     * Formula from OGame wiki: 2^(E-O) * S * F * 0.25%
+     *
+     * Where:
+     * - E = Enemy's (defender's) espionage technology level
+     * - O = Owner's (attacker's) espionage technology level
+     * - S = Number of probes sent by attacker
+     * - F = Defender's fleet size (total number of ships)
+     *
+     * @param FleetMission $mission
+     * @param PlanetService $attackerPlanet
+     * @param PlanetService $defenderPlanet
+     * @return int Counter-espionage chance as integer percentage (0-100)
+     */
+    private function calculateCounterEspionageChance(FleetMission $mission, PlanetService $attackerPlanet, PlanetService $defenderPlanet): int
+    {
+        // Get espionage technology levels
+        $defenderEspionageLevel = $defenderPlanet->getPlayer()->getResearchLevel('espionage_technology');
+        $attackerEspionageLevel = $attackerPlanet->getPlayer()->getResearchLevel('espionage_technology');
+
+        // Number of probes sent by attacker
+        $probesSent = $mission->espionage_probe;
+
+        // Defender's total fleet size (all ships on the planet)
+        $defenderShips = $defenderPlanet->getShipUnits();
+        $defenderFleetSize = $defenderShips->getAmount();
+
+        // Apply the formula: 2^(E-O) * S * F * 0.25%
+        $techDifference = $defenderEspionageLevel - $attackerEspionageLevel;
+        $baseProbability = pow(2, $techDifference) * $probesSent * $defenderFleetSize * 0.0025;
+
+        // Cap at 100% maximum
+        $chance = min(100, (int)round($baseProbability));
+
+        return max(0, $chance);
+    }
+
+    /**
+     * Process counter-espionage: determine if it triggers and execute battle if so.
+     * Note: Even if probes are destroyed, the spy report has already been sent (per OGame rules).
+     *
+     * @param FleetMission $mission
+     * @param PlanetService $attackerPlanet
+     * @param PlanetService $defenderPlanet
+     * @param UnitCollection $attackerUnits
+     * @param int $counterEspionageChance
+     * @return UnitCollection Updated attacker units after potential battle
+     * @throws Throwable
+     */
+    private function processCounterEspionage(
+        FleetMission $mission,
+        PlanetService $attackerPlanet,
+        PlanetService $defenderPlanet,
+        UnitCollection $attackerUnits,
+        int $counterEspionageChance
+    ): UnitCollection {
+        $defenderFleetAmount = $defenderPlanet->getShipUnits()->getAmount();
+
+        // If no chance or no defender ships, no counter-espionage possible
+        if ($counterEspionageChance <= 0 || $defenderFleetAmount === 0) {
+            return $attackerUnits;
+        }
+
+        // Roll for counter-espionage trigger (random factor)
+        $roll = rand(1, 100);
+
+        if ($roll > $counterEspionageChance) {
+            // Counter-espionage did not trigger
+            return $attackerUnits;
+        }
+
+        // Counter-espionage triggered! Execute battle between defender's fleet and attacker's probes
+        $attackerPlayer = $attackerPlanet->getPlayer();
+
+        // Use configured battle engine
+        switch ($this->settings->battleEngine()) {
+            case 'php':
+                $battleEngine = new \OGame\GameMissions\BattleEngine\PhpBattleEngine(
+                    $attackerUnits,
+                    $attackerPlayer,
+                    $defenderPlanet,
+                    $this->settings
+                );
+                break;
+            case 'rust':
+            default:
+                $battleEngine = new \OGame\GameMissions\BattleEngine\RustBattleEngine(
+                    $attackerUnits,
+                    $attackerPlayer,
+                    $defenderPlanet,
+                    $this->settings
+                );
+                break;
+        }
+
+        $battleResult = $battleEngine->simulateBattle();
+
+        // Calculate units lost
+        $defenderUnitsLost = clone $battleResult->defenderUnitsStart;
+        $defenderUnitsLost->subtractCollection($battleResult->defenderUnitsResult);
+
+        // Deduct defender's lost units from the planet (if any)
+        if ($defenderUnitsLost->getAmount() > 0) {
+            $defenderPlanet->removeUnits($defenderUnitsLost, false);
+        }
+
+        // Save defender planet
+        $defenderPlanet->save();
+
+        // Create debris field from destroyed ships
+        $debrisFieldService = resolve(DebrisFieldService::class);
+        $debrisFieldService->loadOrCreateForCoordinates($defenderPlanet->getPlanetCoordinates());
+        $debrisFieldService->appendResources($battleResult->debris);
+        $debrisFieldService->save();
+
+        // Create battle report
+        $reportId = $this->createCounterEspionageBattleReport($attackerPlayer, $defenderPlanet, $battleResult);
+
+        // Check if probes were destroyed in first round
+        $probesDestroyedFirstRound = false;
+        if (count($battleResult->rounds) > 0) {
+            $firstRound = $battleResult->rounds[0];
+            if ($firstRound->attackerShips->getAmount() === 0) {
+                $probesDestroyedFirstRound = true;
+            }
+        }
+
+        // Send appropriate messages
+        if ($probesDestroyedFirstRound) {
+            // Send simplified "fleet lost contact" message to spy (no fleet or tech info)
+            $coordinates = '[coordinates]' . $defenderPlanet->getPlanetCoordinates()->asString() . '[/coordinates]';
+            $spyPlayer = $attackerPlanet->getPlayer();
+            $messageService = new \OGame\Services\MessageService($spyPlayer);
+            $messageService->sendSystemMessageToPlayer($spyPlayer, \OGame\GameMessages\FleetLostContact::class, [
+                'coordinates' => $coordinates,
+            ]);
+        } else {
+            // Normal: send full battle report to spy
+            $spyPlayer = $attackerPlanet->getPlayer();
+            $messageService = new \OGame\Services\MessageService($spyPlayer);
+            $messageService->sendBattleReportMessageToPlayer($spyPlayer, $reportId);
+        }
+
+        // Always send full battle report to defender (planet owner)
+        $defenderPlayer = $defenderPlanet->getPlayer();
+        $defenderMessageService = new \OGame\Services\MessageService($defenderPlayer);
+        $defenderMessageService->sendBattleReportMessageToPlayer($defenderPlayer, $reportId);
+
+        // Return the surviving attacker units (probes that survived counter-espionage)
+        return $battleResult->attackerUnitsResult;
+    }
+
+    /**
+     * Create a battle report for a counter-espionage battle.
+     *
+     * @param PlayerService $spyPlayer The player who sent the espionage probes (attacker in battle)
+     * @param PlanetService $defenderPlanet The planet that was being spied on
+     * @param BattleResult $battleResult The result of the battle
+     * @return int The ID of the created battle report
+     */
+    private function createCounterEspionageBattleReport(PlayerService $spyPlayer, PlanetService $defenderPlanet, BattleResult $battleResult): int
+    {
+        // Create new battle report record
+        $report = new \OGame\Models\BattleReport();
+        $report->planet_galaxy = $defenderPlanet->getPlanetCoordinates()->galaxy;
+        $report->planet_system = $defenderPlanet->getPlanetCoordinates()->system;
+        $report->planet_position = $defenderPlanet->getPlanetCoordinates()->position;
+        $report->planet_type = $defenderPlanet->getPlanetType()->value;
+        $report->planet_user_id = $defenderPlanet->getPlayer()->getId();
+
+        $report->general = [
+            'moon_existed' => $battleResult->moonExisted,
+            'moon_chance' => $battleResult->moonChance,
+            'moon_created' => $battleResult->moonCreated,
+        ];
+
+        // In counter-espionage: spy's probes are "attacker", defender's fleet is "defender"
+        $report->attacker = [
+            'player_id' => $spyPlayer->getId(),
+            'resource_loss' => $battleResult->attackerResourceLoss->sum(),
+            'units' => $battleResult->attackerUnitsStart->toArray(),
+            'weapon_technology' => $battleResult->attackerWeaponLevel,
+            'shielding_technology' => $battleResult->attackerShieldLevel,
+            'armor_technology' => $battleResult->attackerArmorLevel,
+        ];
+
+        $report->defender = [
+            'player_id' => $defenderPlanet->getPlayer()->getId(),
+            'resource_loss' => $battleResult->defenderResourceLoss->sum(),
+            'units' => $battleResult->defenderUnitsStart->toArray(),
+            'weapon_technology' => $battleResult->defenderWeaponLevel,
+            'shielding_technology' => $battleResult->defenderShieldLevel,
+            'armor_technology' => $battleResult->defenderArmorLevel,
+        ];
+
+        // No loot in counter-espionage
+        $report->loot = [
+            'percentage' => 0,
+            'metal' => 0,
+            'crystal' => 0,
+            'deuterium' => 0,
+        ];
+
+        $report->debris = [
+            'metal' => $battleResult->debris->metal->get(),
+            'crystal' => $battleResult->debris->crystal->get(),
+            'deuterium' => $battleResult->debris->deuterium->get(),
+        ];
+
+        // No defenses are repaired in counter-espionage (only ships fight, no defense structures)
+        $report->repaired_defenses = [];
+
+        $rounds = [];
+        foreach ($battleResult->rounds as $round) {
+            $rounds[] = [
+                'attacker_ships' => $round->attackerShips->toArray(),
+                'defender_ships' => $round->defenderShips->toArray(),
+                'attacker_losses' => $round->attackerLosses->toArray(),
+                'defender_losses' => $round->defenderLosses->toArray(),
+                'attacker_losses_in_this_round' => $round->attackerLossesInRound->toArray(),
+                'defender_losses_in_this_round' => $round->defenderLossesInRound->toArray(),
+                'absorbed_damage_attacker' => $round->absorbedDamageAttacker,
+                'absorbed_damage_defender' => $round->absorbedDamageDefender,
+                'full_strength_attacker' => $round->fullStrengthAttacker,
+                'full_strength_defender' => $round->fullStrengthDefender,
+                'hits_attacker' => $round->hitsAttacker,
+                'hits_defender' => $round->hitsDefender,
+            ];
+        }
+
+        $report->rounds = $rounds;
+        $report->save();
+
+        return $report->id;
     }
 }

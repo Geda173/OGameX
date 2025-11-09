@@ -10,6 +10,7 @@ use OGame\GameMessages\ReturnOfFleet;
 use OGame\GameMessages\ReturnOfFleetWithResources;
 use OGame\GameMissions\Models\MissionPossibleStatus;
 use OGame\GameObjects\Models\Units\UnitCollection;
+use OGame\GameMissions\ACSDefendMission;
 use OGame\GameMissions\ExpeditionMission;
 use OGame\Models\Enums\PlanetType;
 use OGame\Models\FleetMission;
@@ -214,10 +215,13 @@ abstract class GameMission
 
         // Holding time is the amount of time the fleet will wait at the target planet and/or how long expedition will last.
         // The $holdingHours is in hours, so we convert it to seconds.
-        // Only applies to expeditions (and ACS missions, but those are not implemented yet).
+        // Only applies to expeditions and ACS Defend missions.
         if (static::class === ExpeditionMission::class) {
             $mission->time_holding = $holdingHours * 3600;
             $targetType = PlanetType::DeepSpace;
+        } elseif (static::class === ACSDefendMission::class) {
+            $mission->time_holding = $holdingHours * 3600;
+            // ACS Defend keeps the original target type (Planet or Moon), not DeepSpace
         }
 
         $mission->type_to = $targetType->value;
@@ -285,12 +289,24 @@ abstract class GameMission
 
         // No need to check for resources and units, as the return mission takes the units from the original
         // mission and the resources are already delivered. Nothing is deducted from the planet.
-        // Time this fleet mission will depart (arrival time of the parent mission)
-        $time_start = $parentMission->time_arrival;
+        // Time this fleet mission will depart
+        // For expeditions and ACS Defend missions, add the holding time to the arrival time of the parent mission
+        // so that the return trip starts after the fleet has finished holding at the destination.
+        $time_start = $parentMission->time_arrival + $parentMission->time_holding;
 
-        // Time fleet mission will arrive (arrival time of the parent mission + duration of the parent mission)
-        // Return mission duration is always the same as the parent mission duration.
+        // Time fleet mission will arrive (start time + travel duration of the parent mission)
+        // Return mission duration is always the same as the parent mission's travel duration (not including holding time).
         $time_end = $time_start + ($parentMission->time_arrival - $parentMission->time_departure) + $additionalReturnTripTime;
+
+        // Validate parent mission has a valid mission_type before creating return mission
+        if (!is_numeric($parentMission->mission_type) || intval($parentMission->mission_type) <= 0) {
+            \Log::error('GameMission: Cannot create return mission - parent has invalid mission_type', [
+                'parent_mission_id' => $parentMission->id,
+                'parent_mission_type' => $parentMission->mission_type,
+                'parent_mission_type_type' => gettype($parentMission->mission_type),
+            ]);
+            return;
+        }
 
         // Create new return mission object
         $mission = new FleetMission();
@@ -338,12 +354,19 @@ abstract class GameMission
 
         // Set amount of resources to return based on provided resources in parameter.
         // This is the amount of resources that were gained and/or not used during the mission.
-        // The logic is different for each mission type.
-        // TODO: make this more smart: what if mission started with resources already, e.g. sending attack mission with resources?
-        // With the current logic the resources from origin mission are lost, which is probably not correct?
-        $mission->metal = (int)$resources->metal->get();
-        $mission->crystal = (int)$resources->crystal->get();
-        $mission->deuterium = (int)$resources->deuterium->get();
+        // For most missions: Add to existing resources from parent mission (loot from attacks, expedition finds, etc.)
+        // For Transport missions: Only return the resources parameter (don't add parent resources as they were delivered)
+        if ($parentMission->mission_type == 3) { // Transport mission (type 3)
+            // Transport mission: Resources were delivered at destination, return trip should only carry what's specified in $resources parameter
+            $mission->metal = (int)$resources->metal->get();
+            $mission->crystal = (int)$resources->crystal->get();
+            $mission->deuterium = (int)$resources->deuterium->get();
+        } else {
+            // Other missions: Add to existing resources from parent mission to preserve loot/finds
+            $mission->metal = $parentMission->metal + (int)$resources->metal->get();
+            $mission->crystal = $parentMission->crystal + (int)$resources->crystal->get();
+            $mission->deuterium = $parentMission->deuterium + (int)$resources->deuterium->get();
+        }
 
         // Save the new fleet return mission.
         $mission->save();

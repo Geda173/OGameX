@@ -560,6 +560,66 @@ class FleetDispatchExpeditionTest extends FleetDispatchTestCase
     }
 
     /**
+     * Test that expedition holding time is properly included in the return trip calculation.
+     * Verifies that the return trip starts after the holding time has elapsed, not immediately.
+     *
+     * @return void
+     */
+    public function testExpeditionHoldingTimeIncludedInReturnTrip(): void
+    {
+        $this->basicSetup();
+
+        // Enable only the "failed" expedition outcome to avoid modifiers affecting return time.
+        $this->settingsEnableExpeditionOutcomes([ExpeditionOutcomeType::Failed]);
+
+        // Send the expedition mission with a 2 hour holding time.
+        $holdingTime = 2; // hours
+        $unitCollection = new UnitCollection();
+        $unitCollection->addUnit(ObjectService::getUnitObjectByMachineName('large_cargo'), 1000);
+        $this->sendMissionToPosition16($unitCollection, new Resources(1, 1, 0, 0), true, $holdingTime);
+
+        // Get the mission.
+        $fleetMissionService = resolve(FleetMissionService::class, ['player' => $this->planetService->getPlayer()]);
+        $originalMission = $fleetMissionService->getActiveFleetMissionsForCurrentPlayer()->first();
+
+        // Calculate the outbound travel time.
+        $outboundTravelTime = $originalMission->time_arrival - $originalMission->time_departure;
+
+        // Wait for the mission to complete (arrival + holding + return).
+        $this->travel(10)->hours();
+
+        // Load the planet again to get the latest state.
+        $this->get('/overview');
+        $this->planetService->reloadPlanet();
+
+        // Get the return trip mission for the original mission.
+        $returnTripMission = $fleetMissionService->getFleetMissionByParentId($originalMission->id, false);
+
+        // Assert that the return trip departure time equals arrival time + holding time.
+        $expectedReturnDeparture = $originalMission->time_arrival + ($holdingTime * 3600);
+        $this->assertEquals(
+            $expectedReturnDeparture,
+            $returnTripMission->time_departure,
+            'Return trip should start after the holding time has elapsed'
+        );
+
+        // Assert that the return trip duration equals the outbound travel time.
+        $returnTripDuration = $returnTripMission->time_arrival - $returnTripMission->time_departure;
+        $this->assertEquals(
+            $outboundTravelTime,
+            $returnTripDuration,
+            'Return trip duration should equal the outbound travel time'
+        );
+
+        // Assert that the return trip does NOT arrive instantly.
+        $this->assertGreaterThan(
+            $originalMission->time_arrival + ($holdingTime * 3600),
+            $returnTripMission->time_arrival,
+            'Return trip should not be instant - it should take time to travel back'
+        );
+    }
+
+    /**
      * Send an expedition mission to position 16.
      *
      * @param bool $assertStatus
