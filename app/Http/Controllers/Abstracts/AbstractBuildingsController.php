@@ -108,6 +108,7 @@ abstract class AbstractBuildingsController extends OGameController
                 $view_model->valid_planet_type = $valid_planet_type;
                 $view_model->enough_resources = $enough_resources;
                 $view_model->currently_building = ($build_active !== null && $build_active->object->machine_name === $object->machine_name);
+                $view_model->currently_tearing_down = ($build_active !== null && $build_active->object->machine_name === $object->machine_name && $build_active->teardown);
                 $view_model->research_in_progress = $research_in_progress;
                 $view_model->ship_or_defense_in_progress = $ship_or_defense_in_progress;
 
