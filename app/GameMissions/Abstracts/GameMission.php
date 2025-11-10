@@ -401,6 +401,14 @@ abstract class GameMission
         foreach ($units->units as $unit) {
             $parentMission->{$unit->unitObject->machine_name} = 0;
         }
+
+        // Clear all resources from the parent mission to prevent duplication.
+        // The resources are now stored in the return mission, so the parent mission should have 0 resources.
+        // This prevents bugs where the parent mission is re-read and resources are added again.
+        $parentMission->metal = 0;
+        $parentMission->crystal = 0;
+        $parentMission->deuterium = 0;
+
         $parentMission->save();
 
         // Check if the created mission arrival time is in the past. This can happen if the planet hasn't been updated
