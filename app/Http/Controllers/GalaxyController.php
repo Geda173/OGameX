@@ -951,8 +951,10 @@ class GalaxyController extends OGameController
             // Mission type names for better display
             $missionNames = [
                 1 => 'Attack',
+                2 => 'ACS Attack',
                 3 => 'Transport',
                 4 => 'Deployment',
+                5 => 'ACS Defend',
                 6 => 'Espionage',
                 7 => 'Colonization',
                 8 => 'Recycle',
@@ -978,7 +980,7 @@ class GalaxyController extends OGameController
             ];
 
             // Mission types that have return trips
-            $missionTypesWithReturnTrips = [1, 3, 6, 7, 8, 15]; // Attack, Transport, Espionage, Colonization, Recycle, Expedition
+            $missionTypesWithReturnTrips = [1, 2, 3, 5, 6, 7, 8, 15]; // Attack, ACS Attack, Transport, ACS Defend, Espionage, Colonization, Recycle, Expedition
 
             // Format fleet information for response
             $fleetData = [];
@@ -1040,7 +1042,7 @@ class GalaxyController extends OGameController
 
             // Process outgoing fleets and calculate their return trips
             // Mission types that have return trips
-            $missionTypesWithReturnTrips = [1, 3, 6, 7, 8, 15]; // Attack, Transport, Espionage, Colonization, Recycle, Expedition
+            $missionTypesWithReturnTrips = [1, 2, 3, 5, 6, 7, 8, 15]; // Attack, ACS Attack, Transport, ACS Defend, Espionage, Colonization, Recycle, Expedition
 
             foreach ($outgoingFleets as $fleet) {
                 // Only process missions that have return trips
