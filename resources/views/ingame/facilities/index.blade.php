@@ -62,7 +62,7 @@
                                 @endif
                         >
 
-                        <span class="icon sprite sprite_medium medium {{ $building->object->class_name }}">
+                        <span class="icon sprite sprite_medium medium {{ $building->object->class_name }}" @if($building->object->machine_name == 'jump_gate' && $building->current_level >= 1) style="cursor: pointer;" onclick="window.location.href='{{ route('jumpgate.index') }}'" @endif>
                             @if ($building->currently_building)
                             @elseif (!$building->requirements_met)
                             @elseif (!$building->valid_planet_type)
@@ -70,6 +70,8 @@
                             @elseif ($build_queue_max)
                             @elseif ($building->research_in_progress && $building->object->machine_name == 'research_lab')
                             @elseif ($building->ship_or_defense_in_progress  && $building->object->machine_name == 'shipyard')
+                            @elseif ($building->object->machine_name == 'jump_gate' && $building->current_level >= 1)
+                                {{-- Jump Gate is operational, clicking opens the jump gate page --}}
                             @else
                                 <button
                                         class="upgrade tooltip hideOthers js_hideTipOnMobile"
