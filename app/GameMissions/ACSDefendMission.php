@@ -2,7 +2,6 @@
 
 namespace OGame\GameMissions;
 
-use OGame\GameMessages\FleetDeployment;
 use OGame\GameMissions\Abstracts\GameMission;
 use OGame\GameMissions\Models\MissionPossibleStatus;
 use OGame\GameObjects\Models\Units\UnitCollection;

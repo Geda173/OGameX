@@ -3,8 +3,6 @@
 namespace OGame\Services;
 
 use OGame\GameObjects\Models\Units\UnitCollection;
-use OGame\Services\ObjectService;
-use OGame\Services\PlayerService;
 
 /**
  * NPCFleetGeneratorService - Generates NPC fleets for expedition battles.

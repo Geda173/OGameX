@@ -2,8 +2,6 @@
 
 namespace OGame\Services;
 
-use OGame\Factories\PlanetServiceFactory;
-
 /**
  * NPCPlayerService - A minimal PlayerService for NPC players used in expedition battles.
  *
