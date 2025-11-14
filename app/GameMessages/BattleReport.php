@@ -83,7 +83,10 @@ class BattleReport extends GameMessage
         // Check if this is a moon destruction mission where the moon was destroyed
         $isMoonDestructionMission = isset($this->battleReportModel->general['moon_destruction_mission']) && $this->battleReportModel->general['moon_destruction_mission'];
 
-        if ($planet === null && !$isMoonDestructionMission) {
+        // Check if this is an expedition battle (pirates/aliens in deep space)
+        $isExpeditionBattle = isset($this->battleReportModel->general['expedition_battle']) && $this->battleReportModel->general['expedition_battle'];
+
+        if ($planet === null && !$isMoonDestructionMission && !$isExpeditionBattle) {
             return __('Planet has been deleted and battle report is no longer available.');
         }
 
@@ -105,7 +108,10 @@ class BattleReport extends GameMessage
         // Check if this is a moon destruction mission where the moon was destroyed
         $isMoonDestructionMission = isset($this->battleReportModel->general['moon_destruction_mission']) && $this->battleReportModel->general['moon_destruction_mission'];
 
-        if ($planet === null && !$isMoonDestructionMission) {
+        // Check if this is an expedition battle (pirates/aliens in deep space)
+        $isExpeditionBattle = isset($this->battleReportModel->general['expedition_battle']) && $this->battleReportModel->general['expedition_battle'];
+
+        if ($planet === null && !$isMoonDestructionMission && !$isExpeditionBattle) {
             // TODO: add feature test for this behavior to make sure deleting a planet
             // properly handles any existing battle reports by either deleting them or making
             // them unavailable. This also affects other messages that use the planet name.
@@ -149,9 +155,18 @@ class BattleReport extends GameMessage
         // Check if this is a moon destruction mission
         $isMoonDestructionMission = isset($this->battleReportModel->general['moon_destruction_mission']) && $this->battleReportModel->general['moon_destruction_mission'];
 
+        // Check if this is an expedition battle with NPC defender (pirates/aliens)
+        $isExpeditionBattle = isset($this->battleReportModel->general['expedition_battle']) && $this->battleReportModel->general['expedition_battle'];
+
         // Handle defender
+
         if ($this->battleReportModel->planet_user_id === null) {
             $defender_name = __('Unknown');
+            $defender = null;
+        } elseif ($isExpeditionBattle && $this->battleReportModel->planet_user_id < 0) {
+            // NPC defender (pirates = -1, aliens = -2)
+            // Use the stored defender name from battle report
+            $defender_name = $this->battleReportModel->defender['player_name'] ?? __('Unknown');
             $defender = null;
         } else {
             // If planet exists and owner is the same as the player, we load the player by planet owner which is already loaded.
@@ -166,13 +181,21 @@ class BattleReport extends GameMessage
 
         // Handle attacker
         $attackerPlayerId = $this->battleReportModel->attacker['player_id'];
-        try {
-            $attacker = $this->playerServiceFactory->make($attackerPlayerId, true);
-            $attacker_name = $attacker->getUsername(false);
-        } catch (Throwable $e) {
-            // If attacker can't be loaded (e.g., user deleted), use "Unknown"
+
+        // Check if attacker is an NPC (negative ID)
+        if ($isExpeditionBattle && $attackerPlayerId < 0) {
+            // NPC attacker (pirates = -1, aliens = -2)
+            $attacker_name = $this->battleReportModel->attacker['player_name'] ?? __('Unknown');
             $attacker = null;
-            $attacker_name = __('Unknown');
+        } else {
+            try {
+                $attacker = $this->playerServiceFactory->make($attackerPlayerId, true);
+                $attacker_name = $attacker->getUsername(false);
+            } catch (Throwable $e) {
+                // If attacker can't be loaded (e.g., user deleted), use "Unknown"
+                $attacker = null;
+                $attacker_name = __('Unknown');
+            }
         }
 
         $defender_weapons = $this->battleReportModel->defender['weapon_technology'] * 10;
@@ -310,6 +333,11 @@ class BattleReport extends GameMessage
             $defender_planet_name = $planet->getPlanetName();
             $defender_planet_coords = $planet->getPlanetCoordinates()->asString();
             $defender_planet_link = route('galaxy.index', ['galaxy' => $planet->getPlanetCoordinates()->galaxy, 'system' => $planet->getPlanetCoordinates()->system, 'position' => $planet->getPlanetCoordinates()->position]);
+        } elseif ($isExpeditionBattle) {
+            // Expedition battle in deep space
+            $defender_planet_name = __('Deep Space');
+            $defender_planet_coords = $coordinate->asString();
+            $defender_planet_link = route('galaxy.index', ['galaxy' => $coordinate->galaxy, 'system' => $coordinate->system, 'position' => $coordinate->position]);
         } else {
             // Moon was destroyed - use stored name and coordinates
             $defender_planet_name = $this->battleReportModel->general['defender_moon_name'] ?? __('Destroyed Moon');

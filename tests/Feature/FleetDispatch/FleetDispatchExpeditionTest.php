@@ -141,6 +141,47 @@ class FleetDispatchExpeditionTest extends FleetDispatchTestCase
     }
 
     /**
+     * Test that bonus expedition slots from settings work correctly.
+     */
+    public function testBonusExpeditionSlots(): void
+    {
+        $this->basicSetup();
+
+        // Set astrophysics to level 1 (1 slot)
+        $this->playerSetResearchLevel('astrophysics', 1);
+        $this->assertEquals(1, $this->planetService->getPlayer()->getExpeditionSlotsMax(), 'Max expedition slots should be 1 with astrophysics level 1');
+
+        // Set bonus expedition slots to 2
+        $settingsService = app(\OGame\Services\SettingsService::class);
+        $settingsService->set('bonus_expedition_slots', 2);
+
+        // Refresh player service to get updated settings
+        $this->planetService = $this->planetServiceFactory->make($this->planetService->getPlanetId(), true);
+
+        // Now max slots should be 3 (1 from research + 2 bonus)
+        $this->assertEquals(3, $this->planetService->getPlayer()->getExpeditionSlotsMax(), 'Max expedition slots should be 3 with astrophysics level 1 plus 2 bonus');
+
+        // First expedition should succeed
+        $this->sendTestExpedition();
+        $this->assertEquals(1, $this->planetService->getPlayer()->getExpeditionSlotsInUse(), 'Expedition slots in use should be 1 after first expedition');
+
+        // Second expedition should succeed (would fail without bonus)
+        $this->sendTestExpedition();
+        $this->assertEquals(2, $this->planetService->getPlayer()->getExpeditionSlotsInUse(), 'Expedition slots in use should be 2 after second expedition');
+
+        // Third expedition should succeed (thanks to bonus)
+        $this->sendTestExpedition();
+        $this->assertEquals(3, $this->planetService->getPlayer()->getExpeditionSlotsInUse(), 'Expedition slots in use should be 3 after third expedition');
+
+        // Fourth expedition should fail (exceeds max even with bonus)
+        $this->sendTestExpedition(false);
+        $this->assertEquals(3, $this->planetService->getPlayer()->getExpeditionSlotsInUse(), 'Expedition slots in use should still be 3 after fourth expedition attempt (max reached)');
+
+        // Reset bonus to 0
+        $settingsService->set('bonus_expedition_slots', 0);
+    }
+
+    /**
      * Test that current expedition slots in use is calculated correctly.
      */
     public function testCurrentExpeditionSlotsInUse(): void

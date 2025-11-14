@@ -393,4 +393,124 @@ class SettingsService
     {
         return (bool)$this->get('expedition_battle', 1);
     }
+
+    /**
+     * Returns the bonus expedition slots setting (for timed events).
+     *
+     * @return int
+     */
+    public function bonusExpeditionSlots(): int
+    {
+        return (int)$this->get('bonus_expedition_slots', 0);
+    }
+
+    /**
+     * Returns the expedition rewards multiplier (for timed events).
+     *
+     * @return float
+     */
+    public function expeditionRewardsMultiplier(): float
+    {
+        return (float)$this->get('expedition_rewards_multiplier', 1.0);
+    }
+
+    /**
+     * Returns the expedition outcome weight for ships (0-100 scale, relative).
+     *
+     * @return int
+     */
+    public function expeditionWeightShips(): int
+    {
+        return (int)$this->get('expedition_weight_ships', 24);
+    }
+
+    /**
+     * Returns the expedition outcome weight for resources (0-100 scale, relative).
+     *
+     * @return int
+     */
+    public function expeditionWeightResources(): int
+    {
+        return (int)$this->get('expedition_weight_resources', 34);
+    }
+
+    /**
+     * Returns the expedition outcome weight for delay (0-100 scale, relative).
+     *
+     * @return int
+     */
+    public function expeditionWeightDelay(): int
+    {
+        return (int)$this->get('expedition_weight_delay', 9);
+    }
+
+    /**
+     * Returns the expedition outcome weight for speedup (0-100 scale, relative).
+     *
+     * @return int
+     */
+    public function expeditionWeightSpeedup(): int
+    {
+        return (int)$this->get('expedition_weight_speedup', 4);
+    }
+
+    /**
+     * Returns the expedition outcome weight for nothing/failed (0-100 scale, relative).
+     *
+     * @return int
+     */
+    public function expeditionWeightNothing(): int
+    {
+        return (int)$this->get('expedition_weight_nothing', 29);
+    }
+
+    /**
+     * Returns the expedition outcome weight for black hole/fleet loss (0-100 scale, relative).
+     *
+     * @return int
+     */
+    public function expeditionWeightBlackHole(): int
+    {
+        return (int)$this->get('expedition_weight_black_hole', 1);
+    }
+
+    /**
+     * Returns the expedition outcome weight for pirates (0-100 scale, relative).
+     *
+     * @return int
+     */
+    public function expeditionWeightPirates(): int
+    {
+        return (int)$this->get('expedition_weight_pirates', 0);
+    }
+
+    /**
+     * Returns the expedition outcome weight for aliens (0-100 scale, relative).
+     *
+     * @return int
+     */
+    public function expeditionWeightAliens(): int
+    {
+        return (int)$this->get('expedition_weight_aliens', 0);
+    }
+
+    /**
+     * Returns the expedition outcome weight for dark matter (0-100 scale, relative).
+     *
+     * @return int
+     */
+    public function expeditionWeightDarkMatter(): int
+    {
+        return (int)$this->get('expedition_weight_dark_matter', 0);
+    }
+
+    /**
+     * Returns the expedition outcome weight for merchant (0-100 scale, relative).
+     *
+     * @return int
+     */
+    public function expeditionWeightMerchant(): int
+    {
+        return (int)$this->get('expedition_weight_merchant', 0);
+    }
 }

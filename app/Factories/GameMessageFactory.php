@@ -44,6 +44,8 @@ class GameMessageFactory
         'moon_destroyed' => \OGame\GameMessages\MoonDestroyed::class,
 
         'expedition_battle' => \OGame\GameMessages\ExpeditionBattle::class,
+        'expedition_battle_pirates' => \OGame\GameMessages\ExpeditionBattlePirates::class,
+        'expedition_battle_aliens' => \OGame\GameMessages\ExpeditionBattleAliens::class,
         'expedition_gain_dark_matter' => \OGame\GameMessages\ExpeditionGainDarkMatter::class,
         'expedition_failed' => \OGame\GameMessages\ExpeditionFailed::class,
         'expedition_failed_and_delay' => \OGame\GameMessages\ExpeditionFailedAndDelay::class,

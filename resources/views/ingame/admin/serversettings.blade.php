@@ -204,85 +204,112 @@
 
                         <div class="group bborder" style="display: block;">
                             <div class="fieldwrapper">
-                                <label class="styled textBeefy">@lang('Expedition failed:')</label>
+                                <label class="styled textBeefy">@lang('Bonus expedition slots (for events):')</label>
                                 <div class="thefield">
-                                    <square-checkbox class="square-checkbox">
-                                        <input type="checkbox" id="square-checkExpeditionFailed" name="expedition_failed" value="1" {{ $expedition_failed ? 'checked' : '' }}>
-                                        <label for="square-checkExpeditionFailed"></label>
-                                    </square-checkbox>
+                                    <select name="bonus_expedition_slots" class="w130" data-value="{{ $bonus_expedition_slots }}">
+                                        <option value="0"{{ $bonus_expedition_slots == 0 ? ' selected' : '' }}>+0</option>
+                                        <option value="1"{{ $bonus_expedition_slots == 1 ? ' selected' : '' }}>+1</option>
+                                        <option value="2"{{ $bonus_expedition_slots == 2 ? ' selected' : '' }}>+2</option>
+                                        <option value="3"{{ $bonus_expedition_slots == 3 ? ' selected' : '' }}>+3</option>
+                                        <option value="4"{{ $bonus_expedition_slots == 4 ? ' selected' : '' }}>+4</option>
+                                        <option value="5"{{ $bonus_expedition_slots == 5 ? ' selected' : '' }}>+5</option>
+                                    </select>
+                                </div>
+                                <div class="smallFont">@lang('Adds extra expedition slots for all players on top of their Astrophysics-based slots. Use for weekend events or special occasions. Set to 0 to disable.')</div>
+                            </div>
+                            <div class="fieldwrapper">
+                                <label class="styled textBeefy">@lang('Expedition rewards multiplier (for events):')</label>
+                                <div class="thefield">
+                                    <select name="expedition_rewards_multiplier" class="w130" data-value="{{ $expedition_rewards_multiplier }}">
+                                        <option value="1.0"{{ $expedition_rewards_multiplier == 1.0 ? ' selected' : '' }}>1x (normal)</option>
+                                        <option value="1.5"{{ $expedition_rewards_multiplier == 1.5 ? ' selected' : '' }}>1.5x</option>
+                                        <option value="2.0"{{ $expedition_rewards_multiplier == 2.0 ? ' selected' : '' }}>2x</option>
+                                        <option value="3.0"{{ $expedition_rewards_multiplier == 3.0 ? ' selected' : '' }}>3x</option>
+                                        <option value="5.0"{{ $expedition_rewards_multiplier == 5.0 ? ' selected' : '' }}>5x</option>
+                                        <option value="10.0"{{ $expedition_rewards_multiplier == 10.0 ? ' selected' : '' }}>10x</option>
+                                    </select>
+                                </div>
+                                <div class="smallFont">@lang('Multiplies all expedition resource and ship rewards. Great for weekend events! Set to 1x for normal rewards.')</div>
+                            </div>
+                        </div>
+
+                        <p class="box_highlight textCenter no_buddies">@lang('Expedition outcome probabilities.')</p>
+
+                        <div class="group bborder" style="display: block;">
+                            <div class="fieldwrapper">
+                                <div class="smallFont" style="margin-bottom: 15px; padding: 10px; background-color: #1e2328; border: 1px solid #4a5568; border-radius: 4px;">
+                                    @lang('Control the probability of each expedition outcome using relative weights (0-100 scale). These numbers are relative to each other - higher = more likely. Set to 0 to disable an outcome. Examples: For 100% black holes, set Black Hole to 100 and all others to 0. For 50/50 ships vs resources, set both to 50 and others to 0. OGame default total: 100 points.')
                                 </div>
                             </div>
                             <div class="fieldwrapper">
-                                <label class="styled textBeefy">@lang('Expedition failed and delay:')</label>
+                                <label class="styled textBeefy">@lang('Find ships (%):')</label>
                                 <div class="thefield">
-                                    <square-checkbox class="square-checkbox">
-                                        <input type="checkbox" id="square-checkExpeditionFailedAndDelay" name="expedition_failed_and_delay" value="1" {{ $expedition_failed_and_delay ? 'checked' : '' }}>
-                                        <label for="square-checkExpeditionFailedAndDelay"></label>
-                                    </square-checkbox>
+                                    <input type="text" pattern="[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_ships }}" size="6" name="expedition_weight_ships">
                                 </div>
+                                <div class="smallFont">@lang('OGame default: 22')</div>
                             </div>
                             <div class="fieldwrapper">
-                                <label class="styled textBeefy">@lang('Expedition failed and speedup:')</label>
+                                <label class="styled textBeefy">@lang('Find resources (%):')</label>
                                 <div class="thefield">
-                                    <square-checkbox class="square-checkbox">
-                                        <input type="checkbox" id="square-checkExpeditionFailedAndSpeedup" name="expedition_failed_and_speedup" value="1" {{ $expedition_failed_and_speedup ? 'checked' : '' }}>
-                                        <label for="square-checkExpeditionFailedAndSpeedup"></label>
-                                    </square-checkbox>
+                                    <input type="text" pattern="[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_resources }}" size="6" name="expedition_weight_resources">
                                 </div>
+                                <div class="smallFont">@lang('OGame default: 32')</div>
                             </div>
                             <div class="fieldwrapper">
-                                <label class="styled textBeefy">@lang('Expedition gain ships:')</label>
+                                <label class="styled textBeefy">@lang('Fleet delay (%):')</label>
                                 <div class="thefield">
-                                    <square-checkbox class="square-checkbox">
-                                        <input type="checkbox" id="square-checkExpeditionGainShips" name="expedition_gain_ships" value="1" {{ $expedition_gain_ships ? 'checked' : '' }}>
-                                        <label for="square-checkExpeditionGainShips"></label>
-                                    </square-checkbox>
+                                    <input type="text" pattern="[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_delay }}" size="6" name="expedition_weight_delay">
                                 </div>
+                                <div class="smallFont">@lang('OGame default: 7')</div>
                             </div>
                             <div class="fieldwrapper">
-                                <label class="styled textBeefy">@lang('Expedition gain dark matter:')</label>
+                                <label class="styled textBeefy">@lang('Fleet speedup (%):')</label>
                                 <div class="thefield">
-                                    <square-checkbox class="square-checkbox">
-                                        <input type="checkbox" id="square-checkExpeditionGainDarkMatter" name="expedition_gain_dark_matter" value="1" {{ $expedition_gain_dark_matter ? 'checked' : '' }}>
-                                        <label for="square-checkExpeditionGainDarkMatter"></label>
-                                    </square-checkbox>
+                                    <input type="text" pattern="[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_speedup }}" size="6" name="expedition_weight_speedup">
                                 </div>
+                                <div class="smallFont">@lang('OGame default: 2')</div>
                             </div>
                             <div class="fieldwrapper">
-                                <label class="styled textBeefy">@lang('Expedition gain resources:')</label>
+                                <label class="styled textBeefy">@lang('Find nothing (%):')</label>
                                 <div class="thefield">
-                                    <square-checkbox class="square-checkbox">
-                                        <input type="checkbox" id="square-checkExpeditionGainResources" name="expedition_gain_resources" value="1" {{ $expedition_gain_resources ? 'checked' : '' }}>
-                                        <label for="square-checkExpeditionGainResources"></label>
-                                    </square-checkbox>
+                                    <input type="text" pattern="[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_nothing }}" size="6" name="expedition_weight_nothing">
                                 </div>
+                                <div class="smallFont">@lang('OGame default: 18.6')</div>
                             </div>
                             <div class="fieldwrapper">
-                                <label class="styled textBeefy">@lang('Expedition gain merchant trade:')</label>
+                                <label class="styled textBeefy">@lang('Black hole / Fleet loss (%):')</label>
                                 <div class="thefield">
-                                    <square-checkbox class="square-checkbox">
-                                        <input type="checkbox" id="square-checkExpeditionGainMerchantTrade" name="expedition_gain_merchant_trade" value="1" {{ $expedition_gain_merchant_trade ? 'checked' : '' }}>
-                                        <label for="square-checkExpeditionGainMerchantTrade"></label>
-                                    </square-checkbox>
+                                    <input type="text" pattern="[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_black_hole }}" size="6" name="expedition_weight_black_hole">
                                 </div>
+                                <div class="smallFont">@lang('OGame default: 0.33')</div>
                             </div>
                             <div class="fieldwrapper">
-                                <label class="styled textBeefy">@lang('Expedition gain item:')</label>
+                                <label class="styled textBeefy">@lang('Battle pirates (%):')</label>
                                 <div class="thefield">
-                                    <square-checkbox class="square-checkbox">
-                                        <input type="checkbox" id="square-checkExpeditionGainItem" name="expedition_gain_item" value="1" {{ $expedition_gain_item ? 'checked' : '' }}>
-                                        <label for="square-checkExpeditionGainItem"></label>
-                                    </square-checkbox>
+                                    <input type="text" pattern="[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_pirates }}" size="6" name="expedition_weight_pirates">
                                 </div>
+                                <div class="smallFont">@lang('OGame default: 5.8')</div>
                             </div>
                             <div class="fieldwrapper">
-                                <label class="styled textBeefy">@lang('Expedition loss of fleet:')</label>
+                                <label class="styled textBeefy">@lang('Battle aliens (%):')</label>
                                 <div class="thefield">
-                                    <square-checkbox class="square-checkbox">
-                                        <input type="checkbox" id="square-checkExpeditionLossOfFleet" name="expedition_loss_of_fleet" value="1" {{ $expedition_loss_of_fleet ? 'checked' : '' }}>
-                                        <label for="square-checkExpeditionLossOfFleet"></label>
-                                    </square-checkbox>
+                                    <input type="text" pattern="[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_aliens }}" size="6" name="expedition_weight_aliens">
                                 </div>
+                                <div class="smallFont">@lang('OGame default: 2.6')</div>
+                            </div>
+                            <div class="fieldwrapper">
+                                <label class="styled textBeefy">@lang('Find dark matter (%):')</label>
+                                <div class="thefield">
+                                    <input type="text" pattern="[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_dark_matter }}" size="6" name="expedition_weight_dark_matter">
+                                </div>
+                                <div class="smallFont">@lang('OGame default: 9')</div>
+                            </div>
+                            <div class="fieldwrapper">
+                                <label class="styled textBeefy">@lang('Find merchant (%):')</label>
+                                <div class="thefield">
+                                    <input type="text" pattern="[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_merchant }}" size="6" name="expedition_weight_merchant">
+                                </div>
+                                <div class="smallFont">@lang('OGame default: 0.7')</div>
                             </div>
                         </div>
 

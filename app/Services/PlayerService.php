@@ -507,7 +507,11 @@ class PlayerService
         $object = ObjectService::getResearchObjectByMachineName('astrophysics');
         $expedition_slots_from_research = $object->performCalculation(CalculationType::MAX_EXPEDITION_SLOTS, $this->getResearchLevel('astrophysics'));
 
-        return $expedition_slots_from_research;
+        // Add bonus expedition slots from settings (for timed events)
+        $settingsService = app(SettingsService::class);
+        $bonus_slots = $settingsService->bonusExpeditionSlots();
+
+        return $expedition_slots_from_research + $bonus_slots;
     }
 
     /**

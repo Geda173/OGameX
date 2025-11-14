@@ -10,6 +10,8 @@ use OGame\GameMessages\ExpeditionGainShips;
 use OGame\GameMessages\ExpeditionGainDarkMatter;
 use OGame\GameMessages\ExpeditionGainItem;
 use OGame\GameMessages\ExpeditionLossOfFleet;
+use OGame\GameMessages\ExpeditionBattlePirates;
+use OGame\GameMessages\ExpeditionBattleAliens;
 use OGame\GameMissions\Abstracts\GameMission;
 use OGame\GameMissions\Models\ExpeditionOutcomeType;
 use OGame\GameMissions\Models\MissionPossibleStatus;
@@ -23,6 +25,7 @@ use OGame\Models\Resources;
 use OGame\Models\Highscore;
 use OGame\Enums\HighscoreTypeEnum;
 use OGame\Services\PlanetService;
+use OGame\Services\PlayerService;
 use OGame\Services\ObjectService;
 use OGame\Services\SettingsService;
 use Exception;
@@ -34,23 +37,28 @@ class ExpeditionMission extends GameMission
     protected static bool $hasReturnMission = true;
 
     /**
-     * Configurable outcome weights based on community research.
-     * Each outcome has a weight out of 1000 (representing 0.1% precision).
-     * Total should add up to 1000 for 100%.
-     * @var array<string, int>
+     * Get configurable outcome weights from settings.
+     * Each outcome has a weight (representing relative probability).
+     * Weights are loaded from database settings to allow dynamic event configuration.
+     * @return array<string, int>
      */
-    protected array $outcomeWeights = [
-        //'dark_matter' => 90,      // 9.0% - Find Dark Matter
-        'ships' => 239,           // 22.0% - Find abandoned ships
-        'resources' => 343,       // 32.5% - Find resources
-        // 'pirates' => 58,       // 5.8% - Find pirates (combat) - TODO: implement combat
-        // 'aliens' => 26,        // 2.6% - Find aliens (combat) - TODO: implement combat
-        'delay' => 88,            // 7.0% - Fleet has delay
-        'speedup' => 38,          // 2.0% - Fleet returns early
-        'nothing' => 288,         // 26.5% - Find nothing (includes pirates/aliens weight for now)
-        'black_hole' => 3,        // 0.33% - Black hole (fleet loss)
-        //'merchant' => 7,          // 0.7% - Find merchant
-    ];
+    protected function getOutcomeWeights(): array
+    {
+        $settingsService = app(SettingsService::class);
+
+        return [
+            'dark_matter' => $settingsService->expeditionWeightDarkMatter(),
+            'ships' => $settingsService->expeditionWeightShips(),
+            'resources' => $settingsService->expeditionWeightResources(),
+            'delay' => $settingsService->expeditionWeightDelay(),
+            'speedup' => $settingsService->expeditionWeightSpeedup(),
+            'nothing' => $settingsService->expeditionWeightNothing(),
+            'black_hole' => $settingsService->expeditionWeightBlackHole(),
+            'pirates' => $settingsService->expeditionWeightPirates(),
+            'aliens' => $settingsService->expeditionWeightAliens(),
+            'merchant' => $settingsService->expeditionWeightMerchant(),
+        ];
+    }
 
     /**
      * @inheritdoc
@@ -90,6 +98,29 @@ class ExpeditionMission extends GameMission
     }
 
     /**
+     * Process the arrival of an expedition mission.
+     *
+     * CRITICAL: Fleet Duplication Prevention
+     * ========================================
+     * When modifying $units in outcome handlers, be VERY careful to avoid fleet duplication bugs.
+     *
+     * SAFE patterns:
+     * - GainShips: $units->addCollection($foundUnits) - ADDS new ships to existing fleet
+     * - LossOfFleet: $units = new UnitCollection() - REPLACES entire fleet with empty
+     *
+     * DANGEROUS pattern (causes duplication):
+     * - Battle: DO NOT do $units->addCollection($battleResult->attackerUnitsResult)
+     *   Instead: $units = $battleResult->attackerUnitsResult (REPLACE, not add)
+     *
+     * Why? Battle engine returns the SURVIVING units. These are already the units that
+     * should return. Adding them to the original units would duplicate the survivors.
+     *
+     * Example:
+     * - Original fleet: 100 ships
+     * - Battle result: 60 ships survived (returned in attackerUnitsResult)
+     * - WRONG: $units->addCollection(60 ships) = 160 ships total (duplicated!)
+     * - RIGHT: $units = 60 ships (correct survivors)
+     *
      * @inheritdoc
      * @throws \Exception
      */
@@ -141,6 +172,12 @@ class ExpeditionMission extends GameMission
                 break;
             case ExpeditionOutcomeType::LossOfFleet:
                 $units = $this->processExpeditionLossOfFleetOutcome($mission);
+                break;
+            case ExpeditionOutcomeType::BattlePirates:
+                [$units, $returnResources] = $this->processExpeditionBattleOutcome($mission, 'pirate');
+                break;
+            case ExpeditionOutcomeType::BattleAliens:
+                [$units, $returnResources] = $this->processExpeditionBattleOutcome($mission, 'alien');
                 break;
         }
 
@@ -548,6 +585,201 @@ class ExpeditionMission extends GameMission
     }
 
     /**
+     * Process the expedition battle outcome (pirates or aliens).
+     *
+     * CRITICAL: This method returns SURVIVING units from battle, not additions.
+     * The caller MUST use: $units = $battleResult[0]  (REPLACE, not add)
+     * DO NOT use: $units->addCollection() - this causes fleet duplication!
+     *
+     * @param FleetMission $mission
+     * @param string $npcType 'pirate' or 'alien'
+     * @return array{UnitCollection, Resources} [surviving units, loot resources]
+     */
+    private function processExpeditionBattleOutcome(FleetMission $mission, string $npcType): array
+    {
+        // Load the mission owner
+        $player = $this->playerServiceFactory->make($mission->user_id, true);
+
+        // Get player's expedition fleet
+        $playerFleet = $this->fleetMissionService->getFleetUnits($mission);
+
+        // Generate NPC fleet
+        $npcFleetGenerator = app(\OGame\Services\NPCFleetGeneratorService::class);
+        $npcData = $npcFleetGenerator->generateEnemyFleet($playerFleet, $player, $npcType);
+        $npcFleet = $npcData['fleet'];
+        $npcPlayer = $npcData['player'];
+
+        // Create a temporary "planet" for the NPC (battle engine expects a planet)
+        // Since expedition battles happen in deep space (position 16) which has no real planet,
+        // we'll use the player's home planet as a temporary location to add NPC ships
+        // and run the battle. This is just for battle engine compatibility.
+        $originPlanet = $this->planetServiceFactory->make($mission->planet_id_from, true);
+
+        if ($originPlanet === null) {
+            // Fallback: try to get player's first planet
+            $originPlanet = $player->planets->first();
+            if ($originPlanet === null) {
+                throw new \Exception('Cannot create expedition battle: no valid planet for player');
+            }
+        }
+
+        // Create NPC planet service for the battle
+        // This properly extends PlanetService so it satisfies the RustBattleEngine type requirement
+        // We use the origin planet's ID so the NPC service has a valid planet for coordinates/ID
+        $npcPlanetService = new \OGame\Services\NPCPlanetService(
+            $this->playerServiceFactory,
+            $this->settings,
+            $npcPlayer,
+            $npcFleet,
+            $originPlanet->getPlanetId()
+        );
+
+        // Run the battle with player as attacker and NPC planet as defender
+        $battleEngine = new \OGame\GameMissions\BattleEngine\RustBattleEngine(
+            $playerFleet,
+            $player,
+            $npcPlanetService,
+            $this->settings
+        );
+
+        $battleResult = $battleEngine->simulateBattle();
+
+        // Create battle report for expedition battle
+        // Pass expedition coordinates (position 16) not the temporary planet coordinates
+        $expeditionCoords = new \OGame\Models\Planet\Coordinate(
+            $mission->galaxy_to,
+            $mission->system_to,
+            16
+        );
+        $reportId = $this->createExpeditionBattleReport($player, $npcPlayer, $expeditionCoords, $battleResult);
+
+        // Process battle result
+        $survivingUnits = $battleResult->attackerUnitsResult;
+
+        // No loot generated from pirate/alien battles - it's purely a combat event
+        $loot = new Resources(0, 0, 0, 0);
+
+        // Send battle report message to player
+        $this->messageService->sendBattleReportMessageToPlayer($player, $reportId);
+
+        // Send expedition battle outcome message (pirate or alien specific)
+        if ($npcType === 'pirate') {
+            $message_variation_id = ExpeditionBattlePirates::getRandomMessageVariationId();
+            $this->messageService->sendSystemMessageToPlayer($player, ExpeditionBattlePirates::class, ['message_variation_id' => $message_variation_id]);
+        } else {
+            $message_variation_id = ExpeditionBattleAliens::getRandomMessageVariationId();
+            $this->messageService->sendSystemMessageToPlayer($player, ExpeditionBattleAliens::class, ['message_variation_id' => $message_variation_id]);
+        }
+
+        // CRITICAL: Return surviving units (not added to original)
+        // The caller will REPLACE $units with this, not add to it
+        return [$survivingUnits, $loot];
+    }
+
+    /**
+     * Calculate total value of a fleet.
+     *
+     * @param UnitCollection $fleet
+     * @return int
+     */
+    private function calculateFleetValue(UnitCollection $fleet): int
+    {
+        $totalValue = 0;
+        foreach ($fleet->units as $unit) {
+            $shipCost = $unit->unitObject->price->resources->sum();
+            $totalValue += $shipCost * $unit->amount;
+        }
+        return $totalValue;
+    }
+
+    /**
+     * Create a battle report for an expedition battle against pirates or aliens.
+     *
+     * @param PlayerService $player The player who sent the expedition
+     * @param NPCPlayerService $npcPlayer The NPC opponent (pirate or alien)
+     * @param \OGame\Models\Planet\Coordinate $expeditionCoords The expedition coordinates (position 16)
+     * @param \OGame\GameMissions\BattleEngine\Models\BattleResult $battleResult The result of the battle
+     * @return int The battle report ID
+     */
+    private function createExpeditionBattleReport(PlayerService $player, \OGame\Services\NPCPlayerService $npcPlayer, \OGame\Models\Planet\Coordinate $expeditionCoords, \OGame\GameMissions\BattleEngine\Models\BattleResult $battleResult): int
+    {
+        // Create new battle report record
+        $report = new \OGame\Models\BattleReport();
+        $report->planet_galaxy = $expeditionCoords->galaxy;
+        $report->planet_system = $expeditionCoords->system;
+        $report->planet_position = $expeditionCoords->position;
+        $report->planet_type = \OGame\Models\Enums\PlanetType::Planet->value;
+        $report->planet_user_id = $player->getId(); // Player is the defender
+
+        $report->general = [
+            'moon_existed' => false,
+            'moon_chance' => 0,
+            'moon_created' => false,
+            'expedition_battle' => true,
+            'npc_type' => $npcPlayer->getNpcType(),
+        ];
+
+        // SWAP attacker and defender: In expeditions, NPCs attack the player's fleet
+        $report->attacker = [
+            'player_id' => $npcPlayer->getId(),
+            'player_name' => $npcPlayer->getUsername(), // "Space Pirates" or "Alien Fleet"
+            'resource_loss' => $battleResult->defenderResourceLoss->sum(),
+            'units' => $battleResult->defenderUnitsStart->toArray(),
+            'weapon_technology' => $battleResult->defenderWeaponLevel,
+            'shielding_technology' => $battleResult->defenderShieldLevel,
+            'armor_technology' => $battleResult->defenderArmorLevel,
+        ];
+
+        $report->defender = [
+            'player_id' => $player->getId(),
+            'resource_loss' => $battleResult->attackerResourceLoss->sum(),
+            'units' => $battleResult->attackerUnitsStart->toArray(),
+            'weapon_technology' => $battleResult->attackerWeaponLevel,
+            'shielding_technology' => $battleResult->attackerShieldLevel,
+            'armor_technology' => $battleResult->attackerArmorLevel,
+        ];
+
+        $report->loot = [
+            'percentage' => 0,
+            'metal' => 0,
+            'crystal' => 0,
+            'deuterium' => 0,
+        ];
+
+        $report->debris = [
+            'metal' => $battleResult->debris->metal->get(),
+            'crystal' => $battleResult->debris->crystal->get(),
+            'deuterium' => $battleResult->debris->deuterium->get(),
+        ];
+
+        $report->repaired_defenses = []; // No defenses in expeditions
+
+        // SWAP round data: NPC is attacker, player is defender
+        $rounds = [];
+        foreach ($battleResult->rounds as $round) {
+            $rounds[] = [
+                'attacker_ships' => $round->defenderShips->toArray(),      // NPC ships (were defender in engine)
+                'defender_ships' => $round->attackerShips->toArray(),      // Player ships (were attacker in engine)
+                'attacker_losses' => $round->defenderLosses->toArray(),    // NPC losses
+                'defender_losses' => $round->attackerLosses->toArray(),    // Player losses
+                'attacker_losses_in_this_round' => $round->defenderLossesInRound->toArray(),
+                'defender_losses_in_this_round' => $round->attackerLossesInRound->toArray(),
+                'absorbed_damage_attacker' => $round->absorbedDamageDefender,
+                'absorbed_damage_defender' => $round->absorbedDamageAttacker,
+                'full_strength_attacker' => $round->fullStrengthDefender,
+                'full_strength_defender' => $round->fullStrengthAttacker,
+                'hits_attacker' => $round->hitsDefender,
+                'hits_defender' => $round->hitsAttacker,
+            ];
+        }
+
+        $report->rounds = $rounds;
+        $report->save();
+
+        return $report->id;
+    }
+
+    /**
      * Select a random expedition outcome based on configured weights. Higher weight
      * for a particular outcome means more chance of that outcome being selected
      * relative to the other outcomes.
@@ -567,6 +799,8 @@ class ExpeditionMission extends GameMission
             'speedup' => ExpeditionOutcomeType::FailedAndSpeedup,
             'nothing' => ExpeditionOutcomeType::Failed,
             'black_hole' => ExpeditionOutcomeType::LossOfFleet,
+            'pirates' => ExpeditionOutcomeType::BattlePirates,
+            'aliens' => ExpeditionOutcomeType::BattleAliens,
             'merchant' => ExpeditionOutcomeType::GainMerchantTrade,
         ];
 
@@ -574,32 +808,37 @@ class ExpeditionMission extends GameMission
         $weightedOutcomes = [];
         $totalWeight = 0;
 
-        foreach ($this->outcomeWeights as $key => $weight) {
+        // Get weights from settings (allows dynamic event configuration)
+        $outcomeWeights = $this->getOutcomeWeights();
+
+        foreach ($outcomeWeights as $key => $weight) {
             if (!isset($outcomeMapping[$key])) {
+                continue;
+            }
+
+            // Skip outcomes with 0 weight (disabled)
+            if ($weight <= 0) {
                 continue;
             }
 
             $outcome = $outcomeMapping[$key];
 
-            // Check if outcome is enabled in settings
-            if ($settingsService->get($outcome->getSettingKey()) === '1') {
-                // TODO: Remove this filter once outcomes are fully implemented
-                // For now, skip unimplemented outcomes
-                if (in_array($outcome, [
-                    ExpeditionOutcomeType::GainDarkMatter,
-                    ExpeditionOutcomeType::GainItems,
-                    ExpeditionOutcomeType::GainMerchantTrade,
-                    ExpeditionOutcomeType::Battle,
-                ])) {
-                    continue;
-                }
-
-                $weightedOutcomes[] = [
-                    'outcome' => $outcome,
-                    'weight' => $weight,
-                ];
-                $totalWeight += $weight;
+            // TODO: Remove this filter once outcomes are fully implemented
+            // For now, skip unimplemented outcomes
+            if (in_array($outcome, [
+                ExpeditionOutcomeType::GainDarkMatter,
+                ExpeditionOutcomeType::GainItems,
+                ExpeditionOutcomeType::GainMerchantTrade,
+                ExpeditionOutcomeType::Battle,
+            ])) {
+                continue;
             }
+
+            $weightedOutcomes[] = [
+                'outcome' => $outcome,
+                'weight' => $weight,
+            ];
+            $totalWeight += $weight;
         }
 
         // If no outcomes are enabled, default to failure
@@ -683,6 +922,11 @@ class ExpeditionMission extends GameMission
         $resourceAmount = $resourceAmount * ($economySpeed * 1.5);
 
         // TODO: when pathfinder unit is added to the game and included in the fleet, the max find should be doubled.
+
+        // Apply expedition rewards multiplier (for timed events)
+        $settingsService = app(SettingsService::class);
+        $rewardsMultiplier = $settingsService->expeditionRewardsMultiplier();
+        $resourceAmount = $resourceAmount * $rewardsMultiplier;
 
         return (int)$resourceAmount;
     }
