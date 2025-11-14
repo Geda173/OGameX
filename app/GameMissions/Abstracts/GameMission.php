@@ -102,10 +102,15 @@ abstract class GameMission
         // Preserve original departure time for return trip duration calculation
         $originalTimeDeparture = $mission->time_departure;
 
+        // FIXED: Use a consistent timestamp throughout the cancel operation
+        // to prevent race conditions where the return mission is created "in the past"
+        // and gets instantly processed (teleportation bug)
+        $cancelTime = (int)Carbon::now()->timestamp;
+
         // Update the mission arrived time to now (when the recall happens)
         // This is critical for correct return time calculation:
         // Return duration = NOW - departure = time already flown
-        $mission->time_arrival = (int)Carbon::now()->timestamp;
+        $mission->time_arrival = $cancelTime;
 
         // Clear the holding time for recalled missions - recalled fleets return immediately without waiting
         $mission->time_holding = 0;
@@ -116,7 +121,7 @@ abstract class GameMission
         $mission->save();
 
         // Create a clone for return trip calculation
-        // Keep time_arrival as NOW (not original) so return duration = time already flown
+        // Keep time_arrival as cancelTime (not original) so return duration = time already flown
         // Only restore time_departure to original value
         $missionForReturn = clone $mission;
         $missionForReturn->time_departure = $originalTimeDeparture;
@@ -285,10 +290,21 @@ abstract class GameMission
 
         // Check if the created mission arrival time is in the past. This can happen if the planet hasn't been updated
         // for some time and missions have already played out in the meantime.
-        // If the mission is in the past, process it immediately.
-        if ($mission->time_arrival < Carbon::now()->timestamp) {
+        // FIXED: Only process if significantly in the past (>10 seconds) to avoid edge cases
+        $currentTime = Carbon::now()->timestamp;
+        $timeDifference = $currentTime - $mission->time_arrival;
+
+        if ($timeDifference > 10) {
+            \Log::info('Mission arrival time in the past, processing immediately', [
+                'mission_id' => $mission->id,
+                'mission_type' => $mission->mission_type,
+                'arrival_time' => $mission->time_arrival,
+                'current_time' => $currentTime,
+                'seconds_overdue' => $timeDifference,
+            ]);
             $this->process($mission);
         }
+        // else: Let the mission process naturally through the update cycle (within 10 seconds)
 
         return $mission;
     }
@@ -413,10 +429,21 @@ abstract class GameMission
 
         // Check if the created mission arrival time is in the past. This can happen if the planet hasn't been updated
         // for some time and missions have already played out in the meantime.
-        // If the mission is in the past, process it immediately.
-        if ($mission->time_arrival < Carbon::now()->timestamp) {
+        // FIXED: Only process if significantly in the past (>10 seconds) to avoid teleporting
+        // fleets that were recalled immediately after dispatch (race condition)
+        $currentTime = Carbon::now()->timestamp;
+        $timeDifference = $currentTime - $mission->time_arrival;
+
+        if ($timeDifference > 10) {
+            \Log::info('Return mission arrival time in the past, processing immediately', [
+                'mission_id' => $mission->id,
+                'arrival_time' => $mission->time_arrival,
+                'current_time' => $currentTime,
+                'seconds_overdue' => $timeDifference,
+            ]);
             $this->process($mission);
         }
+        // else: Let the mission process naturally through the update cycle (within 10 seconds)
     }
 
     /**

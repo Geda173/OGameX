@@ -942,8 +942,7 @@ class PlayerService
      */
     public function calculatePhalanxCost(int $fromGalaxy, int $fromSystem, int $toGalaxy, int $toSystem): int
     {
-        // Cost is 5000 deuterium per system distance
-        $systemDistance = abs($fromSystem - $toSystem);
-        return 5000 * $systemDistance;
+        // Flat cost of 5000 deuterium per scan, regardless of distance
+        return 5000;
     }
 }

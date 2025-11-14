@@ -188,17 +188,22 @@ class ACSAttackMission extends GameMission
 
             $fleetUnits = $this->fleetMissionService->getFleetUnits($fleetMission);
 
+            // CRITICAL FIX: Clone the units before adding to combined force
+            // addCollection() adds Unit objects by reference, so without cloning,
+            // all fleet units would end up pointing to the same mutated objects!
+            $fleetUnitsForStorage = clone $fleetUnits;
+
             // Add this fleet's units to the combined force
             $combinedAttackerUnits->addCollection($fleetUnits);
 
-            // Store fleet info for later processing
+            // Store fleet info for later processing (use the cloned version)
             $originPlanet = $this->planetServiceFactory->make($fleetMission->planet_id_from, true);
             $fleetPlayer = $originPlanet->getPlayer();
             $attackerFleets[] = [
                 'mission' => $fleetMission,
                 'player' => $fleetPlayer,
-                'units' => $fleetUnits,
-                'cargo_capacity' => $fleetUnits->getTotalCargoCapacity($fleetPlayer),
+                'units' => $fleetUnitsForStorage,  // Use cloned version
+                'cargo_capacity' => $fleetUnitsForStorage->getTotalCargoCapacity($fleetPlayer),
             ];
         }
 
@@ -376,8 +381,24 @@ class ACSAttackMission extends GameMission
 
         foreach ($attackerFleets as $fleet) {
             $initialUnits = $fleet['units'];
-            $fleetLossPercentage = $this->calculateFleetLossPercentage($initialUnits, $battleResult);
-            $survivingUnits = $this->calculateSurvivingUnits($initialUnits, $fleetLossPercentage);
+
+            // DEBUG: Log what units this fleet sent
+            \Log::info('ACS distributeLootAndLosses - Fleet units', [
+                'player_id' => $fleet['player']->getId(),
+                'mission_id' => $fleet['mission']->id,
+                'units_sent' => $initialUnits->toArray(),
+            ]);
+
+            // FIXED: Use ship-type-specific survival rates from battle result
+            // instead of applying a uniform loss percentage to all ship types
+            $survivingUnits = $this->calculateSurvivingUnitsCorrect($initialUnits, $battleResult);
+
+            // DEBUG: Log what survivors were calculated
+            \Log::info('ACS distributeLootAndLosses - Calculated survivors', [
+                'player_id' => $fleet['player']->getId(),
+                'mission_id' => $fleet['mission']->id,
+                'survivors' => $survivingUnits->toArray(),
+            ]);
 
             // Calculate surviving cargo capacity
             $survivingCargoCapacity = $survivingUnits->getTotalCargoCapacity($fleet['player']);
@@ -450,6 +471,10 @@ class ACSAttackMission extends GameMission
     /**
      * Calculate the percentage of losses for a specific fleet.
      *
+     * @deprecated This method is BUGGY - it calculates a uniform loss percentage for all ship types.
+     *             The correct approach is to use ship-type-specific survival rates.
+     *             This method is no longer used. See calculateSurvivingUnitsCorrect() for the fix.
+     *
      * @param UnitCollection $fleetUnits
      * @param BattleResult $battleResult
      * @return float Loss percentage (0-1)
@@ -489,6 +514,9 @@ class ACSAttackMission extends GameMission
     /**
      * Calculate surviving units for a fleet based on loss percentage.
      *
+     * @deprecated This method is BUGGY - it applies a uniform loss percentage to all ship types.
+     *             Use calculateSurvivingUnitsCorrect() instead.
+     *
      * @param UnitCollection $originalUnits
      * @param float $lossPercentage
      * @return UnitCollection
@@ -502,6 +530,51 @@ class ACSAttackMission extends GameMission
             if ($surviving > 0) {
                 $survivingUnits->addUnit($unit->unitObject, $surviving);
             }
+        }
+
+        return $survivingUnits;
+    }
+
+    /**
+     * CORRECTED: Calculate surviving units for a fleet based on ship-type-specific survival rates.
+     *
+     * This method correctly distributes battle survivors to each fleet proportionally based on:
+     * 1. The actual survival rate of each ship type from the battle
+     * 2. What this specific fleet contributed for each ship type
+     *
+     * Bug fix for: Ship duplication where fleets received more ships than should have survived.
+     * Original bug: calculateFleetLossPercentage() + calculateSurvivingUnits() applied a uniform
+     * loss percentage to all ship types, ignoring ship-type-specific survival rates.
+     *
+     * @param UnitCollection $fleetUnits The units this specific fleet sent to the battle
+     * @param BattleResult $battleResult The battle result containing total survivors
+     * @return UnitCollection The units this fleet should receive back
+     */
+    private function calculateSurvivingUnitsCorrect(UnitCollection $fleetUnits, BattleResult $battleResult): UnitCollection
+    {
+        $survivingUnits = new UnitCollection();
+
+        // For each ship type this fleet sent, calculate how many should survive
+        foreach ($fleetUnits->units as $unit) {
+            $unitMachineName = $unit->unitObject->machine_name;
+            $fleetSentThisType = $unit->amount;
+
+            // Get total sent and total survived for this ship type across all fleets
+            $totalSentThisType = $battleResult->attackerUnitsStart->getAmountByMachineName($unitMachineName);
+            $totalSurvivedThisType = $battleResult->attackerUnitsResult->getAmountByMachineName($unitMachineName);
+
+            if ($totalSentThisType > 0) {
+                // Calculate ship-type-specific survival rate
+                $survivalRate = $totalSurvivedThisType / $totalSentThisType;
+
+                // Apply survival rate to what this fleet sent
+                $fleetSurvivors = (int)floor($fleetSentThisType * $survivalRate);
+
+                if ($fleetSurvivors > 0) {
+                    $survivingUnits->addUnit($unit->unitObject, $fleetSurvivors);
+                }
+            }
+            // else: No ships of this type sent by anyone, so no survivors
         }
 
         return $survivingUnits;
