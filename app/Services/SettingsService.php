@@ -417,100 +417,100 @@ class SettingsService
     /**
      * Returns the expedition outcome weight for ships (0-100 scale, relative).
      *
-     * @return int
+     * @return float
      */
-    public function expeditionWeightShips(): int
+    public function expeditionWeightShips(): float
     {
-        return (int)$this->get('expedition_weight_ships', 24);
+        return (float)$this->get('expedition_weight_ships', 24);
     }
 
     /**
      * Returns the expedition outcome weight for resources (0-100 scale, relative).
      *
-     * @return int
+     * @return float
      */
-    public function expeditionWeightResources(): int
+    public function expeditionWeightResources(): float
     {
-        return (int)$this->get('expedition_weight_resources', 34);
+        return (float)$this->get('expedition_weight_resources', 34);
     }
 
     /**
      * Returns the expedition outcome weight for delay (0-100 scale, relative).
      *
-     * @return int
+     * @return float
      */
-    public function expeditionWeightDelay(): int
+    public function expeditionWeightDelay(): float
     {
-        return (int)$this->get('expedition_weight_delay', 9);
+        return (float)$this->get('expedition_weight_delay', 9);
     }
 
     /**
      * Returns the expedition outcome weight for speedup (0-100 scale, relative).
      *
-     * @return int
+     * @return float
      */
-    public function expeditionWeightSpeedup(): int
+    public function expeditionWeightSpeedup(): float
     {
-        return (int)$this->get('expedition_weight_speedup', 4);
+        return (float)$this->get('expedition_weight_speedup', 4);
     }
 
     /**
      * Returns the expedition outcome weight for nothing/failed (0-100 scale, relative).
      *
-     * @return int
+     * @return float
      */
-    public function expeditionWeightNothing(): int
+    public function expeditionWeightNothing(): float
     {
-        return (int)$this->get('expedition_weight_nothing', 29);
+        return (float)$this->get('expedition_weight_nothing', 29);
     }
 
     /**
      * Returns the expedition outcome weight for black hole/fleet loss (0-100 scale, relative).
      *
-     * @return int
+     * @return float
      */
-    public function expeditionWeightBlackHole(): int
+    public function expeditionWeightBlackHole(): float
     {
-        return (int)$this->get('expedition_weight_black_hole', 1);
+        return (float)$this->get('expedition_weight_black_hole', 1);
     }
 
     /**
      * Returns the expedition outcome weight for pirates (0-100 scale, relative).
      *
-     * @return int
+     * @return float
      */
-    public function expeditionWeightPirates(): int
+    public function expeditionWeightPirates(): float
     {
-        return (int)$this->get('expedition_weight_pirates', 0);
+        return (float)$this->get('expedition_weight_pirates', 0);
     }
 
     /**
      * Returns the expedition outcome weight for aliens (0-100 scale, relative).
      *
-     * @return int
+     * @return float
      */
-    public function expeditionWeightAliens(): int
+    public function expeditionWeightAliens(): float
     {
-        return (int)$this->get('expedition_weight_aliens', 0);
+        return (float)$this->get('expedition_weight_aliens', 0);
     }
 
     /**
      * Returns the expedition outcome weight for dark matter (0-100 scale, relative).
      *
-     * @return int
+     * @return float
      */
-    public function expeditionWeightDarkMatter(): int
+    public function expeditionWeightDarkMatter(): float
     {
-        return (int)$this->get('expedition_weight_dark_matter', 0);
+        return (float)$this->get('expedition_weight_dark_matter', 0);
     }
 
     /**
      * Returns the expedition outcome weight for merchant (0-100 scale, relative).
      *
-     * @return int
+     * @return float
      */
-    public function expeditionWeightMerchant(): int
+    public function expeditionWeightMerchant(): float
     {
-        return (int)$this->get('expedition_weight_merchant', 0);
+        return (float)$this->get('expedition_weight_merchant', 0);
     }
 }

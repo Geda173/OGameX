@@ -244,70 +244,70 @@
                             <div class="fieldwrapper">
                                 <label class="styled textBeefy">@lang('Find ships (%):')</label>
                                 <div class="thefield">
-                                    <input type="text" pattern="[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_ships }}" size="6" name="expedition_weight_ships">
+                                    <input type="text" pattern="[0-9]*\.?[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_ships }}" size="6" name="expedition_weight_ships">
                                 </div>
                                 <div class="smallFont">@lang('OGame default: 22')</div>
                             </div>
                             <div class="fieldwrapper">
                                 <label class="styled textBeefy">@lang('Find resources (%):')</label>
                                 <div class="thefield">
-                                    <input type="text" pattern="[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_resources }}" size="6" name="expedition_weight_resources">
+                                    <input type="text" pattern="[0-9]*\.?[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_resources }}" size="6" name="expedition_weight_resources">
                                 </div>
                                 <div class="smallFont">@lang('OGame default: 32')</div>
                             </div>
                             <div class="fieldwrapper">
                                 <label class="styled textBeefy">@lang('Fleet delay (%):')</label>
                                 <div class="thefield">
-                                    <input type="text" pattern="[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_delay }}" size="6" name="expedition_weight_delay">
+                                    <input type="text" pattern="[0-9]*\.?[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_delay }}" size="6" name="expedition_weight_delay">
                                 </div>
                                 <div class="smallFont">@lang('OGame default: 7')</div>
                             </div>
                             <div class="fieldwrapper">
                                 <label class="styled textBeefy">@lang('Fleet speedup (%):')</label>
                                 <div class="thefield">
-                                    <input type="text" pattern="[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_speedup }}" size="6" name="expedition_weight_speedup">
+                                    <input type="text" pattern="[0-9]*\.?[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_speedup }}" size="6" name="expedition_weight_speedup">
                                 </div>
                                 <div class="smallFont">@lang('OGame default: 2')</div>
                             </div>
                             <div class="fieldwrapper">
                                 <label class="styled textBeefy">@lang('Find nothing (%):')</label>
                                 <div class="thefield">
-                                    <input type="text" pattern="[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_nothing }}" size="6" name="expedition_weight_nothing">
+                                    <input type="text" pattern="[0-9]*\.?[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_nothing }}" size="6" name="expedition_weight_nothing">
                                 </div>
                                 <div class="smallFont">@lang('OGame default: 18.6')</div>
                             </div>
                             <div class="fieldwrapper">
                                 <label class="styled textBeefy">@lang('Black hole / Fleet loss (%):')</label>
                                 <div class="thefield">
-                                    <input type="text" pattern="[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_black_hole }}" size="6" name="expedition_weight_black_hole">
+                                    <input type="text" pattern="[0-9]*\.?[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_black_hole }}" size="6" name="expedition_weight_black_hole">
                                 </div>
                                 <div class="smallFont">@lang('OGame default: 0.33')</div>
                             </div>
                             <div class="fieldwrapper">
                                 <label class="styled textBeefy">@lang('Battle pirates (%):')</label>
                                 <div class="thefield">
-                                    <input type="text" pattern="[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_pirates }}" size="6" name="expedition_weight_pirates">
+                                    <input type="text" pattern="[0-9]*\.?[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_pirates }}" size="6" name="expedition_weight_pirates">
                                 </div>
                                 <div class="smallFont">@lang('OGame default: 5.8')</div>
                             </div>
                             <div class="fieldwrapper">
                                 <label class="styled textBeefy">@lang('Battle aliens (%):')</label>
                                 <div class="thefield">
-                                    <input type="text" pattern="[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_aliens }}" size="6" name="expedition_weight_aliens">
+                                    <input type="text" pattern="[0-9]*\.?[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_aliens }}" size="6" name="expedition_weight_aliens">
                                 </div>
                                 <div class="smallFont">@lang('OGame default: 2.6')</div>
                             </div>
                             <div class="fieldwrapper">
                                 <label class="styled textBeefy">@lang('Find dark matter (%):')</label>
                                 <div class="thefield">
-                                    <input type="text" pattern="[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_dark_matter }}" size="6" name="expedition_weight_dark_matter">
+                                    <input type="text" pattern="[0-9]*\.?[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_dark_matter }}" size="6" name="expedition_weight_dark_matter">
                                 </div>
                                 <div class="smallFont">@lang('OGame default: 9')</div>
                             </div>
                             <div class="fieldwrapper">
                                 <label class="styled textBeefy">@lang('Find merchant (%):')</label>
                                 <div class="thefield">
-                                    <input type="text" pattern="[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_merchant }}" size="6" name="expedition_weight_merchant">
+                                    <input type="text" pattern="[0-9]*\.?[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_merchant }}" size="6" name="expedition_weight_merchant">
                                 </div>
                                 <div class="smallFont">@lang('OGame default: 0.7')</div>
                             </div>
