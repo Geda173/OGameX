@@ -1384,7 +1384,7 @@ class FleetController extends OGameController
 
             // Get the source planet
             $planet = $planetServiceFactory->make($planetId);
-            if (!$planet || $planet->ownerId() !== $player->getId()) {
+            if (!$planet || $planet->getPlayer()->getId() !== $player->getId()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid planet',
