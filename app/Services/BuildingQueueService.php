@@ -99,6 +99,15 @@ class BuildingQueueService
             throw new Exception('Requirements not met to build this object.');
         }
 
+        // Check if this is a new building (not an upgrade) and if fields are available
+        if ($current_level == 0) {
+            $current_buildings = $planet->getBuildingCount();
+            $max_fields = $planet->getPlanetFieldMax();
+            if ($current_buildings >= $max_fields) {
+                throw new Exception('No building fields available on this planet.');
+            }
+        }
+
         $queue = new BuildingQueue();
         $queue->planet_id = $planet->getPlanetId();
         $queue->object_id = $building->id;

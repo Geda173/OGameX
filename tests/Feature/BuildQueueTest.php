@@ -334,4 +334,60 @@ class BuildQueueTest extends AccountTestCase
         $response = $this->get('/resources');
         $this->assertObjectLevelOnPage($response, 'metal_mine', 51, 'Metal mine is not at level 51 after construction time has passed.');
     }
+
+    /**
+     * Verify that building is blocked when planet fields are full.
+     * @throws Exception
+     */
+    public function testBuildQueueFailFieldsFull(): void
+    {
+        // Add resources for building
+        $this->planetAddResources(new Resources(10000, 10000, 10000, 0));
+
+        // Set planet to have only 3 fields by updating the planet model directly
+        $planet = $this->planetService->getPlanetModel();
+        $planet->field_max = 3;
+        $planet->save();
+
+        // Verify planet has 3 max fields
+        $this->assertEquals(3, $this->planetService->getPlanetFieldMax());
+
+        // ---
+        // Step 1: Build 3 buildings to fill all available fields
+        // ---
+        $this->addResourceBuildRequest('metal_mine');
+        $this->addResourceBuildRequest('crystal_mine');
+        $this->addResourceBuildRequest('deuterium_synthesizer');
+
+        // Wait for all buildings to complete
+        $this->travel(10)->minutes();
+
+        // Verify all 3 buildings are built
+        $this->assertEquals(3, $this->planetService->getBuildingCount());
+
+        // ---
+        // Step 2: Try to build a 4th building when fields are full
+        // ---
+        $this->addResourceBuildRequest('solar_plant', true);
+
+        // ---
+        // Step 3: Verify the 4th building was NOT added to queue
+        // ---
+        $response = $this->get('/resources');
+        $response->assertStatus(200);
+        $this->assertObjectLevelOnPage($response, 'solar_plant', 0, 'Solar plant should still be at level 0 as it should not have been built.');
+        $this->assertObjectNotInQueue($response, 'solar_plant', 'Solar plant should not be in queue as all fields are full.');
+
+        // ---
+        // Step 4: Verify that upgrading existing buildings still works when fields are full
+        // ---
+        $this->addResourceBuildRequest('metal_mine');
+
+        // Wait for upgrade to complete
+        $this->travel(10)->minutes();
+
+        // Verify metal mine was upgraded to level 2
+        $response = $this->get('/resources');
+        $this->assertObjectLevelOnPage($response, 'metal_mine', 2, 'Metal mine should be at level 2 as upgrades should still work when fields are full.');
+    }
 }
