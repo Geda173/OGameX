@@ -1687,35 +1687,71 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                             ships = window.acsShipCache[cacheKey];
                         } else {
 
-                        // Try to get ships from FleetDispatcher first
-                        if (typeof fleetDispatcher !== 'undefined' && fleetDispatcher.shipsOnPlanet) {
-                            console.log('Getting ships from fleetDispatcher.shipsOnPlanet');
-                            // Get selected ships from FleetDispatcher
-                            for (const shipId in fleetDispatcher.shipsOnPlanet) {
-                                const shipData = fleetDispatcher.shipsOnPlanet[shipId];
-                                if (shipData && shipData.number > 0) {
-                                    const shipIdToName = {
-                                        '202': 'small_cargo',
-                                        '203': 'large_cargo',
-                                        '204': 'light_fighter',
-                                        '205': 'heavy_fighter',
-                                        '206': 'cruiser',
-                                        '207': 'battle_ship',
-                                        '208': 'colony_ship',
-                                        '209': 'recycler',
-                                        '210': 'espionage_probe',
-                                        '211': 'bomber',
-                                        '213': 'destroyer',
-                                        '214': 'deathstar',
-                                        '215': 'battlecruiser'
-                                    };
-                                    const machineName = shipIdToName[shipId];
-                                    if (machineName) {
-                                        ships[machineName] = shipData.number;
+                        // Debug: Log what properties fleetDispatcher actually has
+                        if (typeof fleetDispatcher !== 'undefined') {
+                            console.log('🔍 Debugging FleetDispatcher object:');
+                            console.log('  Properties:', Object.keys(fleetDispatcher).slice(0, 20));
+                            console.log('  shipsOnPlanet:', fleetDispatcher.shipsOnPlanet);
+                            console.log('  fleet:', fleetDispatcher.fleet);
+                            console.log('  fleetHelper:', fleetDispatcher.fleetHelper);
+                            console.log('  ships:', fleetDispatcher.ships);
+                            console.log('  shipsToSend:', fleetDispatcher.shipsToSend);
+                        }
+
+                        // Try to get ships from FleetDispatcher - check multiple locations
+                        if (typeof fleetDispatcher !== 'undefined') {
+                            let shipSource = null;
+                            let sourceName = '';
+
+                            // Try different possible locations for ship data
+                            if (fleetDispatcher.fleet && Object.keys(fleetDispatcher.fleet).length > 0) {
+                                shipSource = fleetDispatcher.fleet;
+                                sourceName = 'fleet';
+                            } else if (fleetDispatcher.ships && Object.keys(fleetDispatcher.ships).length > 0) {
+                                shipSource = fleetDispatcher.ships;
+                                sourceName = 'ships';
+                            } else if (fleetDispatcher.shipsToSend && Object.keys(fleetDispatcher.shipsToSend).length > 0) {
+                                shipSource = fleetDispatcher.shipsToSend;
+                                sourceName = 'shipsToSend';
+                            } else if (fleetDispatcher.shipsOnPlanet && Object.keys(fleetDispatcher.shipsOnPlanet).length > 0) {
+                                shipSource = fleetDispatcher.shipsOnPlanet;
+                                sourceName = 'shipsOnPlanet';
+                            }
+
+                            if (shipSource) {
+                                console.log('✓ Found ship data in fleetDispatcher.' + sourceName);
+                                for (const shipId in shipSource) {
+                                    // Handle both object format {number: X} and direct number
+                                    const amount = (typeof shipSource[shipId] === 'object')
+                                        ? (shipSource[shipId].number || 0)
+                                        : parseInt(shipSource[shipId]) || 0;
+
+                                    if (amount > 0) {
+                                        const shipIdToName = {
+                                            '202': 'small_cargo',
+                                            '203': 'large_cargo',
+                                            '204': 'light_fighter',
+                                            '205': 'heavy_fighter',
+                                            '206': 'cruiser',
+                                            '207': 'battle_ship',
+                                            '208': 'colony_ship',
+                                            '209': 'recycler',
+                                            '210': 'espionage_probe',
+                                            '211': 'bomber',
+                                            '213': 'destroyer',
+                                            '214': 'deathstar',
+                                            '215': 'battlecruiser'
+                                        };
+                                        const machineName = shipIdToName[shipId];
+                                        if (machineName) {
+                                            ships[machineName] = amount;
+                                        }
                                     }
                                 }
+                                console.log('Ships from FleetDispatcher.' + sourceName + ':', ships);
+                            } else {
+                                console.log('❌ No ship data found in any FleetDispatcher property');
                             }
-                            console.log('Ships from FleetDispatcher:', ships);
                         }
 
                         // Fallback: collect from form inputs
