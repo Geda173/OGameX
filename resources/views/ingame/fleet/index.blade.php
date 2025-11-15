@@ -1652,6 +1652,9 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
             }
         }
 
+        // Cache ships globally so we can reuse them
+        window.cachedACSShips = window.cachedACSShips || null;
+
         // Update ACS group info when selection changes
         function updateACSGroupInfo() {
             const select = document.getElementById('acsGroupSelect');
@@ -1663,12 +1666,19 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
 
             if (selectedValue === 0) {
                 info.innerHTML = '✓ You will create a new ACS group. Other players can join your attack.';
+                window.cachedACSShips = null; // Clear cache
             } else {
                 if (typeof unions !== 'undefined' && unions) {
                     const group = unions.find(g => g.id === selectedValue);
                     if (group) {
-                        // Collect ships from the form OR use fleetDispatcher
+                        // Collect ships from the form OR use fleetDispatcher OR use cache
                         let ships = {};
+
+                        // Try to use cached ships first (for speed changes on page 3)
+                        if (window.cachedACSShips && Object.keys(window.cachedACSShips).length > 0) {
+                            console.log('Using cached ships from previous calculation');
+                            ships = window.cachedACSShips;
+                        } else {
 
                         // Try to get ships from FleetDispatcher first
                         if (typeof fleetDispatcher !== 'undefined' && fleetDispatcher.shipsOnPlanet) {
@@ -1738,6 +1748,7 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                             });
                             console.log('Ships from form inputs:', ships);
                         }
+                        } // End of cache check else
 
                         // If no ships selected, show static message
                         if (Object.keys(ships).length === 0) {
@@ -1749,6 +1760,12 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                         }
 
                         console.log('✓ Found ships:', Object.keys(ships).length, 'types');
+
+                        // Cache ships for future speed changes
+                        if (!window.cachedACSShips || Object.keys(window.cachedACSShips).length === 0) {
+                            console.log('Caching ships for future updates');
+                            window.cachedACSShips = ships;
+                        }
 
                         // Get speed from FleetDispatcher object if available, otherwise from input
                         let speed = 10;
