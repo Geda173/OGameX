@@ -524,6 +524,30 @@ class FleetController extends OGameController
                         'delay_seconds' => $delayAmount,
                     ]);
 
+                    // First, check maximum delay allowed (30% of the slowest fleet's base duration)
+                    $maxAllowedDelay = 0;
+                    foreach ($existingFleets as $member) {
+                        $existingMission = $member->fleetMission;
+
+                        // Calculate base duration at 100% speed
+                        $baseDuration = $fleetMissionService->calculateFleetMissionDuration(
+                            $planetServiceFactory->make($existingMission->planet_id_from),
+                            new Coordinate($existingMission->galaxy_to, $existingMission->system_to, $existingMission->position_to),
+                            $fleetMissionService->getFleetUnits($existingMission),
+                            100
+                        );
+
+                        // Maximum delay is 30% of base duration
+                        $fleetMaxDelay = $baseDuration * 0.3;
+                        $maxAllowedDelay = max($maxAllowedDelay, $fleetMaxDelay);
+                    }
+
+                    if ($delayAmount > $maxAllowedDelay) {
+                        throw new Exception('Your fleet would delay the ACS group by too much. Maximum allowed delay: ' .
+                                           gmdate('H:i:s', $maxAllowedDelay) . ', your delay: ' .
+                                           gmdate('H:i:s', $delayAmount) . '.');
+                    }
+
                     // Check each existing fleet to ensure delay doesn't violate their 30% rule
                     foreach ($existingFleets as $member) {
                         $existingMission = $member->fleetMission;
@@ -1400,6 +1424,36 @@ class FleetController extends OGameController
             if ($naturalArrivalTime > $acsGroup->arrival_time) {
                 // This fleet is slower - would delay the ENTIRE group
                 $newGroupArrival = $naturalArrivalTime;
+                $delayAmount = $newGroupArrival - $acsGroup->arrival_time;
+
+                // First, check maximum delay allowed (30% of the slowest fleet's base duration)
+                $maxAllowedDelay = 0;
+                foreach ($existingFleets as $member) {
+                    $existingMission = $member->fleetMission;
+
+                    // Calculate base duration at 100% speed
+                    $baseDuration = $fleetMissionService->calculateFleetMissionDuration(
+                        $planetServiceFactory->make($existingMission->planet_id_from),
+                        new Coordinate($existingMission->galaxy_to, $existingMission->system_to, $existingMission->position_to),
+                        $fleetMissionService->getFleetUnits($existingMission),
+                        100
+                    );
+
+                    // Maximum delay is 30% of base duration
+                    $fleetMaxDelay = $baseDuration * 0.3;
+                    $maxAllowedDelay = max($maxAllowedDelay, $fleetMaxDelay);
+                }
+
+                if ($delayAmount > $maxAllowedDelay) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Your fleet would delay the ACS group by too much. Maximum allowed delay: ' .
+                                     gmdate('H:i:s', $maxAllowedDelay) . ', your delay: ' .
+                                     gmdate('H:i:s', $delayAmount) . '.',
+                        'max_delay_seconds' => round($maxAllowedDelay),
+                        'requested_delay_seconds' => round($delayAmount),
+                    ]);
+                }
 
                 // Check each existing fleet to ensure delay doesn't violate their 30% rule
                 foreach ($existingFleets as $member) {

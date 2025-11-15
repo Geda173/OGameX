@@ -1855,16 +1855,21 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
             });
 
             // Listen for speed changes to recalculate ACS arrival time
-            // Note: Speed is typically changed through a slider or buttons, so we'll use a MutationObserver
+            // Use multiple methods to detect speed changes from various UI controls
             const speedInput = document.querySelector('input[name="speed"]');
+            let lastKnownSpeed = speedInput ? parseInt(speedInput.value) : 10;
+
             if (speedInput) {
-                // Use MutationObserver to detect value changes from UI controls
+                // Method 1: MutationObserver for attribute changes
                 const speedObserver = new MutationObserver(function(mutations) {
-                    // Only update if an ACS group is selected
                     const select = document.getElementById('acsGroupSelect');
                     if (select && parseInt(select.value) > 0) {
-                        console.log('Speed changed, recalculating ACS arrival time');
-                        updateACSGroupInfo();
+                        const newSpeed = parseInt(speedInput.value);
+                        if (newSpeed !== lastKnownSpeed) {
+                            console.log('Speed changed (observer):', lastKnownSpeed, '->', newSpeed);
+                            lastKnownSpeed = newSpeed;
+                            updateACSGroupInfo();
+                        }
                     }
                 });
 
@@ -1873,15 +1878,67 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                     attributeFilter: ['value']
                 });
 
-                // Also listen for direct input changes
+                // Method 2: Direct input event listeners
                 speedInput.addEventListener('change', function() {
                     const select = document.getElementById('acsGroupSelect');
                     if (select && parseInt(select.value) > 0) {
-                        console.log('Speed input changed, recalculating ACS arrival time');
-                        updateACSGroupInfo();
+                        const newSpeed = parseInt(this.value);
+                        if (newSpeed !== lastKnownSpeed) {
+                            console.log('Speed changed (change event):', lastKnownSpeed, '->', newSpeed);
+                            lastKnownSpeed = newSpeed;
+                            updateACSGroupInfo();
+                        }
                     }
                 });
+
+                speedInput.addEventListener('input', function() {
+                    const select = document.getElementById('acsGroupSelect');
+                    if (select && parseInt(select.value) > 0) {
+                        const newSpeed = parseInt(this.value);
+                        if (newSpeed !== lastKnownSpeed) {
+                            console.log('Speed changed (input event):', lastKnownSpeed, '->', newSpeed);
+                            lastKnownSpeed = newSpeed;
+                            updateACSGroupInfo();
+                        }
+                    }
+                });
+
+                // Method 3: Polling - check speed value periodically when ACS group is selected
+                setInterval(function() {
+                    const select = document.getElementById('acsGroupSelect');
+                    if (select && parseInt(select.value) > 0) {
+                        const currentSpeed = parseInt(speedInput.value);
+                        if (currentSpeed !== lastKnownSpeed && !isNaN(currentSpeed)) {
+                            console.log('Speed changed (polling):', lastKnownSpeed, '->', currentSpeed);
+                            lastKnownSpeed = currentSpeed;
+                            updateACSGroupInfo();
+                        }
+                    }
+                }, 500); // Check every 500ms
             }
+
+            // Method 4: Listen to document-level click events (for speed buttons/sliders)
+            document.addEventListener('click', function(e) {
+                // Check if click was on a speed-related element
+                const target = e.target;
+                if (target && (
+                    target.id && target.id.toLowerCase().includes('speed') ||
+                    target.className && target.className.toLowerCase && target.className.toLowerCase().includes('speed')
+                )) {
+                    // Small delay to allow the speed value to update
+                    setTimeout(function() {
+                        const select = document.getElementById('acsGroupSelect');
+                        if (select && parseInt(select.value) > 0 && speedInput) {
+                            const newSpeed = parseInt(speedInput.value);
+                            if (newSpeed !== lastKnownSpeed && !isNaN(newSpeed)) {
+                                console.log('Speed changed (click on speed control):', lastKnownSpeed, '->', newSpeed);
+                                lastKnownSpeed = newSpeed;
+                                updateACSGroupInfo();
+                            }
+                        }
+                    }, 100);
+                }
+            });
 
             console.log('ACS UI initialization complete');
         }
