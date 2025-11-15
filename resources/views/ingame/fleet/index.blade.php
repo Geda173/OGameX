@@ -1765,19 +1765,11 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                                 console.log('Current element HTML:', infoElement.innerHTML);
                                 console.log('New message to set:', message);
 
-                                // Try multiple update methods
-                                console.log('Attempting update method 1: innerHTML');
-                                infoElement.innerHTML = message;
-                                console.log('After method 1:', infoElement.innerHTML);
+                                // Store message globally for continuous enforcement
+                                window.lastACSMessage = message;
 
-                                // Method 2: textContent then innerHTML
-                                console.log('Attempting update method 2: textContent then innerHTML');
-                                infoElement.textContent = '';
-                                infoElement.innerHTML = message;
-                                console.log('After method 2:', infoElement.innerHTML);
-
-                                // Method 3: Remove and recreate
-                                console.log('Attempting update method 3: replace with new element');
+                                // Method 3: Remove and recreate (most aggressive)
+                                console.log('Replacing element completely');
                                 const parent = infoElement.parentNode;
                                 const newElement = document.createElement('div');
                                 newElement.id = 'acsGroupInfo';
@@ -1786,13 +1778,15 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                                 newElement.style.color = '#6f9fc8';
                                 newElement.innerHTML = message;
                                 parent.replaceChild(newElement, infoElement);
-                                console.log('After method 3, new element:', document.getElementById('acsGroupInfo').innerHTML);
 
+                                console.log('After replacement:', document.getElementById('acsGroupInfo').innerHTML);
+                                console.log('Stored in window.lastACSMessage for enforcement');
                                 console.log('========== UPDATE COMPLETE ==========');
                             } else {
                                 // Show error message
                                 const errorMsg = '<span style="color: #ff0000;">✗ ' + (data.message || 'Error calculating arrival time') + '</span>';
                                 console.log('Showing error:', errorMsg);
+                                window.lastACSMessage = errorMsg;
                                 infoElement.innerHTML = errorMsg;
                             }
                         })
@@ -1904,8 +1898,32 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                 });
             });
 
-            // Poll for speed changes instead of using observers
-            // (observers fire too frequently due to arrival time countdown)
+            // Add MutationObserver to detect external changes to acsGroupInfo
+            const watchElement = document.getElementById('acsGroupInfo');
+            if (watchElement) {
+                const watcher = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        console.log('⚠️ acsGroupInfo was modified externally!');
+                        console.log('  Type:', mutation.type);
+                        console.log('  Old value:', mutation.oldValue);
+                        console.log('  New value:', document.getElementById('acsGroupInfo').innerHTML);
+                        console.log('  Stack trace:', new Error().stack);
+                    });
+                });
+
+                watcher.observe(watchElement, {
+                    childList: true,
+                    characterData: true,
+                    subtree: true,
+                    characterDataOldValue: true
+                });
+                console.log('✓ Watching acsGroupInfo for external changes');
+            }
+
+            // Store the last message we set globally
+            window.lastACSMessage = null;
+
+            // Poll for speed changes and continuously enforce the message
             let lastKnownSpeed = null;
 
             setInterval(function() {
@@ -1917,16 +1935,25 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                         currentSpeed = fleetDispatcher.speedPercent;
                     }
 
-                    // Only update if speed has changed
+                    // Check if speed has changed
                     if (currentSpeed !== lastKnownSpeed) {
                         console.log('Speed changed from', lastKnownSpeed, 'to', currentSpeed);
                         lastKnownSpeed = currentSpeed;
                         updateACSGroupInfo();
                     }
-                }
-            }, 1000); // Check every second
 
-            console.log('✓ Polling for speed changes every second');
+                    // CONTINUOUSLY enforce the last message (in case something overwrites it)
+                    if (window.lastACSMessage) {
+                        const infoEl = document.getElementById('acsGroupInfo');
+                        if (infoEl && infoEl.innerHTML !== window.lastACSMessage) {
+                            console.log('🔄 Restoring ACS message (was overwritten)');
+                            infoEl.innerHTML = window.lastACSMessage;
+                        }
+                    }
+                }
+            }, 500); // Check twice per second
+
+            console.log('✓ Polling for speed changes and enforcing message');
             console.log('ACS UI initialization complete');
         }
 
