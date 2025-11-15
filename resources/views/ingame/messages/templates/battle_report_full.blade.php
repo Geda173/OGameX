@@ -618,6 +618,7 @@
 
 @if($is_acs && $acs_participants)
         // ACS Participants data
+        console.log('=== ACS Combat Report Debug ===');
         var acsParticipants = {
             attackers: [
 @foreach($acs_participants['attackers'] as $index => $participant)
@@ -650,6 +651,7 @@
 @endforeach
             ]
         };
+        console.log('acsParticipants:', acsParticipants);
 
         // Combined fleet data (original)
         var combinedAttacker = {
@@ -673,6 +675,8 @@
 @endforeach
             }
         };
+        console.log('combinedAttacker:', combinedAttacker);
+        console.log('combinedDefender:', combinedDefender);
 @endif
 
         ogame.messages.initCombatReportDetails();
@@ -691,6 +695,7 @@
         //------------------------------ACS Attacker - Data-------------------------------
         function updateAttackerDisplay() {
             var selectedValue = $('#attacker_select_combatreport').val();
+            console.log('updateAttackerDisplay called, selectedValue:', selectedValue);
 
             if (selectedValue === 'combined') {
                 // Show combined fleet data
@@ -699,7 +704,10 @@
                 $('#attacker_armor_display').text(combinedAttacker.armor);
 
                 // Update ship counts and visibility
-                $('.attacker ul.military_ships li, .attacker ul.ship_list_28 li').each(function() {
+                var shipListElements = $('.attacker ul.military_ships li, .attacker ul.ship_list_28 li');
+                console.log('Found ' + shipListElements.length + ' attacker ship elements');
+
+                shipListElements.each(function() {
                     var shipDiv = $(this).find('div[class*="buildingimg"]');
                     if (shipDiv.length === 0) return;
 
@@ -708,6 +716,7 @@
                     if (matches) {
                         var shipId = matches[1] || matches[2];
                         var count = combinedAttacker.units[shipId] || 0;
+                        console.log('Combined - Ship ID:', shipId, 'Count:', count);
                         $(this).find('.detail_shipsleft').text(count);
 
                         // Show all ships for combined view
@@ -718,6 +727,7 @@
                 // Show individual participant data
                 var participantIndex = parseInt(selectedValue);
                 var participant = acsParticipants.attackers[participantIndex];
+                console.log('Participant index:', participantIndex, 'Participant:', participant);
 
                 if (participant) {
                     $('#attacker_weapons_display').text(participant.weapons);
@@ -734,6 +744,7 @@
                         if (matches) {
                             var shipId = matches[1] || matches[2];
                             var count = participant.units[shipId] || 0;
+                            console.log('Participant - Ship ID:', shipId, 'Count:', count, 'Will hide:', count === 0);
                             $(this).find('.detail_shipsleft').text(count);
 
                             // Hide ships with 0 count for individual participants
@@ -750,9 +761,13 @@
 
         $('#attacker_select_combatreport').on('change', updateAttackerDisplay);
 
+        // Initialize attacker display on page load
+        updateAttackerDisplay();
+
         //------------------------------ACS Defender - Data-------------------------------
         function updateDefenderDisplay() {
             var selectedValue = $('#defender_select_combatreport').val();
+            console.log('updateDefenderDisplay called, selectedValue:', selectedValue);
 
             if (selectedValue === 'combined') {
                 // Show combined fleet data
@@ -861,6 +876,9 @@
         }
 
         $('#defender_select_combatreport').on('change', updateDefenderDisplay);
+
+        // Initialize defender display on page load
+        updateDefenderDisplay();
 @else
         //------------------------------Attacker - Data-------------------------------
         $('.attacker .participant_select').on('change.combatreport', function () {
