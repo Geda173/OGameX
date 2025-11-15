@@ -42,10 +42,10 @@ class JumpGateController extends OGameController
         \Log::debug('Jump Gate: Checking for available moons', [
             'current_planet_id' => $planet->getPlanetId(),
             'current_planet_name' => $planet->getPlanetName(),
-            'total_planets_in_collection' => $player->planets->count(),
+            'total_planets_in_collection' => $player->planets->allCount(),
         ]);
 
-        foreach ($player->planets as $playerPlanet) {
+        foreach ($player->planets->all() as $playerPlanet) {
             \Log::debug('Jump Gate: Checking planet', [
                 'planet_id' => $playerPlanet->getPlanetId(),
                 'planet_name' => $playerPlanet->getPlanetName(),
@@ -129,7 +129,7 @@ class JumpGateController extends OGameController
 
         // Get target moon
         $targetMoonId = (int)$request->input('target_moon_id');
-        $targetMoon = $player->planets->getPlanetById($targetMoonId);
+        $targetMoon = $player->planets->getById($targetMoonId);
 
         if (!$targetMoon || !$targetMoon->isMoon() || $targetMoon->getObjectLevel('jump_gate') < 1) {
             return response()->json([
