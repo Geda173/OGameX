@@ -38,7 +38,21 @@ class JumpGateController extends OGameController
 
         // Get all player's moons with jump gates
         $availableMoons = [];
+
+        \Log::debug('Jump Gate: Checking for available moons', [
+            'current_planet_id' => $planet->getPlanetId(),
+            'current_planet_name' => $planet->getPlanetName(),
+            'total_planets_in_collection' => $player->planets->count(),
+        ]);
+
         foreach ($player->planets as $playerPlanet) {
+            \Log::debug('Jump Gate: Checking planet', [
+                'planet_id' => $playerPlanet->getPlanetId(),
+                'planet_name' => $playerPlanet->getPlanetName(),
+                'is_moon' => $playerPlanet->isMoon(),
+                'jump_gate_level' => $playerPlanet->getObjectLevel('jump_gate'),
+            ]);
+
             if ($playerPlanet->isMoon() &&
                 $playerPlanet->getPlanetId() !== $planet->getPlanetId() &&
                 $playerPlanet->getObjectLevel('jump_gate') >= 1) {
@@ -51,6 +65,11 @@ class JumpGateController extends OGameController
                 ];
             }
         }
+
+        \Log::debug('Jump Gate: Found available moons', [
+            'count' => count($availableMoons),
+            'moons' => $availableMoons,
+        ]);
 
         // Get ships available on this moon
         $shipObjects = ObjectService::getShipObjects();
