@@ -1223,14 +1223,59 @@ Combat simulation save slots +20">
 <div id="chatBar">
     <ul class="chat_bar_list">
         <li id="chatBarPlayerList" class="chat_bar_pl_list_item">
-            <div class="cb_playerlist_box"
-                 style="display:none;">
+            <div class="cb_playerlist_box" style="display:none;">
+                @if($onlineBuddiesCount > 0)
+                    @php
+                        try {
+                            $onlineBuddies = \OGame\Services\BuddyService::getOnlineBuddies($currentPlayer->getId());
+                        } catch (\Exception $e) {
+                            $onlineBuddies = collect([]);
+                        }
+                    @endphp
+                    <ul class="online_buddy_list">
+                        @foreach($onlineBuddies as $buddy)
+                            <li class="buddy_online">
+                                <a href="{{ route('buddies.index') }}" class="buddy_link">
+                                    <span class="status_icon online"></span>
+                                    <span class="buddy_name">{{ $buddy->buddyUser->username }}</span>
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                @else
+                    <div class="no_buddies_online">No buddies currently online</div>
+                @endif
             </div>
-            <span class="onlineCount">@lang(':count Contact(s) online', ['count' => $onlineBuddiesCount])</span>
+            <span class="onlineCount" onclick="toggleOnlineBuddies()" style="cursor: pointer;">
+                @lang(':count Contact(s) online', ['count' => $onlineBuddiesCount])
+            </span>
         </li>
     </ul><!-- END Chat Bar List -->
 </div>
 <!-- END Chat Bar -->
+
+<script type="text/javascript">
+function toggleOnlineBuddies() {
+    var playerListBox = document.querySelector('#chatBarPlayerList .cb_playerlist_box');
+    if (playerListBox) {
+        if (playerListBox.style.display === 'none') {
+            playerListBox.style.display = 'block';
+        } else {
+            playerListBox.style.display = 'none';
+        }
+    }
+}
+
+// Close the buddy list when clicking outside
+document.addEventListener('click', function(event) {
+    var chatBar = document.getElementById('chatBarPlayerList');
+    var playerListBox = document.querySelector('#chatBarPlayerList .cb_playerlist_box');
+
+    if (chatBar && playerListBox && !chatBar.contains(event.target)) {
+        playerListBox.style.display = 'none';
+    }
+});
+</script>
 
 <button class="scroll_to_top">
     <span class="arrow"></span>@lang('Back to top')
