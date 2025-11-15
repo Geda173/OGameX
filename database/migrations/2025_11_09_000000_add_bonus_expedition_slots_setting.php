@@ -12,12 +12,11 @@ return new class () extends Migration {
     public function up(): void
     {
         // Insert bonus_expedition_slots setting with default value of 0
-        DB::table('settings')->insert([
-            'key' => 'bonus_expedition_slots',
-            'value' => '0',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        // Using updateOrInsert to make this migration idempotent
+        DB::table('settings')->updateOrInsert(
+            ['key' => 'bonus_expedition_slots'],
+            ['value' => '0', 'created_at' => now(), 'updated_at' => now()]
+        );
     }
 
     /**
