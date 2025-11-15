@@ -525,21 +525,17 @@ class FleetController extends OGameController
                         'delay_seconds' => $delayAmount,
                     ]);
 
-                    // First, check maximum delay allowed (30% of the slowest fleet's base duration)
+                    // First, check maximum delay allowed (30% of time remaining until arrival)
                     $maxAllowedDelay = 0;
+                    $currentTime = time();
                     foreach ($existingFleets as $member) {
                         $existingMission = $member->fleetMission;
 
-                        // Calculate base duration at 100% speed
-                        $baseDuration = $fleetMissionService->calculateFleetMissionDuration(
-                            $planetServiceFactory->make($existingMission->planet_id_from),
-                            new Coordinate($existingMission->galaxy_to, $existingMission->system_to, $existingMission->position_to),
-                            $fleetMissionService->getFleetUnits($existingMission),
-                            100
-                        );
+                        // Calculate time remaining until arrival
+                        $timeRemaining = $existingMission->time_arrival - $currentTime;
 
-                        // Maximum delay is 30% of base duration
-                        $fleetMaxDelay = $baseDuration * 0.3;
+                        // Maximum delay is 30% of time remaining
+                        $fleetMaxDelay = $timeRemaining * 0.3;
                         $maxAllowedDelay = max($maxAllowedDelay, $fleetMaxDelay);
                     }
 
@@ -1431,16 +1427,17 @@ class FleetController extends OGameController
                 $newGroupArrival = $naturalArrivalTime;
                 $delayAmount = $newGroupArrival - $acsGroup->arrival_time;
 
-                // First, check maximum delay allowed (30% of the slowest fleet's CURRENT flight duration)
+                // First, check maximum delay allowed (30% of time remaining until arrival)
                 $maxAllowedDelay = 0;
+                $currentTime = time();
                 foreach ($existingFleets as $member) {
                     $existingMission = $member->fleetMission;
 
-                    // Calculate CURRENT duration (actual flight time)
-                    $currentDuration = $existingMission->time_arrival - $existingMission->time_departure;
+                    // Calculate time remaining until arrival
+                    $timeRemaining = $existingMission->time_arrival - $currentTime;
 
-                    // Maximum delay is 30% of current duration
-                    $fleetMaxDelay = $currentDuration * 0.3;
+                    // Maximum delay is 30% of time remaining
+                    $fleetMaxDelay = $timeRemaining * 0.3;
                     $maxAllowedDelay = max($maxAllowedDelay, $fleetMaxDelay);
                 }
 
