@@ -722,8 +722,12 @@
                         console.log('Combined - Ship ID:', shipId, 'Count:', count);
                         $(this).find('.detail_shipsleft').text(count);
 
-                        // Show all ships for combined view
-                        $(this).css('display', '');
+                        // Hide ships with 0 count even in combined view
+                        if (count === 0) {
+                            $(this).css('display', 'none');
+                        } else {
+                            $(this).css('display', '');
+                        }
                     }
                 });
             } else {
@@ -796,8 +800,12 @@
                         var count = combinedDefender.units[shipId] || 0;
                         $(this).find('.detail_shipsleft').text(count);
 
-                        // Show all ships for combined view
-                        $(this).css('display', '');
+                        // Hide ships with 0 count even in combined view
+                        if (count === 0) {
+                            $(this).css('display', 'none');
+                        } else {
+                            $(this).css('display', '');
+                        }
                     }
                 });
 
@@ -812,8 +820,12 @@
                             var count = combinedDefender.units[defenseId] || 0;
                             $(this).find('.detail_shipsleft').text(count);
 
-                            // Show all defenses for combined view
-                            $(this).css('display', '');
+                            // Hide defenses with 0 count even in combined view
+                            if (count === 0) {
+                                $(this).css('display', 'none');
+                            } else {
+                                $(this).css('display', '');
+                            }
                         }
                     }
                 });
