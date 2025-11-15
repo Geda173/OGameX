@@ -1703,9 +1703,14 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                             }
                         });
 
-                        // Get speed
-                        const speedInput = document.querySelector('input[name="speed"]');
+                        // Get speed - try both selectors
+                        let speedInput = document.querySelector('input[name="speed"]');
+                        if (!speedInput) {
+                            speedInput = document.getElementById('speed');
+                        }
                         const speed = speedInput ? parseInt(speedInput.value) : 10;
+
+                        console.log('Current speed value:', speed, 'from input:', speedInput);
 
                         // If no ships selected, show static message
                         if (Object.keys(ships).length === 0) {
@@ -1713,6 +1718,13 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                                 group.arrival_time_formatted + '</strong> with ' + group.fleet_count + ' other fleet(s).';
                             return;
                         }
+
+                        console.log('Calling ACS arrival calculation with:', {
+                            acs_group_id: selectedValue,
+                            ships: ships,
+                            speed: speed,
+                            planet_id: currentPlanet.id
+                        });
 
                         // Call the backend to calculate the actual arrival time
                         fetch('{{ route('fleet.acs.calculate.arrival') }}', {
@@ -1854,91 +1866,49 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                 });
             });
 
-            // Listen for speed changes to recalculate ACS arrival time
-            // Use multiple methods to detect speed changes from various UI controls
-            const speedInput = document.querySelector('input[name="speed"]');
-            let lastKnownSpeed = speedInput ? parseInt(speedInput.value) : 10;
+            // Listen for speed/flight changes to recalculate ACS arrival time
+            // Watch the duration element which is updated by FleetDispatcher when speed changes
+            const durationElement = document.getElementById('duration');
+            const arrivalTimeElement = document.getElementById('arrivalTime');
 
-            if (speedInput) {
-                // Method 1: MutationObserver for attribute changes
-                const speedObserver = new MutationObserver(function(mutations) {
+            if (durationElement) {
+                // Use MutationObserver to detect when FleetDispatcher updates the duration
+                const durationObserver = new MutationObserver(function(mutations) {
                     const select = document.getElementById('acsGroupSelect');
                     if (select && parseInt(select.value) > 0) {
-                        const newSpeed = parseInt(speedInput.value);
-                        if (newSpeed !== lastKnownSpeed) {
-                            console.log('Speed changed (observer):', lastKnownSpeed, '->', newSpeed);
-                            lastKnownSpeed = newSpeed;
-                            updateACSGroupInfo();
-                        }
+                        console.log('Flight duration changed, recalculating ACS arrival time');
+                        updateACSGroupInfo();
                     }
                 });
 
-                speedObserver.observe(speedInput, {
-                    attributes: true,
-                    attributeFilter: ['value']
+                // Observe both text content and child changes
+                durationObserver.observe(durationElement, {
+                    childList: true,
+                    characterData: true,
+                    subtree: true
                 });
 
-                // Method 2: Direct input event listeners
-                speedInput.addEventListener('change', function() {
-                    const select = document.getElementById('acsGroupSelect');
-                    if (select && parseInt(select.value) > 0) {
-                        const newSpeed = parseInt(this.value);
-                        if (newSpeed !== lastKnownSpeed) {
-                            console.log('Speed changed (change event):', lastKnownSpeed, '->', newSpeed);
-                            lastKnownSpeed = newSpeed;
-                            updateACSGroupInfo();
-                        }
-                    }
-                });
-
-                speedInput.addEventListener('input', function() {
-                    const select = document.getElementById('acsGroupSelect');
-                    if (select && parseInt(select.value) > 0) {
-                        const newSpeed = parseInt(this.value);
-                        if (newSpeed !== lastKnownSpeed) {
-                            console.log('Speed changed (input event):', lastKnownSpeed, '->', newSpeed);
-                            lastKnownSpeed = newSpeed;
-                            updateACSGroupInfo();
-                        }
-                    }
-                });
-
-                // Method 3: Polling - check speed value periodically when ACS group is selected
-                setInterval(function() {
-                    const select = document.getElementById('acsGroupSelect');
-                    if (select && parseInt(select.value) > 0) {
-                        const currentSpeed = parseInt(speedInput.value);
-                        if (currentSpeed !== lastKnownSpeed && !isNaN(currentSpeed)) {
-                            console.log('Speed changed (polling):', lastKnownSpeed, '->', currentSpeed);
-                            lastKnownSpeed = currentSpeed;
-                            updateACSGroupInfo();
-                        }
-                    }
-                }, 500); // Check every 500ms
+                console.log('✓ Watching duration element for changes');
             }
 
-            // Method 4: Listen to document-level click events (for speed buttons/sliders)
-            document.addEventListener('click', function(e) {
-                // Check if click was on a speed-related element
-                const target = e.target;
-                if (target && (
-                    target.id && target.id.toLowerCase().includes('speed') ||
-                    target.className && target.className.toLowerCase && target.className.toLowerCase().includes('speed')
-                )) {
-                    // Small delay to allow the speed value to update
-                    setTimeout(function() {
-                        const select = document.getElementById('acsGroupSelect');
-                        if (select && parseInt(select.value) > 0 && speedInput) {
-                            const newSpeed = parseInt(speedInput.value);
-                            if (newSpeed !== lastKnownSpeed && !isNaN(newSpeed)) {
-                                console.log('Speed changed (click on speed control):', lastKnownSpeed, '->', newSpeed);
-                                lastKnownSpeed = newSpeed;
-                                updateACSGroupInfo();
-                            }
-                        }
-                    }, 100);
-                }
-            });
+            // Also watch the arrival time element as a backup
+            if (arrivalTimeElement) {
+                const arrivalObserver = new MutationObserver(function(mutations) {
+                    const select = document.getElementById('acsGroupSelect');
+                    if (select && parseInt(select.value) > 0) {
+                        console.log('Arrival time changed, recalculating ACS arrival time');
+                        updateACSGroupInfo();
+                    }
+                });
+
+                arrivalObserver.observe(arrivalTimeElement, {
+                    childList: true,
+                    characterData: true,
+                    subtree: true
+                });
+
+                console.log('✓ Watching arrival time element for changes');
+            }
 
             console.log('ACS UI initialization complete');
         }
