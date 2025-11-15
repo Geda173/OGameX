@@ -160,7 +160,7 @@ class PlanetAbandonController extends OGameController
 
         // Return success message.
         return response()->json([
-            'status' => 'error',
+            'status' => 'success',
             'errorbox' => [
                 'type' => 'notify',
                 'title' => __('Reference'),
