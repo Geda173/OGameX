@@ -736,7 +736,8 @@ class ACSAttackMission extends GameMission
             'is_acs' => $isACSReport,
         ];
 
-        $report->attacker = [
+        // Build attacker data array
+        $attackerData = [
             'player_id' => $attackPlayer->getId(),
             'resource_loss' => $battleResult->attackerResourceLoss->sum(),
             'units' => $battleResult->attackerUnitsStart->toArray(),
@@ -751,12 +752,14 @@ class ACSAttackMission extends GameMission
             $originMission = $firstFleet['mission'];
             $originPlanet = $this->planetServiceFactory->make($originMission->planet_id_from, true);
             if ($originPlanet !== null) {
-                $report->attacker['origin_galaxy'] = $originPlanet->getPlanetCoordinates()->galaxy;
-                $report->attacker['origin_system'] = $originPlanet->getPlanetCoordinates()->system;
-                $report->attacker['origin_position'] = $originPlanet->getPlanetCoordinates()->position;
-                $report->attacker['origin_type'] = $originPlanet->getPlanetType()->value;
+                $attackerData['origin_galaxy'] = $originPlanet->getPlanetCoordinates()->galaxy;
+                $attackerData['origin_system'] = $originPlanet->getPlanetCoordinates()->system;
+                $attackerData['origin_position'] = $originPlanet->getPlanetCoordinates()->position;
+                $attackerData['origin_type'] = $originPlanet->getPlanetType()->value;
             }
         }
+
+        $report->attacker = $attackerData;
 
         $report->defender = [
             'player_id' => $defenderPlanet->getPlayer()->getId(),

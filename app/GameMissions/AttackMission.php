@@ -286,7 +286,8 @@ class AttackMission extends GameMission
             'moon_created' => $battleResult->moonCreated,
         ];
 
-        $report->attacker = [
+        // Build attacker data array
+        $attackerData = [
             'player_id' => $attackPlayer->getId(),
             'resource_loss' => $battleResult->attackerResourceLoss->sum(),
             'units' => $battleResult->attackerUnitsStart->toArray(),
@@ -297,11 +298,13 @@ class AttackMission extends GameMission
 
         // Add origin planet coordinates if available (not available for NPC attackers in expeditions)
         if ($attackerOriginPlanet !== null) {
-            $report->attacker['origin_galaxy'] = $attackerOriginPlanet->getPlanetCoordinates()->galaxy;
-            $report->attacker['origin_system'] = $attackerOriginPlanet->getPlanetCoordinates()->system;
-            $report->attacker['origin_position'] = $attackerOriginPlanet->getPlanetCoordinates()->position;
-            $report->attacker['origin_type'] = $attackerOriginPlanet->getPlanetType()->value;
+            $attackerData['origin_galaxy'] = $attackerOriginPlanet->getPlanetCoordinates()->galaxy;
+            $attackerData['origin_system'] = $attackerOriginPlanet->getPlanetCoordinates()->system;
+            $attackerData['origin_position'] = $attackerOriginPlanet->getPlanetCoordinates()->position;
+            $attackerData['origin_type'] = $attackerOriginPlanet->getPlanetType()->value;
         }
+
+        $report->attacker = $attackerData;
 
         $report->defender = [
             'player_id' => $defenderPlanet->getPlayer()->getId(),
