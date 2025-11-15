@@ -55,9 +55,39 @@
         var tabUrl = currentTabElement.attr('href') || currentTabElement.attr('rel');
 
         // Parse the tab and subtab from the URL
-        var urlParams = new URLSearchParams(tabUrl.split('?')[1]);
-        var currentTab = urlParams.get('tab');
-        var currentSubtab = urlParams.get('subtab') || '';
+        var currentTab = '';
+        var currentSubtab = '';
+
+        if (tabUrl) {
+            // Extract query string from URL
+            var queryString = '';
+            if (tabUrl.indexOf('?') !== -1) {
+                queryString = tabUrl.split('?')[1];
+            }
+
+            // Parse parameters manually for better compatibility
+            if (queryString) {
+                var params = queryString.split('&');
+                for (var i = 0; i < params.length; i++) {
+                    var pair = params[i].split('=');
+                    var key = decodeURIComponent(pair[0]);
+                    var value = pair[1] ? decodeURIComponent(pair[1]) : '';
+
+                    if (key === 'tab') {
+                        currentTab = value;
+                    } else if (key === 'subtab') {
+                        currentSubtab = value;
+                    }
+                }
+            }
+        }
+
+        // Validate that we have a tab before proceeding
+        if (!currentTab) {
+            console.error('Could not determine current tab from URL:', tabUrl);
+            fadeBox('Error: Could not determine current tab. Please try again.', true);
+            return;
+        }
 
         errorBoxDecision(
             'Delete All Messages',
@@ -75,12 +105,21 @@
                         _token: '{{ csrf_token() }}'
                     },
                     success: function(response) {
-                        // Reload the current tab/subtab
-                        ogame.messages.loadContentNew(tabUrl, null);
+                        if (response.success) {
+                            // Reload the current tab/subtab
+                            ogame.messages.loadContentNew(tabUrl, null);
+                        } else {
+                            console.error('Server error:', response.error);
+                            fadeBox(response.error || 'Failed to delete messages. Please try again.', true);
+                        }
                     },
                     error: function(xhr, status, error) {
-                        console.error('Error deleting messages:', error);
-                        fadeBox('Failed to delete messages. Please try again.', true);
+                        console.error('Error deleting messages:', error, xhr.responseText);
+                        var errorMsg = 'Failed to delete messages. Please try again.';
+                        if (xhr.responseJSON && xhr.responseJSON.error) {
+                            errorMsg = xhr.responseJSON.error;
+                        }
+                        fadeBox(errorMsg, true);
                     }
                 });
             }
