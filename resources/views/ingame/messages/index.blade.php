@@ -464,6 +464,22 @@
             (function ($) {
                 ogame.messages.initMessages('d99f68937305e0b2c3ff3f059259fcec');
                 requestsReady();
+
+                // Activate the correct tab and subtab based on URL parameters
+                var urlParams = new URLSearchParams(window.location.search);
+                var activeTab = urlParams.get('tab');
+                var activeSubtab = urlParams.get('subtab');
+
+                if (activeTab && activeSubtab) {
+                    // Wait for tabs to be initialized, then activate the correct subtab
+                    setTimeout(function() {
+                        // Find and click the link for the correct tab/subtab
+                        var subtabLink = $('a[href*="tab=' + activeTab + '"][href*="subtab=' + activeSubtab + '"]').first();
+                        if (subtabLink.length > 0) {
+                            subtabLink.click();
+                        }
+                    }, 100);
+                }
             })(jQuery);
         </script>
     </div>
