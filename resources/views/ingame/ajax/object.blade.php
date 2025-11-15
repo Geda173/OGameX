@@ -219,6 +219,13 @@
                     <button class="maximum">[max. {{ $max_build_amount }}]</button>
                 </div>
             @elseif ($object_type == \OGame\GameObjects\Models\Enums\GameObjectType::Building || $object_type == \OGame\GameObjects\Models\Enums\GameObjectType::Station)
+                @if ($object->machine_name === 'jump_gate' && $current_level >= 1)
+                    <div style="margin: 10px 0; text-align: center;">
+                        <button class="btn_blue" onclick="openJumpGateOverlay(); return false;" style="padding: 8px 20px;">
+                            Use Jump Gate
+                        </button>
+                    </div>
+                @endif
                 @if ($can_teardown)
                     <button class="downgrade" data-technology="{{ $object->id }}" data-name="{{ $title }}" onclick="teardownBuilding({{ $object->id }}, '{{ addslashes($title) }}'); return false;">
                         <div class="demolish_img tooltipRel ipiHintable" rel="demolition_costs_tooltip_oneTimeelement"

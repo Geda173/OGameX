@@ -12,10 +12,13 @@ return new class () extends Migration {
     public function up(): void
     {
         // Insert expedition rewards multiplier setting (default 1.0 = no bonus)
-        // Using updateOrInsert to make this migration idempotent
         DB::table('settings')->updateOrInsert(
             ['key' => 'expedition_rewards_multiplier'],
-            ['value' => '1.0', 'created_at' => now(), 'updated_at' => now()]
+            [
+                'value' => '1.0',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
         );
 
         // Insert individual outcome weight settings with default values (0-100 scale, relative weights)
@@ -35,7 +38,11 @@ return new class () extends Migration {
         foreach ($weights as $key => $value) {
             DB::table('settings')->updateOrInsert(
                 ['key' => $key],
-                ['value' => $value, 'created_at' => now(), 'updated_at' => now()]
+                [
+                    'value' => $value,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
             );
         }
     }
