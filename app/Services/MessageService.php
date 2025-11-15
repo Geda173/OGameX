@@ -365,33 +365,14 @@ class MessageService
         // Get all message keys for this tab/subtab.
         $messageKeys = GameMessageFactory::GetGameMessageKeysByTab($tab, $subtab);
 
-        \Log::info('Delete All Messages - Message Keys', [
-            'tab' => $tab,
-            'subtab' => $subtab,
-            'message_keys' => $messageKeys,
-            'user_id' => $this->player->getId(),
-        ]);
-
         // If no message keys found, return 0
         if (empty($messageKeys)) {
-            \Log::warning('Delete All Messages - No message keys found', [
-                'tab' => $tab,
-                'subtab' => $subtab,
-            ]);
             return 0;
         }
 
         // Delete all messages for this user in this tab/subtab.
-        $deletedCount = Message::where('user_id', $this->player->getId())
+        return Message::where('user_id', $this->player->getId())
             ->whereIn('key', $messageKeys)
             ->delete();
-
-        \Log::info('Delete All Messages - Deleted', [
-            'tab' => $tab,
-            'subtab' => $subtab,
-            'deleted_count' => $deletedCount,
-        ]);
-
-        return $deletedCount;
     }
 }

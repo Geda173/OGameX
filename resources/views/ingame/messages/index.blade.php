@@ -473,13 +473,11 @@
                 console.log('Messages Page Load - URL Params:', {tab: activeTab, subtab: activeSubtab});
 
                 if (activeTab && activeSubtab) {
-                    // Wait for tabs to be initialized, then activate the correct subtab
+                    // Activate the correct subtab immediately after page load
                     setTimeout(function() {
                         // Find the subtab link that matches our target
                         var selector = 'a[href*="tab=' + activeTab + '"][href*="subtab=' + activeSubtab + '"]';
-                        console.log('Messages Page Load - Looking for selector:', selector);
                         var subtabLink = $(selector).first();
-                        console.log('Messages Page Load - Found links:', subtabLink.length);
 
                         if (subtabLink.length > 0) {
                             // Find the parent <li> element
@@ -492,16 +490,12 @@
                             var allSubtabs = tabsWidget.find('> ul.subtabs > li, > ul.ui-tabs-nav > li');
                             var subtabIndex = allSubtabs.index(subtabLi);
 
-                            console.log('Messages Page Load - Activating tab index:', subtabIndex, 'in widget:', tabsWidget.attr('class'));
-
                             // Use jQuery UI tabs API to activate the correct tab
                             if (subtabIndex >= 0) {
                                 tabsWidget.tabs('option', 'active', subtabIndex);
                             }
-                        } else {
-                            console.log('Messages Page Load - All links with subtab:', $('a[href*="subtab="]').map(function() { return $(this).attr('href'); }).get());
                         }
-                    }, 500);
+                    }, 10);
                 }
             })(jQuery);
         </script>
