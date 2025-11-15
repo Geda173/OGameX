@@ -1348,27 +1348,31 @@ class FleetController extends OGameController
      */
     public function calculateACSArrivalTime(Request $request, PlayerService $player, FleetMissionService $fleetMissionService, PlanetServiceFactory $planetServiceFactory): JsonResponse
     {
-        $acsGroupId = $request->input('acs_group_id');
-        $ships = $request->input('ships', []);
-        $speedPercent = $request->input('speed', 100);
-        $planetId = $request->input('planet_id');
-
-        \Log::debug('Calculate ACS arrival time', [
-            'acs_group_id' => $acsGroupId,
-            'ships' => $ships,
-            'speed' => $speedPercent,
-            'planet_id' => $planetId,
-        ]);
-
-        // Validate inputs
-        if (!$acsGroupId || empty($ships) || !$planetId) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Missing required parameters',
-            ]);
-        }
-
         try {
+            \Log::info('=== calculateACSArrivalTime START ===');
+
+            $acsGroupId = $request->input('acs_group_id');
+            $ships = $request->input('ships', []);
+            $speedPercent = $request->input('speed', 100);
+            $planetId = $request->input('planet_id');
+
+            \Log::debug('Calculate ACS arrival time', [
+                'acs_group_id' => $acsGroupId,
+                'ships' => $ships,
+                'speed' => $speedPercent,
+                'planet_id' => $planetId,
+            ]);
+
+            // Validate inputs
+            if (!$acsGroupId || empty($ships) || !$planetId) {
+                \Log::warning('Missing required parameters');
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Missing required parameters',
+                ]);
+            }
+
+            \Log::info('Fetching ACS group with ID: ' . $acsGroupId);
             // Get the ACS group with fleet members and their missions
             $acsGroup = \OGame\Models\AcsGroup::with('fleetMembers.fleetMission')->find($acsGroupId);
             if (!$acsGroup) {
@@ -1548,12 +1552,16 @@ class FleetController extends OGameController
                     'is_delayed' => false,
                 ]);
             }
-        } catch (Exception $e) {
+        } catch (\Throwable $e) {
+            \Log::error('=== calculateACSArrivalTime ERROR ===');
             \Log::error('Error calculating ACS arrival time: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
             return response()->json([
                 'success' => false,
                 'message' => 'Error calculating arrival time: ' . $e->getMessage(),
-            ]);
+                'error_type' => get_class($e),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+            ], 500);
         }
     }
 
