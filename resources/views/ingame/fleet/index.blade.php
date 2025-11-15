@@ -1690,43 +1690,29 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                         // Debug: Log what properties fleetDispatcher actually has
                         if (typeof fleetDispatcher !== 'undefined') {
                             console.log('🔍 Debugging FleetDispatcher object:');
-                            console.log('  Properties:', Object.keys(fleetDispatcher).slice(0, 20));
-                            console.log('  shipsOnPlanet:', fleetDispatcher.shipsOnPlanet);
-                            console.log('  fleet:', fleetDispatcher.fleet);
-                            console.log('  fleetHelper:', fleetDispatcher.fleetHelper);
-                            console.log('  ships:', fleetDispatcher.ships);
                             console.log('  shipsToSend:', fleetDispatcher.shipsToSend);
+                            if (fleetDispatcher.shipsToSend && fleetDispatcher.shipsToSend.length > 0) {
+                                console.log('  shipsToSend[0]:', fleetDispatcher.shipsToSend[0]);
+                                console.log('  shipsToSend[0] keys:', Object.keys(fleetDispatcher.shipsToSend[0]));
+                            }
                         }
 
-                        // Try to get ships from FleetDispatcher - check multiple locations
-                        if (typeof fleetDispatcher !== 'undefined') {
-                            let shipSource = null;
-                            let sourceName = '';
+                        // Try to get ships from FleetDispatcher - handle array properly
+                        if (typeof fleetDispatcher !== 'undefined' && fleetDispatcher.shipsToSend) {
+                            console.log('Extracting ships from shipsToSend array...');
 
-                            // Try different possible locations for ship data
-                            if (fleetDispatcher.fleet && Object.keys(fleetDispatcher.fleet).length > 0) {
-                                shipSource = fleetDispatcher.fleet;
-                                sourceName = 'fleet';
-                            } else if (fleetDispatcher.ships && Object.keys(fleetDispatcher.ships).length > 0) {
-                                shipSource = fleetDispatcher.ships;
-                                sourceName = 'ships';
-                            } else if (fleetDispatcher.shipsToSend && Object.keys(fleetDispatcher.shipsToSend).length > 0) {
-                                shipSource = fleetDispatcher.shipsToSend;
-                                sourceName = 'shipsToSend';
-                            } else if (fleetDispatcher.shipsOnPlanet && Object.keys(fleetDispatcher.shipsOnPlanet).length > 0) {
-                                shipSource = fleetDispatcher.shipsOnPlanet;
-                                sourceName = 'shipsOnPlanet';
-                            }
+                            // shipsToSend is an array of ship objects
+                            if (Array.isArray(fleetDispatcher.shipsToSend)) {
+                                fleetDispatcher.shipsToSend.forEach(function(shipObj) {
+                                    console.log('Ship object:', shipObj);
 
-                            if (shipSource) {
-                                console.log('✓ Found ship data in fleetDispatcher.' + sourceName);
-                                for (const shipId in shipSource) {
-                                    // Handle both object format {number: X} and direct number
-                                    const amount = (typeof shipSource[shipId] === 'object')
-                                        ? (shipSource[shipId].number || 0)
-                                        : parseInt(shipSource[shipId]) || 0;
+                                    // Extract ship ID and number from the object
+                                    const shipId = shipObj.id || shipObj.shipId || shipObj.ship_id;
+                                    const amount = shipObj.number || shipObj.amount || shipObj.count || 0;
 
-                                    if (amount > 0) {
+                                    console.log('  Ship ID:', shipId, 'Amount:', amount);
+
+                                    if (shipId && amount > 0) {
                                         const shipIdToName = {
                                             '202': 'small_cargo',
                                             '203': 'large_cargo',
@@ -1745,12 +1731,11 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                                         const machineName = shipIdToName[shipId];
                                         if (machineName) {
                                             ships[machineName] = amount;
+                                            console.log('  ✓ Added:', machineName, '=', amount);
                                         }
                                     }
-                                }
-                                console.log('Ships from FleetDispatcher.' + sourceName + ':', ships);
-                            } else {
-                                console.log('❌ No ship data found in any FleetDispatcher property');
+                                });
+                                console.log('✓ Ships extracted from shipsToSend:', ships);
                             }
                         }
 
