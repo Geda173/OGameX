@@ -175,10 +175,18 @@
         <!-- possible classes: winner, draw, defeated -->
         <div class="combat_participant attacker winner">
             <div class="common_info">
-
+@if($is_acs && $acs_participants && count($acs_participants['attackers']) > 1)
+                <select id="attacker_select_combatreport" class="participant_select" style="margin-right: 10px; padding: 3px;">
+                    <option value="combined">@lang('Combined fleet')</option>
+@foreach($acs_participants['attackers'] as $index => $participant)
+                    <option value="{{ $index }}" data-participant-index="{{ $index }}">@lang('Fleet Participant') #{{ $index + 1 }} ({{ $participant['player_name'] }})</option>
+@endforeach
+                </select>
+@else
                 <span id="attacker_select_combatreport" data-member-name="{{ $attacker_name }}">
-                                              <span>{{ $attacker_name }} from Moon 2:488:1</span>
-                                     </span>
+                    <span>{{ $attacker_name }}</span>
+                </span>
+@endif
                 <span class="participant_label {{ $attacker_class }}">@lang('Attacker'):</span>
             </div>
             <br class="clearfloat">
@@ -189,9 +197,9 @@
             <br class="clearfloat">
 
             <ul class="common_info fleft">
-                <li class="attackerWeapon">Weapons: {{ $attacker_weapons }}%</li>
-                <li class="attackerShield">Shields: {{ $attacker_shields }}%</li>
-                <li class="attackerCover">Armour: {{ $attacker_armor }}%</li>
+                <li class="attackerWeapon">Weapons: <span id="attacker_weapons_display">{{ $attacker_weapons }}</span>%</li>
+                <li class="attackerShield">Shields: <span id="attacker_shields_display">{{ $attacker_shields }}</span>%</li>
+                <li class="attackerCover">Armour: <span id="attacker_armor_display">{{ $attacker_armor }}</span>%</li>
             </ul>
             <br class="clearfloat">
 
@@ -243,9 +251,22 @@
         <!-- START Defender -->
         <div class="combat_participant defender defeated">
             <div class="common_info">
-                            <span id="defender_select_combatreport" data-member-name="{{ $defender_name }}">
-                                            <span class="tooltip js_hideTipOnMobile" data-tooltip-title="{{ $defender_name }} from Destroyed Planet 2:3:11">{{ $defender_name }}</span>
-                                    </span>
+@if($is_acs && $acs_participants && count($acs_participants['defenders']) > 1)
+                <select id="defender_select_combatreport" class="participant_select" style="margin-right: 10px; padding: 3px;">
+                    <option value="combined">@lang('Combined fleet')</option>
+@foreach($acs_participants['defenders'] as $index => $participant)
+@if($participant['is_planet_owner'])
+                    <option value="{{ $index }}" data-participant-index="{{ $index }}">@lang('Fleet Participant') #{{ $index + 1 }} ({{ $participant['player_name'] }} - @lang('Planet Owner'))</option>
+@else
+                    <option value="{{ $index }}" data-participant-index="{{ $index }}">@lang('Fleet Participant') #{{ $index + 1 }} ({{ $participant['player_name'] }})</option>
+@endif
+@endforeach
+                </select>
+@else
+                <span id="defender_select_combatreport" data-member-name="{{ $defender_name }}">
+                    <span class="tooltip js_hideTipOnMobile" data-tooltip-title="{{ $defender_name }}">{{ $defender_name }}</span>
+                </span>
+@endif
                 <span class="participant_label {{ $defender_class }}">@lang('Defender'):</span>
             </div>
             <br class="clearfloat">
@@ -257,9 +278,9 @@
             <br class="clearfloat">
 
             <ul class="common_info fleft">
-                <li class="defenderWeapon">@lang('Weapons'): {{ $defender_weapons }}%</li>
-                <li class="defenderShield">@lang('Shields'): {{ $defender_shields }}%</li>
-                <li class="defenderCover">@lang('Armour'): {{ $defender_armor }}%</li>
+                <li class="defenderWeapon">@lang('Weapons'): <span id="defender_weapons_display">{{ $defender_weapons }}</span>%</li>
+                <li class="defenderShield">@lang('Shields'): <span id="defender_shields_display">{{ $defender_shields }}</span>%</li>
+                <li class="defenderCover">@lang('Armour'): <span id="defender_armor_display">{{ $defender_armor }}</span>%</li>
                 <li class="resource_list_el_small">
                     <div class="resourceIconSmall population"></div>
                     <span class="res_value tooltipCustom overmark" data-tooltip-title="0">0</span>
@@ -595,6 +616,65 @@
         var attackerJson = combatData.attackerJSON;
         var defenderJson = combatData.defenderJSON;
 
+@if($is_acs && $acs_participants)
+        // ACS Participants data
+        var acsParticipants = {
+            attackers: [
+@foreach($acs_participants['attackers'] as $index => $participant)
+                {
+                    player_name: '{{ $participant['player_name'] }}',
+                    weapons: {{ $participant['weapon_technology'] }},
+                    shields: {{ $participant['shielding_technology'] }},
+                    armor: {{ $participant['armor_technology'] }},
+                    units: {
+@foreach($participant['units']->units as $unit)
+                        {{ $unit->unitObject->id }}: {{ $unit->amount }},
+@endforeach
+                    }
+                },
+@endforeach
+            ],
+            defenders: [
+@foreach($acs_participants['defenders'] as $index => $participant)
+                {
+                    player_name: '{{ $participant['player_name'] }}',
+                    weapons: {{ $participant['weapon_technology'] }},
+                    shields: {{ $participant['shielding_technology'] }},
+                    armor: {{ $participant['armor_technology'] }},
+                    units: {
+@foreach($participant['units']->units as $unit)
+                        {{ $unit->unitObject->id }}: {{ $unit->amount }},
+@endforeach
+                    }
+                },
+@endforeach
+            ]
+        };
+
+        // Combined fleet data (original)
+        var combinedAttacker = {
+            weapons: {{ $attacker_weapons }},
+            shields: {{ $attacker_shields }},
+            armor: {{ $attacker_armor }},
+            units: {
+@foreach($attacker_units_start->units as $unit)
+                {{ $unit->unitObject->id }}: {{ $unit->amount }},
+@endforeach
+            }
+        };
+
+        var combinedDefender = {
+            weapons: {{ $defender_weapons }},
+            shields: {{ $defender_shields }},
+            armor: {{ $defender_armor }},
+            units: {
+@foreach($defender_units_start->units as $unit)
+                {{ $unit->unitObject->id }}: {{ $unit->amount }},
+@endforeach
+            }
+        };
+@endif
+
         ogame.messages.initCombatReportDetails();
         ogame.messages.combatreport.setCombatLoca(
             'Weapons:',
@@ -607,6 +687,127 @@
         ogame.messages.combatreport.loadDataBySelectedCombatMember(attackerJson, 'attacker');
         ogame.messages.combatreport.loadDataBySelectedCombatMember(defenderJson, 'defender');
 
+@if($is_acs && $acs_participants)
+        //------------------------------ACS Attacker - Data-------------------------------
+        $('#attacker_select_combatreport').on('change', function () {
+            var selectedValue = $(this).val();
+
+            if (selectedValue === 'combined') {
+                // Show combined fleet data
+                $('#attacker_weapons_display').text(combinedAttacker.weapons);
+                $('#attacker_shields_display').text(combinedAttacker.shields);
+                $('#attacker_armor_display').text(combinedAttacker.armor);
+
+                // Update ship counts
+                $('.attacker .military_ships li, .attacker .civil_ships li').each(function() {
+                    var shipDiv = $(this).find('div[class*="buildingimg"]');
+                    var shipClass = shipDiv.attr('class');
+                    var matches = shipClass.match(/military(\d+)|civil(\d+)/);
+                    if (matches) {
+                        var shipId = matches[1] || matches[2];
+                        var count = combinedAttacker.units[shipId] || 0;
+                        $(this).find('.detail_shipsleft').text(count);
+                    }
+                });
+            } else {
+                // Show individual participant data
+                var participantIndex = parseInt(selectedValue);
+                var participant = acsParticipants.attackers[participantIndex];
+
+                if (participant) {
+                    $('#attacker_weapons_display').text(participant.weapons);
+                    $('#attacker_shields_display').text(participant.shields);
+                    $('#attacker_armor_display').text(participant.armor);
+
+                    // Update ship counts
+                    $('.attacker .military_ships li, .attacker .civil_ships li').each(function() {
+                        var shipDiv = $(this).find('div[class*="buildingimg"]');
+                        var shipClass = shipDiv.attr('class');
+                        var matches = shipClass.match(/military(\d+)|civil(\d+)/);
+                        if (matches) {
+                            var shipId = matches[1] || matches[2];
+                            var count = participant.units[shipId] || 0;
+                            $(this).find('.detail_shipsleft').text(count);
+                        }
+                    });
+                }
+            }
+        });
+
+        //------------------------------ACS Defender - Data-------------------------------
+        $('#defender_select_combatreport').on('change', function () {
+            var selectedValue = $(this).val();
+
+            if (selectedValue === 'combined') {
+                // Show combined fleet data
+                $('#defender_weapons_display').text(combinedDefender.weapons);
+                $('#defender_shields_display').text(combinedDefender.shields);
+                $('#defender_armor_display').text(combinedDefender.armor);
+
+                // Update ship counts (military and civil)
+                $('.defender .military_ships li:not(.defense_ships li), .defender .civil_ships li').each(function() {
+                    var shipDiv = $(this).find('div[class*="buildingimg"]');
+                    var shipClass = shipDiv.attr('class');
+                    var matches = shipClass.match(/military(\d+)|civil(\d+)/);
+                    if (matches) {
+                        var shipId = matches[1] || matches[2];
+                        var count = combinedDefender.units[shipId] || 0;
+                        $(this).find('.detail_shipsleft').text(count);
+                    }
+                });
+
+                // Update defense counts
+                $('.defender li').each(function() {
+                    var defenseDiv = $(this).find('div[class*="defenseimg"]');
+                    if (defenseDiv.length > 0) {
+                        var defenseClass = defenseDiv.attr('class');
+                        var matches = defenseClass.match(/defense(\d+)/);
+                        if (matches) {
+                            var defenseId = matches[1];
+                            var count = combinedDefender.units[defenseId] || 0;
+                            $(this).find('.detail_shipsleft').text(count);
+                        }
+                    }
+                });
+            } else {
+                // Show individual participant data
+                var participantIndex = parseInt(selectedValue);
+                var participant = acsParticipants.defenders[participantIndex];
+
+                if (participant) {
+                    $('#defender_weapons_display').text(participant.weapons);
+                    $('#defender_shields_display').text(participant.shields);
+                    $('#defender_armor_display').text(participant.armor);
+
+                    // Update ship counts (military and civil)
+                    $('.defender .military_ships li:not(.defense_ships li), .defender .civil_ships li').each(function() {
+                        var shipDiv = $(this).find('div[class*="buildingimg"]');
+                        var shipClass = shipDiv.attr('class');
+                        var matches = shipClass.match(/military(\d+)|civil(\d+)/);
+                        if (matches) {
+                            var shipId = matches[1] || matches[2];
+                            var count = participant.units[shipId] || 0;
+                            $(this).find('.detail_shipsleft').text(count);
+                        }
+                    });
+
+                    // Update defense counts
+                    $('.defender li').each(function() {
+                        var defenseDiv = $(this).find('div[class*="defenseimg"]');
+                        if (defenseDiv.length > 0) {
+                            var defenseClass = defenseDiv.attr('class');
+                            var matches = defenseClass.match(/defense(\d+)/);
+                            if (matches) {
+                                var defenseId = matches[1];
+                                var count = participant.units[defenseId] || 0;
+                                $(this).find('.detail_shipsleft').text(count);
+                            }
+                        }
+                    });
+                }
+            }
+        });
+@else
         //------------------------------Attacker - Data-------------------------------
         $('.attacker .participant_select').on('change.combatreport', function () {
             var coords = $('.attacker .participant_select option:selected').data('coords') || 0;
@@ -624,6 +825,7 @@
             $('.combat_round_list .round_id').last().find('a').addClass("active");
             ogame.messages.combatreport.loadDataBySelectedCombatMember(defenderJson, 'defender', coords, type);
         });
+@endif
 
         //------------------------------Data by Round---------------------------------
         $('.combat_round_list .round_id').on('click.combatreport', function () {
