@@ -89,7 +89,7 @@ They may contain hyphens, underscores and spaces - however these may not be plac
         </tr>
         <tr>
             <td colspan="3">
-                <form id="planetMaintenanceDelete" action="{{ route('planetabandon.abandon.confirm') }}">
+                <form id="planetMaintenanceDelete" method="POST" action="{{ route('planetabandon.abandon.confirm') }}">
                     <input type='hidden' name='_token' value='{{ csrf_token() }}'/>
                     <div id="giveUpNotification">
                         @if ($isMoon)
