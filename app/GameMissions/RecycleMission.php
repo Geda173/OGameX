@@ -11,6 +11,7 @@ use OGame\GameObjects\Models\Units\UnitCollection;
 use OGame\Models\Enums\PlanetType;
 use OGame\Models\FleetMission;
 use OGame\Models\Planet\Coordinate;
+use OGame\Models\Resources;
 use OGame\Services\DebrisFieldService;
 use OGame\Services\ObjectService;
 use OGame\Services\PlanetService;
@@ -68,9 +69,16 @@ class RecycleMission extends GameMission
         // Calculate total recycler capacity.
         $total_cargo_capacity = $recycler->properties->capacity->calculate($originPlanet->getPlayer())->totalValue * $recyclerCount;
 
+        // Get resources already being carried by the fleet
+        $carriedResources = $this->fleetMissionService->getResources($mission);
+        $usedCapacity = $carriedResources->metal->get() + $carriedResources->crystal->get() + $carriedResources->deuterium->get();
+
+        // Calculate available capacity (total capacity minus already used capacity)
+        $available_cargo_capacity = max(0, $total_cargo_capacity - $usedCapacity);
+
         // Get resources from the debris field and take as much as the recyclers can carry.
         $resourcesToHarvest = $debrisField->getResources();
-        $resourcesHarvested = LootService::distributeLoot($resourcesToHarvest, $total_cargo_capacity);
+        $resourcesHarvested = LootService::distributeLoot($resourcesToHarvest, $available_cargo_capacity);
 
         // Remove the harvested resources from the debris field.
         if ($resourcesHarvested->any()) {
@@ -99,6 +107,8 @@ class RecycleMission extends GameMission
         $mission->save();
 
         // Create and start the return mission.
+        // Note: startReturn() automatically adds the harvested resources to the carried resources
+        // from the parent mission, so we only need to pass the harvested resources here.
         $units = $this->fleetMissionService->getFleetUnits($mission);
         $this->startReturn($mission, $resourcesHarvested, $units);
     }

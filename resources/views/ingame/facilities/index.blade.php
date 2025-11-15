@@ -27,12 +27,12 @@
                     @foreach ($buildings[0] as $building)
                         <li class="technology {{ $building->object->class_name }} hasDetails tooltip hideTooltipOnMouseenter js_hideTipOnMobile ipiHintable tpd-hideOnClickOutside"
                             data-technology="{{ $building->object->id }}"
-                            data-is-spaceprovider=""
+                            data-is-spaceprovider="{{ $building->object->machine_name == 'space_dock' ? '1' : '' }}"
                             aria-label="{{ $building->object->title }}"
                             data-ipi-hint="ipiTechnology{{ $building->object->class_name }}"
                             @if ($building->currently_building)
                                 data-status="active"
-                                data-is-spaceprovider=""
+                                data-is-spaceprovider="{{ $building->object->machine_name == 'space_dock' ? '1' : '' }}"
                                 data-progress="26"
                                 data-start="1713521207"
                                 data-end="1713604880"
@@ -70,15 +70,20 @@
                             @elseif ($build_queue_max)
                             @elseif ($building->research_in_progress && $building->object->machine_name == 'research_lab')
                             @elseif ($building->ship_or_defense_in_progress  && $building->object->machine_name == 'shipyard')
+                            @elseif ($building->object->machine_name == 'jump_gate' && $building->current_level >= 1)
+                                {{-- Jump Gate is operational, clicking opens the jump gate page --}}
                             @else
                                 <button
                                         class="upgrade tooltip hideOthers js_hideTipOnMobile"
                                         aria-label="Expand {!! $building->object->title !!} on level {!! ($building->current_level + 1) !!}" title="Expand {!! $building->object->title !!} on level {!! ($building->current_level + 1) !!}"
-                                        data-technology="{{ $building->object->id }}" data-is-spaceprovider="">
+                                        data-technology="{{ $building->object->id }}" data-is-spaceprovider="{{ $building->object->machine_name == 'space_dock' ? '1' : '' }}">
                                 </button>
                             @endif
                             @if ($building->currently_building)
-                                <span class="targetlevel" data-value="{{ $building->current_level + 1 }}" data-bonus="0">{{ $building->current_level + 1 }}</span>
+                                @php
+                                    $target_level = $building->currently_tearing_down ? $building->current_level - 1 : $building->current_level + 1;
+                                @endphp
+                                <span class="targetlevel" data-value="{{ $target_level }}" data-bonus="0">{{ $target_level }}</span>
                                 <div class="cooldownBackground"></div>
                                 <time-counter><time class="countdown buildingCountdown" id="countdownbuildingDetails" data-segments="2">...</time></time-counter>
                             @endif
@@ -117,6 +122,50 @@
         </div>
         <script type="text/javascript">
             var planetMoveInProgress = false;
+            var jumpGateOverlayUrl = "{{ route('jumpgate.overlay') }}";
+
+            function openJumpGateOverlay() {
+                // Create dialog container
+                var dialogId = 'jumpGateDialog_' + Date.now();
+                var $dialog = $('<div id="' + dialogId + '" class="overlayDiv"></div>');
+                $dialog.html('<div style="text-align: center; padding: 20px;"><img src="/img/icons/4161a64a933a5345d00cb9fdaa25c7.gif" alt="Loading..."></div>');
+                $('body').append($dialog);
+
+                // Load content via AJAX first
+                $.get(jumpGateOverlayUrl, function(data) {
+                    $dialog.html(data);
+
+                    // Initialize dialog AFTER content is loaded
+                    $dialog.dialog({
+                        title: 'Jump Gate',
+                        modal: true,
+                        width: 600,
+                        height: 'auto',
+                        closeText: '',
+                        position: { my: "center", at: "center" },
+                        close: function() {
+                            $(this).dialog('destroy');
+                            $(this).remove();
+                        }
+                    });
+                }).fail(function() {
+                    $dialog.html('<div style="padding: 20px; text-align: center; color: #ff6666;">Failed to load Jump Gate.</div>');
+
+                    // Initialize dialog even on failure
+                    $dialog.dialog({
+                        title: 'Jump Gate - Error',
+                        modal: true,
+                        width: 400,
+                        height: 'auto',
+                        closeText: '',
+                        position: { my: "center", at: "center" },
+                        close: function() {
+                            $(this).dialog('destroy');
+                            $(this).remove();
+                        }
+                    });
+                });
+            }
         </script>
         {{-- Last building slot warning --}}
         @include ('ingame.shared.buildings.last-building-slot-warning', ['planet' => $planet])

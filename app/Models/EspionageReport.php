@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $planet_system
  * @property int $planet_position
  * @property int $planet_user_id
+ * @property int $counter_espionage_chance
  * @property array<string, int> $resources
  * @property array<string, int> $debris
  * @property array<string, int> $buildings

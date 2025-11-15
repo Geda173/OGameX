@@ -11,9 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('fleet_missions', function (Blueprint $table) {
-            $table->integer('time_holding')->nullable()->after('time_arrival');
-        });
+        // Check if column already exists before adding it
+        if (!Schema::hasColumn('fleet_missions', 'time_holding')) {
+            Schema::table('fleet_missions', function (Blueprint $table) {
+                $table->integer('time_holding')->nullable()->after('time_arrival');
+            });
+        }
     }
 
     /**
@@ -21,8 +24,11 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('fleet_missions', function (Blueprint $table) {
-            $table->dropColumn('time_holding');
-        });
+        // Check if column exists before dropping it
+        if (Schema::hasColumn('fleet_missions', 'time_holding')) {
+            Schema::table('fleet_missions', function (Blueprint $table) {
+                $table->dropColumn('time_holding');
+            });
+        }
     }
 };

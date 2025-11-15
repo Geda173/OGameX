@@ -69017,7 +69017,7 @@ function reloadEventbox(data) {
   }
 
   var type = typeof evalData["eventText"];
-  var actionSum = parseInt(evalData["friendly"]) + parseInt(evalData["neutral"]) + parseInt(evalData["hostile"]);
+  var actionSum = parseInt(evalData["own"]) + parseInt(evalData["friendly"]) + parseInt(evalData["neutral"]) + parseInt(evalData["hostile"]);
 
   if (actionSum > 0) {
     var $eventList;
@@ -69030,12 +69030,19 @@ function reloadEventbox(data) {
       var missions = actionSum === 1 ? eventboxLoca.mission : eventboxLoca.missions;
       $eventList = $('<p class="event_list">' + actionSum + ' ' + missions + ': </p>');
 
+      if (evalData["own"]) {
+        $eventList.append('<span class="ownmark">' + evalData["own"] + ' ' + eventboxLoca.own + '</span>');
+      }
+
       if (evalData["friendly"]) {
+        if (evalData["own"]) {
+          $eventList.append(', ');
+        }
         $eventList.append('<span class="undermark">' + evalData["friendly"] + ' ' + eventboxLoca.friendly + '</span>');
       }
 
       if (evalData["neutral"]) {
-        if (evalData["friendly"]) {
+        if (evalData["own"] || evalData["friendly"]) {
           $eventList.append(', ');
         }
 
@@ -69043,7 +69050,7 @@ function reloadEventbox(data) {
       }
 
       if (evalData["hostile"]) {
-        if (evalData["friendly"] || evalData["neutral"]) {
+        if (evalData["own"] || evalData["friendly"] || evalData["neutral"]) {
           $eventList.append(', ');
         }
 
@@ -69072,7 +69079,7 @@ function reloadEventbox(data) {
         timerHandler.removeCallback(reloadEventBoxTimer.timer);
       }
 
-      reloadEventBoxTimer = new simpleCountdown(getElementByIdWithCache("tempcounter"), evalData["eventTime"], function () {
+      reloadEventBoxTimer = new simpleCountdown(document.getElementById("tempcounter"), evalData["eventTime"], function () {
         setTimeout(getAjaxEventbox, 3000);
       });
     } else {

@@ -10,6 +10,7 @@ use OGame\GameMessages\ReturnOfFleet;
 use OGame\GameMessages\ReturnOfFleetWithResources;
 use OGame\GameMissions\Models\MissionPossibleStatus;
 use OGame\GameObjects\Models\Units\UnitCollection;
+use OGame\GameMissions\ACSDefendMission;
 use OGame\GameMissions\ExpeditionMission;
 use OGame\Models\Enums\PlanetType;
 use OGame\Models\FleetMission;
@@ -98,17 +99,46 @@ abstract class GameMission
      */
     public function cancel(FleetMission $mission): void
     {
-        // Update the mission arrived time to now instead of original planned arrival time if the mission would finish by itself.
-        // This arrival time is used by the return mission to calculate the return time.
-        $mission->time_arrival = (int)Carbon::now()->timestamp;
+        // Preserve original departure time for return trip duration calculation
+        $originalTimeDeparture = $mission->time_departure;
+
+        // FIXED: Use a consistent timestamp throughout the cancel operation
+        // to prevent race conditions where the return mission is created "in the past"
+        // and gets instantly processed (teleportation bug)
+        $cancelTime = (int)Carbon::now()->timestamp;
+
+        // Update the mission arrived time to now (when the recall happens)
+        // This is critical for correct return time calculation:
+        // Return duration = NOW - departure = time already flown
+        $mission->time_arrival = $cancelTime;
+
+        // Clear the holding time for recalled missions - recalled fleets return immediately without waiting
+        $mission->time_holding = 0;
 
         // Mark parent mission as canceled.
         $mission->canceled = 1;
         $mission->processed = 1;
         $mission->save();
 
-        // Start the return mission with the resources and units of the original mission.
-        $this->startReturn($mission, $this->fleetMissionService->getResources($mission), $this->fleetMissionService->getFleetUnits($mission));
+        // Create a clone for return trip calculation
+        // Keep time_arrival as cancelTime (not original) so return duration = time already flown
+        // Only restore time_departure to original value
+        $missionForReturn = clone $mission;
+        $missionForReturn->time_departure = $originalTimeDeparture;
+
+        // Start the return mission with the units and resources of the original mission.
+        // For transport missions (type 3), we must pass the resources explicitly because startReturn()
+        // only uses the passed resources parameter for transport missions.
+        // For other mission types, startReturn() adds to parent resources, so we pass empty to avoid duplication.
+        if ($mission->mission_type == 3) {
+            // Transport mission: Must pass parent resources explicitly
+            $resourcesToReturn = $this->fleetMissionService->getResources($mission);
+        } else {
+            // Other missions: Pass empty resources (they'll be added from parent automatically)
+            $resourcesToReturn = new Resources(0, 0, 0, 0);
+        }
+
+        $this->startReturn($missionForReturn, $resourcesToReturn, $this->fleetMissionService->getFleetUnits($mission));
     }
 
     /**
@@ -214,10 +244,9 @@ abstract class GameMission
 
         // Holding time is the amount of time the fleet will wait at the target planet and/or how long expedition will last.
         // The $holdingHours is in hours, so we convert it to seconds.
-        // Only applies to expeditions (and ACS missions, but those are not implemented yet).
-        if (static::class === ExpeditionMission::class) {
+        // Only applies to expeditions and ACS Defend missions.
+        if (static::class === ExpeditionMission::class || static::class === ACSDefendMission::class) {
             $mission->time_holding = $holdingHours * 3600;
-            $targetType = PlanetType::DeepSpace;
         }
 
         $mission->type_to = $targetType->value;
@@ -257,10 +286,21 @@ abstract class GameMission
 
         // Check if the created mission arrival time is in the past. This can happen if the planet hasn't been updated
         // for some time and missions have already played out in the meantime.
-        // If the mission is in the past, process it immediately.
-        if ($mission->time_arrival < Carbon::now()->timestamp) {
+        // FIXED: Only process if significantly in the past (>10 seconds) to avoid edge cases
+        $currentTime = Carbon::now()->timestamp;
+        $timeDifference = $currentTime - $mission->time_arrival;
+
+        if ($timeDifference > 10) {
+            \Log::info('Mission arrival time in the past, processing immediately', [
+                'mission_id' => $mission->id,
+                'mission_type' => $mission->mission_type,
+                'arrival_time' => $mission->time_arrival,
+                'current_time' => $currentTime,
+                'seconds_overdue' => $timeDifference,
+            ]);
             $this->process($mission);
         }
+        // else: Let the mission process naturally through the update cycle (within 10 seconds)
 
         return $mission;
     }
@@ -285,12 +325,24 @@ abstract class GameMission
 
         // No need to check for resources and units, as the return mission takes the units from the original
         // mission and the resources are already delivered. Nothing is deducted from the planet.
-        // Time this fleet mission will depart (arrival time of the parent mission)
-        $time_start = $parentMission->time_arrival;
+        // Time this fleet mission will depart
+        // For expeditions and ACS Defend missions, add the holding time to the arrival time of the parent mission
+        // so that the return trip starts after the fleet has finished holding at the destination.
+        $time_start = $parentMission->time_arrival + $parentMission->time_holding;
 
-        // Time fleet mission will arrive (arrival time of the parent mission + duration of the parent mission)
-        // Return mission duration is always the same as the parent mission duration.
+        // Time fleet mission will arrive (start time + travel duration of the parent mission)
+        // Return mission duration is always the same as the parent mission's travel duration (not including holding time).
         $time_end = $time_start + ($parentMission->time_arrival - $parentMission->time_departure) + $additionalReturnTripTime;
+
+        // Validate parent mission has a valid mission_type before creating return mission
+        if (!is_numeric($parentMission->mission_type) || intval($parentMission->mission_type) <= 0) {
+            \Log::error('GameMission: Cannot create return mission - parent has invalid mission_type', [
+                'parent_mission_id' => $parentMission->id,
+                'parent_mission_type' => $parentMission->mission_type,
+                'parent_mission_type_type' => gettype($parentMission->mission_type),
+            ]);
+            return;
+        }
 
         // Create new return mission object
         $mission = new FleetMission();
@@ -338,22 +390,56 @@ abstract class GameMission
 
         // Set amount of resources to return based on provided resources in parameter.
         // This is the amount of resources that were gained and/or not used during the mission.
-        // The logic is different for each mission type.
-        // TODO: make this more smart: what if mission started with resources already, e.g. sending attack mission with resources?
-        // With the current logic the resources from origin mission are lost, which is probably not correct?
-        $mission->metal = (int)$resources->metal->get();
-        $mission->crystal = (int)$resources->crystal->get();
-        $mission->deuterium = (int)$resources->deuterium->get();
+        // For most missions: Add to existing resources from parent mission (loot from attacks, expedition finds, etc.)
+        // For Transport missions: Only return the resources parameter (don't add parent resources as they were delivered)
+        if ($parentMission->mission_type == 3) { // Transport mission (type 3)
+            // Transport mission: Resources were delivered at destination, return trip should only carry what's specified in $resources parameter
+            $mission->metal = (int)$resources->metal->get();
+            $mission->crystal = (int)$resources->crystal->get();
+            $mission->deuterium = (int)$resources->deuterium->get();
+        } else {
+            // Other missions: Add to existing resources from parent mission to preserve loot/finds
+            $mission->metal = $parentMission->metal + (int)$resources->metal->get();
+            $mission->crystal = $parentMission->crystal + (int)$resources->crystal->get();
+            $mission->deuterium = $parentMission->deuterium + (int)$resources->deuterium->get();
+        }
 
         // Save the new fleet return mission.
         $mission->save();
 
+        // Clear all ship units from the parent mission to prevent duplication.
+        // The ships are now stored in the return mission, so the parent mission should have 0 ships.
+        // This prevents bugs where the parent mission is re-read and ships are added again.
+        foreach ($units->units as $unit) {
+            $parentMission->{$unit->unitObject->machine_name} = 0;
+        }
+
+        // Clear all resources from the parent mission to prevent duplication.
+        // The resources are now stored in the return mission, so the parent mission should have 0 resources.
+        // This prevents bugs where the parent mission is re-read and resources are added again.
+        $parentMission->metal = 0;
+        $parentMission->crystal = 0;
+        $parentMission->deuterium = 0;
+
+        $parentMission->save();
+
         // Check if the created mission arrival time is in the past. This can happen if the planet hasn't been updated
         // for some time and missions have already played out in the meantime.
-        // If the mission is in the past, process it immediately.
-        if ($mission->time_arrival < Carbon::now()->timestamp) {
+        // FIXED: Only process if significantly in the past (>10 seconds) to avoid teleporting
+        // fleets that were recalled immediately after dispatch (race condition)
+        $currentTime = Carbon::now()->timestamp;
+        $timeDifference = $currentTime - $mission->time_arrival;
+
+        if ($timeDifference > 10) {
+            \Log::info('Return mission arrival time in the past, processing immediately', [
+                'mission_id' => $mission->id,
+                'arrival_time' => $mission->time_arrival,
+                'current_time' => $currentTime,
+                'seconds_overdue' => $timeDifference,
+            ]);
             $this->process($mission);
         }
+        // else: Let the mission process naturally through the update cycle (within 10 seconds)
     }
 
     /**
