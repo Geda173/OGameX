@@ -495,7 +495,7 @@
                                 tabsWidget.tabs('option', 'active', subtabIndex);
                             }
                         }
-                    }, 10);
+                    }, 100);
                 }
             })(jQuery);
         </script>
