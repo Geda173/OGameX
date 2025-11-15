@@ -45,4 +45,45 @@
     if (hasSubtabs > 0) {
         $('.ui-tabs-active a span:not(.icon_caption)').remove();
     }
+
+    // Handle delete all messages button
+    $('.delete-all-messages').off('click').on('click', function(e) {
+        e.preventDefault();
+
+        // Get current tab and subtab from URL
+        var currentTabElement = $('.ui-tabs-active a').first();
+        var tabUrl = currentTabElement.attr('href') || currentTabElement.attr('rel');
+
+        // Parse the tab and subtab from the URL
+        var urlParams = new URLSearchParams(tabUrl.split('?')[1]);
+        var currentTab = urlParams.get('tab');
+        var currentSubtab = urlParams.get('subtab') || '';
+
+        errorBoxDecision(
+            'Delete All Messages',
+            'Are you sure you want to delete all messages in this tab? This action cannot be undone.',
+            'Yes',
+            'No',
+            function() {
+                // Make AJAX request to delete all messages
+                $.ajax({
+                    url: '{{ route('messages.deleteall') }}',
+                    type: 'POST',
+                    data: {
+                        tab: currentTab,
+                        subtab: currentSubtab,
+                        _token: '{{ csrf_token() }}'
+                    },
+                    success: function(response) {
+                        // Reload the current tab/subtab
+                        ogame.messages.loadContentNew(tabUrl, null);
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error deleting messages:', error);
+                        fadeBox('Failed to delete messages. Please try again.', true);
+                    }
+                });
+            }
+        );
+    });
 </script>

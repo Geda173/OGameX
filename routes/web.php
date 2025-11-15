@@ -122,6 +122,8 @@ Route::middleware(['auth', 'globalgame', 'locale'])->group(function () {
     Route::get('/messages', [MessagesController::class, 'index'])->name('messages.index');
     // For handling message delete requests
     Route::post('/messages', [MessagesController::class, 'post'])->name('messages.post');
+    // For deleting all messages in a tab/subtab
+    Route::post('/messages/delete-all', [MessagesController::class, 'deleteAll'])->name('messages.deleteall');
     // For handling tab change AJAX requests
     Route::get('/ajax/messages', [MessagesController::class, 'ajaxGetTabContents'])->name('messages.ajax.gettabcontents');
     // For handling individual message AJAX requests by ID

@@ -177,4 +177,24 @@ class MessagesController extends OGameController
             $messageId => true,
         ]);
     }
+
+    /**
+     * Delete all messages for a specific tab/subtab.
+     *
+     * @param Request $request
+     * @param MessageService $messageService
+     * @return JsonResponse
+     */
+    public function deleteAll(Request $request, MessageService $messageService): JsonResponse
+    {
+        $tab = $request->get('tab');
+        $subtab = $request->get('subtab', '');
+
+        $deletedCount = $messageService->deleteAllMessagesForTab($tab, $subtab);
+
+        return response()->json([
+            'success' => true,
+            'deleted' => $deletedCount,
+        ]);
+    }
 }
