@@ -420,4 +420,16 @@ Result: :result',
         'subject' => 'Moon destroyed!',
         'body' => 'Your moon at :coordinates has been completely destroyed by a Deathstar attack! All buildings, ships, and defenses on the moon have been lost.',
     ],
+
+    // ------------------------
+    // Buddy Request
+    'buddy_request' => [
+        'from' => 'Buddy System',
+        'subject' => 'New Buddy Request',
+        'body' => '[player]:sender_id[/player] has sent you a buddy request.
+
+:message
+
+You can accept or reject this request on the Buddies page.',
+    ],
 ];

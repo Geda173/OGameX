@@ -117,7 +117,7 @@
                            accesskey=""
                            href="{{ route('buddies.index') }}"
                         >
-                            @lang('Buddies')</a>
+                            @lang('Buddies')@if($newBuddyRequestCount > 0) <span class="textlime"> ({{ $newBuddyRequestCount }})</span>@endif</a>
                     </li>
                     <li><a class="overlay"
                            href="{{ route('search.overlay') }}"
@@ -1226,7 +1226,7 @@ Combat simulation save slots +20">
             <div class="cb_playerlist_box"
                  style="display:none;">
             </div>
-            <span class="onlineCount">@lang(':count Contact(s) online', ['count' => 0])</span>
+            <span class="onlineCount">@lang(':count Contact(s) online', ['count' => $onlineBuddiesCount])</span>
         </li>
     </ul><!-- END Chat Bar List -->
 </div>
