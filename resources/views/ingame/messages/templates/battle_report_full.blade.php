@@ -893,7 +893,9 @@
         $('#defender_select_combatreport').on('change', updateDefenderDisplay);
 
         // Initialize defender display on page load
+@if(count($acs_participants['defenders']) > 1)
         updateDefenderDisplay();
+@endif
 @else
         //------------------------------Attacker - Data-------------------------------
         $('.attacker .participant_select').on('change.combatreport', function () {
