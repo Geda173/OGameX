@@ -113,26 +113,13 @@
                     data: requestData,
                     success: function(response) {
                         if (response.success) {
-                            // Reload the current tab/subtab by making an AJAX call to the tab URL
-                            $.ajax({
-                                url: tabUrl,
-                                type: 'GET',
-                                success: function(html) {
-                                    // Find the active tab panel and replace its content
-                                    var $activePanel = $('.ui-tabs-panel:visible');
-                                    $activePanel.html($(html).html());
+                            // Show success message and reload the page
+                            fadeBox('All messages deleted successfully.', false);
 
-                                    // Re-initialize any scripts in the loaded content
-                                    if (typeof initOverlays === 'function') {
-                                        initOverlays();
-                                    }
-                                },
-                                error: function() {
-                                    console.error('Failed to reload tab content');
-                                    // Fallback: refresh the entire page
-                                    window.location.reload();
-                                }
-                            });
+                            // Reload the page after a short delay to show the success message
+                            setTimeout(function() {
+                                window.location.reload();
+                            }, 500);
                         } else {
                             console.error('Server error:', response.error);
                             fadeBox(response.error || 'Failed to delete messages. Please try again.', true);
