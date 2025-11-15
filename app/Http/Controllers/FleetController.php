@@ -12,6 +12,7 @@ use OGame\GameObjects\Models\Units\UnitCollection;
 use OGame\Models\Enums\PlanetType;
 use OGame\Models\Planet\Coordinate;
 use OGame\Models\Resources;
+use OGame\Models\AcsGroup;
 use OGame\Services\ACSService;
 use OGame\Services\FleetMissionService;
 use OGame\Services\ObjectService;
@@ -1368,8 +1369,8 @@ class FleetController extends OGameController
         }
 
         try {
-            // Get the ACS group
-            $acsGroup = ACSService::findGroup($acsGroupId);
+            // Get the ACS group with fleet members and their missions
+            $acsGroup = \OGame\Models\AcsGroup::with('fleetMembers.fleetMission')->find($acsGroupId);
             if (!$acsGroup) {
                 return response()->json([
                     'success' => false,
