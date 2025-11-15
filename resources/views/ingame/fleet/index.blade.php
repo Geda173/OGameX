@@ -1652,9 +1652,6 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
             }
         }
 
-        // Debounce timer for ACS updates
-        let acsUpdateTimeout = null;
-
         // Update ACS group info when selection changes
         function updateACSGroupInfo() {
             const select = document.getElementById('acsGroupSelect');
@@ -1723,7 +1720,7 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                             speed = speedInput ? parseInt(speedInput.value) : 10;
                         }
 
-                        console.log('Updating ACS arrival with speed:', speed);
+                        console.log('Calling API: ACS group', selectedValue, 'with speed:', speed, 'ships:', ships);
 
                         // Call the backend to calculate the actual arrival time
                         fetch('{{ route('fleet.acs.calculate.arrival') }}', {
@@ -1741,6 +1738,8 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                         })
                         .then(response => response.json())
                         .then(data => {
+                            console.log('API Response:', data);
+
                             if (data.success) {
                                 let message = '✓ Joining ACS group. Your fleet will automatically synchronize to arrive at <strong>' +
                                     data.arrival_time_formatted + '</strong> with ' + group.fleet_count + ' other fleet(s).';
@@ -1749,10 +1748,14 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                                     message += ' <span style="color: #ff9900;">(Group will be delayed by ' + Math.round(data.delay_seconds / 60) + ' minutes)</span>';
                                 }
 
+                                console.log('Updating innerHTML to:', message);
                                 info.innerHTML = message;
+                                console.log('Updated! Current innerHTML:', info.innerHTML);
                             } else {
                                 // Show error message
-                                info.innerHTML = '<span style="color: #ff0000;">✗ ' + (data.message || 'Error calculating arrival time') + '</span>';
+                                const errorMsg = '<span style="color: #ff0000;">✗ ' + (data.message || 'Error calculating arrival time') + '</span>';
+                                console.log('Showing error:', errorMsg);
+                                info.innerHTML = errorMsg;
                             }
                         })
                         .catch(error => {
@@ -1764,14 +1767,6 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                     }
                 }
             }
-        }
-
-        // Debounced version for observers
-        function debouncedUpdateACSGroupInfo() {
-            clearTimeout(acsUpdateTimeout);
-            acsUpdateTimeout = setTimeout(function() {
-                updateACSGroupInfo();
-            }, 500); // Wait 500ms after last change
         }
 
         // Initialize on DOM ready
@@ -1871,50 +1866,29 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                 });
             });
 
-            // Listen for speed/flight changes to recalculate ACS arrival time
-            // Watch the duration element which is updated by FleetDispatcher when speed changes
-            const durationElement = document.getElementById('duration');
-            const arrivalTimeElement = document.getElementById('arrivalTime');
+            // Poll for speed changes instead of using observers
+            // (observers fire too frequently due to arrival time countdown)
+            let lastKnownSpeed = null;
 
-            if (durationElement) {
-                // Use MutationObserver to detect when FleetDispatcher updates the duration
-                const durationObserver = new MutationObserver(function(mutations) {
-                    const select = document.getElementById('acsGroupSelect');
-                    if (select && parseInt(select.value) > 0) {
-                        console.log('Flight duration changed, triggering debounced update');
-                        debouncedUpdateACSGroupInfo();
+            setInterval(function() {
+                const select = document.getElementById('acsGroupSelect');
+                if (select && parseInt(select.value) > 0) {
+                    // Get current speed
+                    let currentSpeed = 10;
+                    if (typeof fleetDispatcher !== 'undefined' && fleetDispatcher.speedPercent) {
+                        currentSpeed = fleetDispatcher.speedPercent;
                     }
-                });
 
-                // Observe both text content and child changes
-                durationObserver.observe(durationElement, {
-                    childList: true,
-                    characterData: true,
-                    subtree: true
-                });
-
-                console.log('✓ Watching duration element for changes');
-            }
-
-            // Also watch the arrival time element as a backup
-            if (arrivalTimeElement) {
-                const arrivalObserver = new MutationObserver(function(mutations) {
-                    const select = document.getElementById('acsGroupSelect');
-                    if (select && parseInt(select.value) > 0) {
-                        console.log('Arrival time changed, triggering debounced update');
-                        debouncedUpdateACSGroupInfo();
+                    // Only update if speed has changed
+                    if (currentSpeed !== lastKnownSpeed) {
+                        console.log('Speed changed from', lastKnownSpeed, 'to', currentSpeed);
+                        lastKnownSpeed = currentSpeed;
+                        updateACSGroupInfo();
                     }
-                });
+                }
+            }, 1000); // Check every second
 
-                arrivalObserver.observe(arrivalTimeElement, {
-                    childList: true,
-                    characterData: true,
-                    subtree: true
-                });
-
-                console.log('✓ Watching arrival time element for changes');
-            }
-
+            console.log('✓ Polling for speed changes every second');
             console.log('ACS UI initialization complete');
         }
 
