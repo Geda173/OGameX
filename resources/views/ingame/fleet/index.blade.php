@@ -1740,6 +1740,13 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                         .then(data => {
                             console.log('API Response:', data);
 
+                            // Get fresh reference to the element (in case it was replaced)
+                            const infoElement = document.getElementById('acsGroupInfo');
+                            if (!infoElement) {
+                                console.error('acsGroupInfo element not found!');
+                                return;
+                            }
+
                             if (data.success) {
                                 let message = '✓ Joining ACS group. Your fleet will automatically synchronize to arrive at <strong>' +
                                     data.arrival_time_formatted + '</strong> with ' + group.fleet_count + ' other fleet(s).';
@@ -1748,14 +1755,26 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                                     message += ' <span style="color: #ff9900;">(Group will be delayed by ' + Math.round(data.delay_seconds / 60) + ' minutes)</span>';
                                 }
 
-                                console.log('Updating innerHTML to:', message);
-                                info.innerHTML = message;
-                                console.log('Updated! Current innerHTML:', info.innerHTML);
+                                console.log('About to update element. Current innerHTML:', infoElement.innerHTML);
+                                console.log('Setting innerHTML to:', message);
+
+                                // Clear first
+                                infoElement.innerHTML = '';
+                                // Then set new value
+                                infoElement.innerHTML = message;
+
+                                // Force repaint
+                                infoElement.style.display = 'none';
+                                infoElement.offsetHeight; // Trigger reflow
+                                infoElement.style.display = '';
+
+                                console.log('Updated! New innerHTML:', infoElement.innerHTML);
+                                console.log('Element visible?', window.getComputedStyle(infoElement).display);
                             } else {
                                 // Show error message
                                 const errorMsg = '<span style="color: #ff0000;">✗ ' + (data.message || 'Error calculating arrival time') + '</span>';
                                 console.log('Showing error:', errorMsg);
-                                info.innerHTML = errorMsg;
+                                infoElement.innerHTML = errorMsg;
                             }
                         })
                         .catch(error => {
