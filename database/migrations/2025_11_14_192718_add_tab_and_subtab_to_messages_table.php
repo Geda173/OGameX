@@ -12,8 +12,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('messages', function (Blueprint $table) {
-            $table->string('tab')->nullable()->after('key');
-            $table->string('subtab')->nullable()->after('tab');
+            if (!Schema::hasColumn('messages', 'tab')) {
+                $table->string('tab')->nullable()->after('key');
+            }
+            if (!Schema::hasColumn('messages', 'subtab')) {
+                $table->string('subtab')->nullable()->after('tab');
+            }
         });
     }
 

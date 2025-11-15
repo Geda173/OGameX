@@ -70,6 +70,8 @@
                             @elseif ($build_queue_max)
                             @elseif ($building->research_in_progress && $building->object->machine_name == 'research_lab')
                             @elseif ($building->ship_or_defense_in_progress  && $building->object->machine_name == 'shipyard')
+                            @elseif ($building->object->machine_name == 'jump_gate' && $building->current_level >= 1)
+                                {{-- Jump Gate is operational, clicking opens the jump gate page --}}
                             @else
                                 <button
                                         class="upgrade tooltip hideOthers js_hideTipOnMobile"
@@ -120,6 +122,50 @@
         </div>
         <script type="text/javascript">
             var planetMoveInProgress = false;
+            var jumpGateOverlayUrl = "{{ route('jumpgate.overlay') }}";
+
+            function openJumpGateOverlay() {
+                // Create dialog container
+                var dialogId = 'jumpGateDialog_' + Date.now();
+                var $dialog = $('<div id="' + dialogId + '" class="overlayDiv"></div>');
+                $dialog.html('<div style="text-align: center; padding: 20px;"><img src="/img/icons/4161a64a933a5345d00cb9fdaa25c7.gif" alt="Loading..."></div>');
+                $('body').append($dialog);
+
+                // Load content via AJAX first
+                $.get(jumpGateOverlayUrl, function(data) {
+                    $dialog.html(data);
+
+                    // Initialize dialog AFTER content is loaded
+                    $dialog.dialog({
+                        title: 'Jump Gate',
+                        modal: true,
+                        width: 600,
+                        height: 'auto',
+                        closeText: '',
+                        position: { my: "center", at: "center" },
+                        close: function() {
+                            $(this).dialog('destroy');
+                            $(this).remove();
+                        }
+                    });
+                }).fail(function() {
+                    $dialog.html('<div style="padding: 20px; text-align: center; color: #ff6666;">Failed to load Jump Gate.</div>');
+
+                    // Initialize dialog even on failure
+                    $dialog.dialog({
+                        title: 'Jump Gate - Error',
+                        modal: true,
+                        width: 400,
+                        height: 'auto',
+                        closeText: '',
+                        position: { my: "center", at: "center" },
+                        close: function() {
+                            $(this).dialog('destroy');
+                            $(this).remove();
+                        }
+                    });
+                });
+            }
         </script>
         {{-- Last building slot warning --}}
         @include ('ingame.shared.buildings.last-building-slot-warning', ['planet' => $planet])

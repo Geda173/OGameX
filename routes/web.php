@@ -11,6 +11,7 @@ use OGame\Http\Controllers\FacilitiesController;
 use OGame\Http\Controllers\FleetController;
 use OGame\Http\Controllers\FleetEventsController;
 use OGame\Http\Controllers\GalaxyController;
+use OGame\Http\Controllers\JumpGateController;
 use OGame\Http\Controllers\HighscoreController;
 use OGame\Http\Controllers\LanguageController;
 use OGame\Http\Controllers\MerchantController;
@@ -104,6 +105,11 @@ Route::middleware(['auth', 'globalgame', 'locale'])->group(function () {
 
     Route::get('/ajax/fleet/eventbox/fetch', [FleetEventsController::class, 'fetchEventBox'])->name('fleet.eventbox.fetch');
     Route::get('/ajax/fleet/eventlist/fetch', [FleetEventsController::class, 'fetchEventList'])->name('fleet.eventlist.fetch');
+
+    // Jump Gate
+    Route::get('/jumpgate', [JumpGateController::class, 'index'])->name('jumpgate.index');
+    Route::get('/jumpgate/overlay', [JumpGateController::class, 'overlay'])->name('jumpgate.overlay');
+    Route::post('/jumpgate/execute', [JumpGateController::class, 'execute'])->name('jumpgate.execute');
 
     // Galaxy
     Route::get('/galaxy', [GalaxyController::class, 'index'])->name('galaxy.index');
