@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Check if columns already exist before adding them
         Schema::table('messages', function (Blueprint $table) {
             if (!Schema::hasColumn('messages', 'tab')) {
                 $table->string('tab')->nullable()->after('key');
@@ -26,8 +27,18 @@ return new class extends Migration
      */
     public function down(): void
     {
+        // Check if columns exist before dropping them
         Schema::table('messages', function (Blueprint $table) {
-            $table->dropColumn(['tab', 'subtab']);
+            $columnsToDrops = [];
+            if (Schema::hasColumn('messages', 'tab')) {
+                $columnsToDrops[] = 'tab';
+            }
+            if (Schema::hasColumn('messages', 'subtab')) {
+                $columnsToDrops[] = 'subtab';
+            }
+            if (!empty($columnsToDrops)) {
+                $table->dropColumn($columnsToDrops);
+            }
         });
     }
 };
