@@ -100,7 +100,8 @@ class BuildingQueueService
         }
 
         // Check if this is a new building (not an upgrade) and if fields are available
-        if ($current_level == 0) {
+        // Space dock floats in orbit and doesn't require a planet field
+        if ($current_level == 0 && $building->machine_name !== 'space_dock') {
             $current_buildings = $planet->getBuildingCount();
             $max_fields = $planet->getPlanetFieldMax();
             if ($current_buildings >= $max_fields) {

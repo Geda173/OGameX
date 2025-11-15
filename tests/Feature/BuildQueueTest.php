@@ -362,7 +362,7 @@ class BuildQueueTest extends AccountTestCase
         // Wait for all buildings to complete
         $this->travel(10)->minutes();
 
-        // Verify all 3 buildings are built
+        // Verify all 3 buildings are built (each building = 1 field regardless of level)
         $this->assertEquals(3, $this->planetService->getBuildingCount());
 
         // ---
@@ -389,5 +389,65 @@ class BuildQueueTest extends AccountTestCase
         // Verify metal mine was upgraded to level 2
         $response = $this->get('/resources');
         $this->assertObjectLevelOnPage($response, 'metal_mine', 2, 'Metal mine should be at level 2 as upgrades should still work when fields are full.');
+
+        // Building count should still be 3 (upgrades don't consume additional fields)
+        $this->assertEquals(3, $this->planetService->getBuildingCount());
+    }
+
+    /**
+     * Verify that building count counts buildings, not sum of levels
+     * @throws Exception
+     */
+    public function testBuildingCountNotLevelSum(): void
+    {
+        // Add resources for building
+        $this->planetAddResources(new Resources(100000, 100000, 100000, 0));
+
+        // Build metal mine and upgrade it to level 5
+        $this->planetSetObjectLevel('metal_mine', 5);
+        // Build crystal mine and upgrade it to level 3
+        $this->planetSetObjectLevel('crystal_mine', 3);
+
+        // Building count should be 2, not 8 (5+3)
+        $this->assertEquals(2, $this->planetService->getBuildingCount());
+    }
+
+    /**
+     * Verify that space dock doesn't consume a planet field
+     * @throws Exception
+     */
+    public function testSpaceDockDoesNotConsumeField(): void
+    {
+        // Add resources for building
+        $this->planetAddResources(new Resources(100000, 100000, 100000, 0));
+
+        // Set planet to have only 2 fields
+        $planet = $this->planetService->getPlanetModel();
+        $planet->field_max = 2;
+        $planet->save();
+
+        // Build 2 regular buildings
+        $this->planetSetObjectLevel('metal_mine', 1);
+        $this->planetSetObjectLevel('crystal_mine', 1);
+
+        // Verify 2 buildings are using fields
+        $this->assertEquals(2, $this->planetService->getBuildingCount());
+
+        // Build space dock (it should not consume a field)
+        $this->planetSetObjectLevel('space_dock', 1);
+
+        // Building count should still be 2 (space dock floats in orbit)
+        $this->assertEquals(2, $this->planetService->getBuildingCount());
+
+        // Verify we can still build space dock when fields are full
+        $this->planetSetObjectLevel('shipyard', 2); // Required for space dock
+        $this->addFacilitiesBuildRequest('space_dock');
+
+        // Wait for build to complete
+        $this->travel(10)->minutes();
+
+        // Verify space dock is built
+        $response = $this->get('/facilities');
+        $this->assertObjectLevelOnPage($response, 'space_dock', 2, 'Space dock should be at level 2 even though fields are full.');
     }
 }
