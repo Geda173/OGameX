@@ -51,7 +51,10 @@
         e.preventDefault();
 
         // Get current tab and subtab from URL
-        var currentTabElement = $('.ui-tabs-active a').first();
+        // When we have nested tabs (tab > subtab), we need to get the innermost active tab
+        // which will be the subtab. We look for all active tabs and take the last one.
+        var activeElements = $('.ui-tabs-active a');
+        var currentTabElement = activeElements.last(); // Get the innermost (subtab if exists)
         var tabUrl = currentTabElement.attr('href') || currentTabElement.attr('rel');
 
         // Parse the tab and subtab from the URL
