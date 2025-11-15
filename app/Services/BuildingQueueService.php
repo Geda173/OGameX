@@ -100,9 +100,13 @@ class BuildingQueueService
         }
 
         // Check if fields are available for this building/upgrade
-        // Space dock floats in orbit and doesn't require a planet field
+        // Exceptions (buildings that don't consume fields or add fields):
+        // - space_dock: floats in orbit, doesn't consume a planet field
+        // - terraformer: adds fields (5 per level + bonus), so always allowed even when over limit
+        // - lunar_base: adds fields (3 per level), so always allowed even when over limit
         // Each building level occupies one field, so upgrades also require available fields
-        if ($building->machine_name !== 'space_dock') {
+        $field_adding_buildings = ['space_dock', 'terraformer', 'lunar_base'];
+        if (!in_array($building->machine_name, $field_adding_buildings)) {
             $current_buildings = $planet->getBuildingCount();
             $max_fields = $planet->getPlanetFieldMax();
             if ($current_buildings >= $max_fields) {

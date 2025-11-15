@@ -453,4 +453,121 @@ class BuildQueueTest extends AccountTestCase
         // Building count should still be 2
         $this->assertEquals(2, $this->planetService->getBuildingCount());
     }
+
+    /**
+     * Verify that terraformer can be built even when planet is over field limit
+     * This handles the deployment scenario where existing planets already exceed their limits
+     * @throws Exception
+     */
+    public function testTerraformerAllowedWhenOverLimit(): void
+    {
+        // Add resources for building
+        $this->planetAddResources(new Resources(100000, 100000, 100000, 0));
+
+        // Set planet to have only 10 fields
+        $planet = $this->planetService->getPlanetModel();
+        $planet->field_max = 10;
+        $planet->save();
+
+        // Simulate deployment scenario: planet already has 50 fields used (way over limit)
+        $this->planetSetObjectLevel('metal_mine', 20);
+        $this->planetSetObjectLevel('crystal_mine', 15);
+        $this->planetSetObjectLevel('deuterium_synthesizer', 15);
+
+        // Verify we're way over the limit (50 fields used, only 10 max)
+        $this->assertEquals(50, $this->planetService->getBuildingCount());
+        $this->assertEquals(10, $this->planetService->getPlanetFieldMax());
+
+        // ---
+        // Step 1: Verify normal buildings are blocked
+        // ---
+        $this->addResourceBuildRequest('solar_plant', true);
+
+        $response = $this->get('/resources');
+        $response->assertStatus(200);
+        $this->assertObjectNotInQueue($response, 'solar_plant', 'Solar plant should be blocked when over limit.');
+
+        // ---
+        // Step 2: Verify terraformer CAN be built (it's the solution to being over limit)
+        // ---
+        $this->planetSetObjectLevel('research_lab', 1);
+        $this->planetSetObjectLevel('energy_technology', 12);
+        $this->addFacilitiesBuildRequest('terraformer');
+
+        // Wait for build to complete
+        $this->travel(10)->minutes();
+
+        // Verify terraformer was built successfully
+        $response = $this->get('/facilities');
+        $this->assertObjectLevelOnPage($response, 'terraformer', 1, 'Terraformer should be built even when over field limit.');
+
+        // Verify max fields increased (10 + 5 + 0 = 15)
+        $this->assertEquals(15, $this->planetService->getPlanetFieldMax());
+
+        // ---
+        // Step 3: Verify we can now build normal buildings again (still over, but less so)
+        // ---
+        $this->addResourceBuildRequest('solar_plant', true);
+        $response = $this->get('/resources');
+        $response->assertStatus(200);
+        // Still blocked because 51 > 15
+        $this->assertObjectNotInQueue($response, 'solar_plant', 'Solar plant should still be blocked (51 > 15).');
+
+        // ---
+        // Step 4: Build more terraformer levels to get under the limit
+        // ---
+        $this->addFacilitiesBuildRequest('terraformer'); // Level 2
+        $this->travel(10)->minutes();
+        $this->addFacilitiesBuildRequest('terraformer'); // Level 3
+        $this->travel(10)->minutes();
+        $this->addFacilitiesBuildRequest('terraformer'); // Level 4
+        $this->travel(10)->minutes();
+        $this->addFacilitiesBuildRequest('terraformer'); // Level 5
+        $this->travel(10)->minutes();
+        $this->addFacilitiesBuildRequest('terraformer'); // Level 6
+        $this->travel(10)->minutes();
+
+        // Verify max fields increased significantly
+        // Terraformer level 6 = (6 * 5) + floor(6/2) = 30 + 3 = 33 extra fields
+        // Total = 10 + 33 = 43 fields
+        // Used = 51 + 6 (terraformer itself) = 57 fields
+        // Still over, need more!
+        $this->assertEquals(43, $this->planetService->getPlanetFieldMax());
+
+        // Build more terraformer
+        $this->addFacilitiesBuildRequest('terraformer'); // Level 7
+        $this->travel(10)->minutes();
+        $this->addFacilitiesBuildRequest('terraformer'); // Level 8
+        $this->travel(10)->minutes();
+
+        // Terraformer level 8 = (8 * 5) + floor(8/2) = 40 + 4 = 44 extra fields
+        // Total = 10 + 44 = 54 fields
+        // Used = 51 + 8 = 59 fields
+        // Still need one more!
+        $this->addFacilitiesBuildRequest('terraformer'); // Level 9
+        $this->travel(10)->minutes();
+
+        // Terraformer level 9 = (9 * 5) + floor(9/2) = 45 + 4 = 49 extra fields
+        // Total = 10 + 49 = 59 fields
+        // Used = 51 + 9 = 60 fields
+        // One more!
+        $this->addFacilitiesBuildRequest('terraformer'); // Level 10
+        $this->travel(10)->minutes();
+
+        // Terraformer level 10 = (10 * 5) + floor(10/2) = 50 + 5 = 55 extra fields
+        // Total = 10 + 55 = 65 fields
+        // Used = 51 + 10 = 61 fields
+        // Finally under!
+        $this->assertEquals(65, $this->planetService->getPlanetFieldMax());
+        $this->assertEquals(61, $this->planetService->getBuildingCount());
+
+        // ---
+        // Step 5: Now verify normal buildings can be built again
+        // ---
+        $this->addResourceBuildRequest('solar_plant');
+        $this->travel(10)->minutes();
+
+        $response = $this->get('/resources');
+        $this->assertObjectLevelOnPage($response, 'solar_plant', 1, 'Solar plant should now be buildable after terraformer fixed the field issue.');
+    }
 }
