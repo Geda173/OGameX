@@ -1667,16 +1667,16 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                 if (typeof unions !== 'undefined' && unions) {
                     const group = unions.find(g => g.id === selectedValue);
                     if (group) {
-                        // Collect ships from the form
-                        const ships = {};
-                        const shipInputs = document.querySelectorAll('input[name^="ship["]');
-                        shipInputs.forEach(input => {
-                            const match = input.name.match(/ship\[(\d+)\]/);
-                            if (match) {
-                                const shipId = match[1];
-                                const amount = parseInt(input.value) || 0;
-                                if (amount > 0) {
-                                    // Convert ship ID to machine name
+                        // Collect ships from the form OR use fleetDispatcher
+                        let ships = {};
+
+                        // Try to get ships from FleetDispatcher first
+                        if (typeof fleetDispatcher !== 'undefined' && fleetDispatcher.shipsOnPlanet) {
+                            console.log('Getting ships from fleetDispatcher.shipsOnPlanet');
+                            // Get selected ships from FleetDispatcher
+                            for (const shipId in fleetDispatcher.shipsOnPlanet) {
+                                const shipData = fleetDispatcher.shipsOnPlanet[shipId];
+                                if (shipData && shipData.number > 0) {
                                     const shipIdToName = {
                                         '202': 'small_cargo',
                                         '203': 'large_cargo',
@@ -1694,18 +1694,61 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                                     };
                                     const machineName = shipIdToName[shipId];
                                     if (machineName) {
-                                        ships[machineName] = amount;
+                                        ships[machineName] = shipData.number;
                                     }
                                 }
                             }
-                        });
+                            console.log('Ships from FleetDispatcher:', ships);
+                        }
+
+                        // Fallback: collect from form inputs
+                        if (Object.keys(ships).length === 0) {
+                            console.log('No ships in FleetDispatcher, trying form inputs');
+                            const shipInputs = document.querySelectorAll('input[name^="ship["]');
+                            console.log('Found', shipInputs.length, 'ship inputs');
+                            shipInputs.forEach(input => {
+                                const match = input.name.match(/ship\[(\d+)\]/);
+                                if (match) {
+                                    const shipId = match[1];
+                                    const amount = parseInt(input.value) || 0;
+                                    console.log('Ship', shipId, 'has value:', amount);
+                                    if (amount > 0) {
+                                        // Convert ship ID to machine name
+                                        const shipIdToName = {
+                                            '202': 'small_cargo',
+                                            '203': 'large_cargo',
+                                            '204': 'light_fighter',
+                                            '205': 'heavy_fighter',
+                                            '206': 'cruiser',
+                                            '207': 'battle_ship',
+                                            '208': 'colony_ship',
+                                            '209': 'recycler',
+                                            '210': 'espionage_probe',
+                                            '211': 'bomber',
+                                            '213': 'destroyer',
+                                            '214': 'deathstar',
+                                            '215': 'battlecruiser'
+                                        };
+                                        const machineName = shipIdToName[shipId];
+                                        if (machineName) {
+                                            ships[machineName] = amount;
+                                        }
+                                    }
+                                }
+                            });
+                            console.log('Ships from form inputs:', ships);
+                        }
 
                         // If no ships selected, show static message
                         if (Object.keys(ships).length === 0) {
+                            console.log('⚠️ NO SHIPS FOUND - Using static message');
                             info.innerHTML = '✓ Joining ACS group. Your fleet will automatically synchronize to arrive at <strong>' +
                                 group.arrival_time_formatted + '</strong> with ' + group.fleet_count + ' other fleet(s).';
+                            window.lastACSMessage = info.innerHTML;
                             return;
                         }
+
+                        console.log('✓ Found ships:', Object.keys(ships).length, 'types');
 
                         // Get speed from FleetDispatcher object if available, otherwise from input
                         let speed = 10;
