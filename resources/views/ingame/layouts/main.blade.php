@@ -1207,6 +1207,8 @@ Combat simulation save slots +20">
                 </div>
             </div>
         </div>
+        {{-- Shop banner commented out --}}
+        {{--
         <div id="bannerSkyscrapercomponent" class="">
             <div id="banner_skyscraper" class="desktop" name="banner_skyscraper">
                 <div style="position: relative;">
@@ -1216,6 +1218,7 @@ Combat simulation save slots +20">
                 </div>
             </div>
         </div>
+        --}}
     </div>
 </div>
 
