@@ -43,7 +43,10 @@ class ShipyardController extends AbstractUnitsController
 
         return view(view: 'ingame.shipyard.index')->with(
             array_merge(
-                ['shipyard_upgrading' => $player->planets->current()->isBuildingObject('shipyard')],
+                [
+                    'shipyard_upgrading' => $player->planets->current()->isBuildingObject('shipyard'),
+                    'nanite_factory_upgrading' => $player->planets->current()->isBuildingObject('nano_factory'),
+                ],
                 parent::indexPage($request, $player)
             )
         );
@@ -70,15 +73,21 @@ class ShipyardController extends AbstractUnitsController
      */
     public function addBuildRequest(Request $request, PlayerService $player): JsonResponse
     {
-        // If the shipyard isn't upgrading, we can continue to process the request.
-        if (!$player->planets->current()->isBuildingObject('shipyard')) {
-            return parent::addBuildRequest($request, $player);
-        } else {
-            // Otherwise, it shouldn't be allowed.
+        // If the shipyard is upgrading, it shouldn't be allowed.
+        if ($player->planets->current()->isBuildingObject('shipyard')) {
             return response()->json([
                 'success' => false,
                 'errors' => [['message' => __('Shipyard is being upgraded.')]],
             ]);
         }
+        // If the nanite factory is upgrading, it shouldn't be allowed.
+        if ($player->planets->current()->isBuildingObject('nano_factory')) {
+            return response()->json([
+                'success' => false,
+                'errors' => [['message' => __('Nanite Factory is being upgraded.')]],
+            ]);
+        }
+        // If neither are upgrading, we can continue to process the request.
+        return parent::addBuildRequest($request, $player);
     }
 }
