@@ -59,7 +59,9 @@ use Spatie\Permission\Traits\HasRoles;
  * @method static \Illuminate\Database\Eloquent\Builder|User withoutPermission($permissions)
  * @method static \Illuminate\Database\Eloquent\Builder|User withoutRole($roles, $guard = null)
  * @property string|null $username_updated_at
+ * @property int $espionage_probes_amount
  * @method static \Illuminate\Database\Eloquent\Builder|User whereUsernameUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder|User whereEspionageProbesAmount($value)
  * @mixin \Eloquent
  */
 class User extends Authenticatable
@@ -80,7 +82,7 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'username', 'email', 'password', 'lang',
+        'username', 'email', 'password', 'lang', 'espionage_probes_amount',
     ];
 
     /**

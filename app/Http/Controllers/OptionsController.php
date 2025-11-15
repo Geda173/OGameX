@@ -29,6 +29,7 @@ class OptionsController extends OGameController
             'username' => $player->getUsername(),
             'current_email' => $player->getEmail(),
             'canUpdateUsername' => $canUpdateUsername,
+            'espionage_probes_amount' => $player->getUser()->espionage_probes_amount ?? 3,
         ]);
     }
 
@@ -60,6 +61,35 @@ class OptionsController extends OGameController
     }
 
     /**
+     * Process espionage probes amount submit request.
+     *
+     * @param Request $request
+     * @param PlayerService $player
+     *
+     * @return array<string,string>
+     */
+    public function processEspionageProbesAmount(Request $request, PlayerService $player): array
+    {
+        $amount = $request->input('espionage_probes_amount');
+        if ($amount !== null && $amount !== '') {
+            // Validate the amount is a number between 1 and 99
+            $amount = (int)$amount;
+            if ($amount < 1 || $amount > 99) {
+                return array('error' => __('Espionage probe amount must be between 1 and 99'));
+            }
+
+            // Update espionage probes amount
+            $user = $player->getUser();
+            $user->espionage_probes_amount = $amount;
+            $user->save();
+
+            return array('success' => __('Settings saved'));
+        }
+
+        return array();
+    }
+
+    /**
      * Save handler for index() form.
      *
      * @param Request $request
@@ -70,7 +100,8 @@ class OptionsController extends OGameController
     {
         // Define change handlers.
         $change_handlers = [
-            'processChangeUsername'
+            'processChangeUsername',
+            'processEspionageProbesAmount'
         ];
 
         // Loop through change handlers, execute them and if it triggers

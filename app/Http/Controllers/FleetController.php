@@ -802,9 +802,8 @@ class FleetController extends OGameController
         $responseMessage = '';
         switch ($mission_type) {
             case 6: // Espionage
-                // TODO: make espionage probe amount configurable in user settings and use that value here.
                 $responseMessage = __('Send espionage probe to:');
-                $units->addUnit(ObjectService::getUnitObjectByMachineName('espionage_probe'), 1);
+                $units->addUnit(ObjectService::getUnitObjectByMachineName('espionage_probe'), $shipCount);
                 break;
             case 8: // Recycle
                 $responseMessage = __('Send recycler to:');
