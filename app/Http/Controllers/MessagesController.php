@@ -191,6 +191,11 @@ class MessagesController extends OGameController
             $tab = $request->get('tab');
             $subtab = $request->get('subtab', '');
 
+            // Ensure subtab is a string, not null
+            if ($subtab === null) {
+                $subtab = '';
+            }
+
             // Validate that tab is provided
             if (empty($tab)) {
                 return response()->json([

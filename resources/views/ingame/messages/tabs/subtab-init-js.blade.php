@@ -95,15 +95,22 @@
             'Yes',
             'No',
             function() {
+                // Prepare data for AJAX request
+                var requestData = {
+                    tab: currentTab,
+                    _token: '{{ csrf_token() }}'
+                };
+
+                // Only include subtab if it has a value
+                if (currentSubtab) {
+                    requestData.subtab = currentSubtab;
+                }
+
                 // Make AJAX request to delete all messages
                 $.ajax({
                     url: '{{ route('messages.deleteall') }}',
                     type: 'POST',
-                    data: {
-                        tab: currentTab,
-                        subtab: currentSubtab,
-                        _token: '{{ csrf_token() }}'
-                    },
+                    data: requestData,
                     success: function(response) {
                         if (response.success) {
                             // Reload the current tab/subtab
