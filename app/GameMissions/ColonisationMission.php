@@ -41,6 +41,11 @@ class ColonisationMission extends GameMission
             return new MissionPossibleStatus(false);
         }
 
+        // Check if the player has the required astrophysics level for the target position.
+        if (!$planet->getPlayer()->canColonizePosition($targetCoordinate->position)) {
+            return new MissionPossibleStatus(false, __('Astrophysics level is not high enough to colonize this position.'));
+        }
+
         // If no colony ships are present in the fleet, the mission is not possible.
         if ($units->getAmountByMachineName('colony_ship') === 0) {
             return new MissionPossibleStatus(false, __('You need a colony ship to colonize a planet.'));
@@ -86,6 +91,17 @@ class ColonisationMission extends GameMission
         $max_planets = $player->getMaxPlanetAmount();
         if ($player->planets->planetCount() + 1 > $max_planets) {
             // Astrophysics level is not high enough, send failed message and cancel the mission.
+            $this->messageService->sendSystemMessageToPlayer($player, ColonyEstablishFailAstrophysics::class, [
+                'coordinates' => $target_coordinates->asString(),
+            ]);
+
+            $this->cancel($mission);
+            return;
+        }
+
+        // Check if the player has the required astrophysics level for the target position.
+        if (!$player->canColonizePosition($mission->position_to)) {
+            // Astrophysics level is not high enough for this position, send failed message and cancel the mission.
             $this->messageService->sendSystemMessageToPlayer($player, ColonyEstablishFailAstrophysics::class, [
                 'coordinates' => $target_coordinates->asString(),
             ]);
