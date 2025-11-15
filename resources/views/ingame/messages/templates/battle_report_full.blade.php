@@ -688,8 +688,11 @@
         );
 
         ogame.messages.combatreport.initCombatText(combatData);
+@if(!($is_acs && $acs_participants))
+        // Only call these for non-ACS battles; ACS battles use custom display functions
         ogame.messages.combatreport.loadDataBySelectedCombatMember(attackerJson, 'attacker');
         ogame.messages.combatreport.loadDataBySelectedCombatMember(defenderJson, 'defender');
+@endif
 
 @if($is_acs && $acs_participants)
         //------------------------------ACS Attacker - Data-------------------------------
