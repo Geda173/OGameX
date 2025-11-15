@@ -1431,21 +1431,16 @@ class FleetController extends OGameController
                 $newGroupArrival = $naturalArrivalTime;
                 $delayAmount = $newGroupArrival - $acsGroup->arrival_time;
 
-                // First, check maximum delay allowed (30% of the slowest fleet's base duration)
+                // First, check maximum delay allowed (30% of the slowest fleet's CURRENT flight duration)
                 $maxAllowedDelay = 0;
                 foreach ($existingFleets as $member) {
                     $existingMission = $member->fleetMission;
 
-                    // Calculate base duration at 100% speed
-                    $baseDuration = $fleetMissionService->calculateFleetMissionDuration(
-                        $planetServiceFactory->make($existingMission->planet_id_from),
-                        new Coordinate($existingMission->galaxy_to, $existingMission->system_to, $existingMission->position_to),
-                        $fleetMissionService->getFleetUnits($existingMission),
-                        100
-                    );
+                    // Calculate CURRENT duration (actual flight time)
+                    $currentDuration = $existingMission->time_arrival - $existingMission->time_departure;
 
-                    // Maximum delay is 30% of base duration
-                    $fleetMaxDelay = $baseDuration * 0.3;
+                    // Maximum delay is 30% of current duration
+                    $fleetMaxDelay = $currentDuration * 0.3;
                     $maxAllowedDelay = max($maxAllowedDelay, $fleetMaxDelay);
                 }
 
