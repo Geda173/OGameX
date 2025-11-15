@@ -48766,9 +48766,8 @@ function getPlayerTooltip(galaxyContentObject) {
                 <li>
                     <a style="margin-top: 4px;"
                     href="${actions.buddies.link}"
-                    title="${actions.buddies.title}"
-                    class="js_hideTipOnMobile no_decoration overlay"
-                    data-overlay-title="${actions.buddies.title}">
+                    target="_blank" title="${actions.buddies.title}"
+                    class="js_hideTipOnMobile no_decoration">
                         <span class="support_icon icon icon_mail" style="margin-top: 5px;"></span> &nbsp;
                         <div style="position:absolute; top: 32px;left:30px">${actions.buddies.title}</div>
                     </a>

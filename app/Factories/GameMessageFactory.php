@@ -34,7 +34,6 @@ class GameMessageFactory
         'missile_defense_report' => \OGame\GameMessages\MissileDefenseReport::class,
         'debris_field_harvest' => \OGame\GameMessages\DebrisFieldHarvest::class,
         'acs_invitation' => \OGame\GameMessages\ACSInvitation::class,
-        'buddy_request' => \OGame\GameMessages\BuddyRequest::class,
 
         'moon_destruction_success' => \OGame\GameMessages\MoonDestructionSuccess::class,
         'moon_destruction_failed' => \OGame\GameMessages\MoonDestructionFailed::class,
