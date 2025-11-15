@@ -745,6 +745,19 @@ class ACSAttackMission extends GameMission
             'armor_technology' => $battleResult->attackerArmorLevel,
         ];
 
+        // Add origin planet coordinates for the first attacker (main attacker) if available
+        if ($isACSReport && $attackerFleets !== null && !empty($attackerFleets)) {
+            $firstFleet = $attackerFleets[0];
+            $originMission = $firstFleet['mission'];
+            $originPlanet = $this->planetServiceFactory->make($originMission->planet_id_from, true);
+            if ($originPlanet !== null) {
+                $report->attacker['origin_galaxy'] = $originPlanet->getPlanetCoordinates()->galaxy;
+                $report->attacker['origin_system'] = $originPlanet->getPlanetCoordinates()->system;
+                $report->attacker['origin_position'] = $originPlanet->getPlanetCoordinates()->position;
+                $report->attacker['origin_type'] = $originPlanet->getPlanetType()->value;
+            }
+        }
+
         $report->defender = [
             'player_id' => $defenderPlanet->getPlayer()->getId(),
             'resource_loss' => $battleResult->defenderResourceLoss->sum(),
@@ -800,8 +813,12 @@ class ACSAttackMission extends GameMission
             foreach ($attackerFleets as $index => $fleet) {
                 $player = $fleet['player'];
                 $units = $fleet['units'];
+                $mission = $fleet['mission'];
 
-                $acsParticipants['attackers'][] = [
+                // Get origin planet coordinates
+                $originPlanet = $this->planetServiceFactory->make($mission->planet_id_from, true);
+
+                $participantData = [
                     'player_id' => $player->getId(),
                     'player_name' => $player->getUsername(false),
                     'units' => $units->toArray(),
@@ -809,6 +826,16 @@ class ACSAttackMission extends GameMission
                     'shielding_technology' => $player->getResearchLevel('shielding_technology'),
                     'armor_technology' => $player->getResearchLevel('armor_technology'),
                 ];
+
+                // Add origin coordinates
+                if ($originPlanet !== null) {
+                    $participantData['origin_galaxy'] = $originPlanet->getPlanetCoordinates()->galaxy;
+                    $participantData['origin_system'] = $originPlanet->getPlanetCoordinates()->system;
+                    $participantData['origin_position'] = $originPlanet->getPlanetCoordinates()->position;
+                    $participantData['origin_type'] = $originPlanet->getPlanetType()->value;
+                }
+
+                $acsParticipants['attackers'][] = $participantData;
             }
 
             // Calculate ACS Defend units to separate planet units from fleet units

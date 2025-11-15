@@ -183,9 +183,17 @@
                     <option value="{{ $index }}" data-participant-index="{{ $index }}">{{ $participant['player_name'] }}</option>
 @endforeach
                 </select>
+                <span id="attacker_origin_display"></span>
 @else
                 <span id="attacker_select_combatreport" data-member-name="{{ $attacker_name }}">
                     <span>{{ $attacker_name }}</span>
+@if($attacker_origin_coords)
+@if($attacker_origin_is_deep_space)
+                    <span> @lang('from') @lang('Deep space') <a href="#" class="txt_link">[{{ $attacker_origin_coords }}]</a></span>
+@else
+                    <span> @lang('from') {{ $attacker_origin_type == \OGame\Models\Enums\PlanetType::Moon->value ? __('Moon') : __('Planet') }} <a href="#" class="txt_link">[{{ $attacker_origin_coords }}]</a></span>
+@endif
+@endif
                 </span>
 @endif
             </div>
@@ -627,6 +635,8 @@
                     weapons: {{ $participant['weapon_technology'] }},
                     shields: {{ $participant['shielding_technology'] }},
                     armor: {{ $participant['armor_technology'] }},
+                    origin_coords: '{{ $participant['origin_coords'] ?? '' }}',
+                    origin_type: '{{ $participant['origin_type'] ?? '' }}',
                     units: {
 @foreach($participant['units']->units as $unit)
                         {{ $unit->unitObject->id }}: {{ $unit->amount }},
@@ -706,6 +716,9 @@
                 $('#attacker_shields_display').text(combinedAttacker.shields);
                 $('#attacker_armor_display').text(combinedAttacker.armor);
 
+                // Hide origin display for combined fleet
+                $('#attacker_origin_display').text('');
+
                 // Update ship counts and visibility
                 var shipListElements = $('.attacker ul.military_ships li, .attacker ul.ship_list_28 li');
                 console.log('Found ' + shipListElements.length + ' attacker ship elements');
@@ -740,6 +753,14 @@
                     $('#attacker_weapons_display').text(participant.weapons);
                     $('#attacker_shields_display').text(participant.shields);
                     $('#attacker_armor_display').text(participant.armor);
+
+                    // Show origin if available
+                    if (participant.origin_coords) {
+                        var originType = participant.origin_type == {{ \OGame\Models\Enums\PlanetType::Moon->value }} ? '@lang('Moon')' : '@lang('Planet')';
+                        $('#attacker_origin_display').html(' @lang('from') ' + originType + ' <a href="#" class="txt_link">[' + participant.origin_coords + ']</a>');
+                    } else {
+                        $('#attacker_origin_display').text('');
+                    }
 
                     // Update ship counts and hide ships with 0 count
                     $('.attacker ul.military_ships li, .attacker ul.ship_list_28 li').each(function() {
