@@ -224,6 +224,7 @@
             };
 
             var currentPlanet = {
+                "id": {{ $planet->getPlanetId() }},
                 "galaxy": {{ $planet->getPlanetCoordinates()->galaxy }},
                 "system": {{ $planet->getPlanetCoordinates()->system }},
                 "position": {{ $planet->getPlanetCoordinates()->position }},
@@ -1666,8 +1667,91 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                 if (typeof unions !== 'undefined' && unions) {
                     const group = unions.find(g => g.id === selectedValue);
                     if (group) {
-                        info.innerHTML = '✓ Joining ACS group. Your fleet will automatically synchronize to arrive at <strong>' +
-                            group.arrival_time_formatted + '</strong> with ' + group.fleet_count + ' other fleet(s).';
+                        // Show loading message first
+                        info.innerHTML = '✓ Joining ACS group. Calculating arrival time...';
+
+                        // Collect ships from the form
+                        const ships = {};
+                        const shipInputs = document.querySelectorAll('input[name^="ship["]');
+                        shipInputs.forEach(input => {
+                            const match = input.name.match(/ship\[(\d+)\]/);
+                            if (match) {
+                                const shipId = match[1];
+                                const amount = parseInt(input.value) || 0;
+                                if (amount > 0) {
+                                    // Convert ship ID to machine name
+                                    const shipIdToName = {
+                                        '202': 'small_cargo',
+                                        '203': 'large_cargo',
+                                        '204': 'light_fighter',
+                                        '205': 'heavy_fighter',
+                                        '206': 'cruiser',
+                                        '207': 'battle_ship',
+                                        '208': 'colony_ship',
+                                        '209': 'recycler',
+                                        '210': 'espionage_probe',
+                                        '211': 'bomber',
+                                        '213': 'destroyer',
+                                        '214': 'deathstar',
+                                        '215': 'battlecruiser'
+                                    };
+                                    const machineName = shipIdToName[shipId];
+                                    if (machineName) {
+                                        ships[machineName] = amount;
+                                    }
+                                }
+                            }
+                        });
+
+                        // Get speed
+                        const speedInput = document.querySelector('input[name="speed"]');
+                        const speed = speedInput ? parseInt(speedInput.value) : 10;
+
+                        // If no ships selected, show static message
+                        if (Object.keys(ships).length === 0) {
+                            info.innerHTML = '✓ Joining ACS group. Your fleet will automatically synchronize to arrive at <strong>' +
+                                group.arrival_time_formatted + '</strong> with ' + group.fleet_count + ' other fleet(s).';
+                            return;
+                        }
+
+                        // Call the backend to calculate the actual arrival time
+                        fetch('{{ route('fleet.acs.calculate.arrival') }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            },
+                            body: JSON.stringify({
+                                acs_group_id: selectedValue,
+                                ships: ships,
+                                speed: speed,
+                                planet_id: currentPlanet.id
+                            })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            console.log('ACS arrival calculation response:', data);
+
+                            if (data.success) {
+                                let message = '✓ Joining ACS group. Your fleet will automatically synchronize to arrive at <strong>' +
+                                    data.arrival_time_formatted + '</strong> with ' + group.fleet_count + ' other fleet(s).';
+
+                                if (data.is_delayed) {
+                                    message += ' <span style="color: #ff9900;">(Group will be delayed by ' + Math.round(data.delay_seconds / 60) + ' minutes)</span>';
+                                }
+
+                                info.innerHTML = message;
+                            } else {
+                                // Show error message
+                                info.innerHTML = '<span style="color: #ff0000;">✗ ' + (data.message || 'Error calculating arrival time') + '</span>';
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error calculating ACS arrival time:', error);
+                            // Fallback to static message
+                            info.innerHTML = '✓ Joining ACS group. Your fleet will automatically synchronize to arrive at <strong>' +
+                                group.arrival_time_formatted + '</strong> with ' + group.fleet_count + ' other fleet(s).';
+                        });
                     }
                 }
             }
@@ -1754,6 +1838,48 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                     }
 
                     updateACSGroupInfo();
+                });
+            }
+
+            // Listen for ship quantity changes to recalculate ACS arrival time
+            const shipInputs = document.querySelectorAll('input[name^="ship["]');
+            shipInputs.forEach(input => {
+                input.addEventListener('change', function() {
+                    // Only update if an ACS group is selected
+                    const select = document.getElementById('acsGroupSelect');
+                    if (select && parseInt(select.value) > 0) {
+                        console.log('Ship quantity changed, recalculating ACS arrival time');
+                        updateACSGroupInfo();
+                    }
+                });
+            });
+
+            // Listen for speed changes to recalculate ACS arrival time
+            // Note: Speed is typically changed through a slider or buttons, so we'll use a MutationObserver
+            const speedInput = document.querySelector('input[name="speed"]');
+            if (speedInput) {
+                // Use MutationObserver to detect value changes from UI controls
+                const speedObserver = new MutationObserver(function(mutations) {
+                    // Only update if an ACS group is selected
+                    const select = document.getElementById('acsGroupSelect');
+                    if (select && parseInt(select.value) > 0) {
+                        console.log('Speed changed, recalculating ACS arrival time');
+                        updateACSGroupInfo();
+                    }
+                });
+
+                speedObserver.observe(speedInput, {
+                    attributes: true,
+                    attributeFilter: ['value']
+                });
+
+                // Also listen for direct input changes
+                speedInput.addEventListener('change', function() {
+                    const select = document.getElementById('acsGroupSelect');
+                    if (select && parseInt(select.value) > 0) {
+                        console.log('Speed input changed, recalculating ACS arrival time');
+                        updateACSGroupInfo();
+                    }
                 });
             }
 

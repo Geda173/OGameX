@@ -105,7 +105,7 @@ class FleetController extends OGameController
                         'name' => $group->name,
                         'target' => $group->galaxy_to . ':' . $group->system_to . ':' . $group->position_to,
                         'arrival_time' => $group->arrival_time,
-                        'arrival_time_formatted' => date('Y-m-d H:i:s', $group->arrival_time),
+                        'arrival_time_formatted' => date('d/m/Y H:i:s', $group->arrival_time),
                         'fleet_count' => $group->fleetMembers()->count(),
                         'is_creator' => $group->creator_id === $player->getId(),
                     ];
@@ -1219,7 +1219,7 @@ class FleetController extends OGameController
                     'name' => $group->name,
                     'target' => $group->galaxy_to . ':' . $group->system_to . ':' . $group->position_to,
                     'arrival_time' => $group->arrival_time,
-                    'arrival_time_formatted' => date('Y-m-d H:i:s', $group->arrival_time),
+                    'arrival_time_formatted' => date('d/m/Y H:i:s', $group->arrival_time),
                     'fleet_count' => $fleetCount,
                     'player_count' => $playerCount,
                     'is_full' => $isFull,
@@ -1310,6 +1310,196 @@ class FleetController extends OGameController
             'success' => true,
             'players' => $eligiblePlayers
         ]);
+    }
+
+    /**
+     * Calculate the synchronized arrival time when joining an ACS group
+     *
+     * @param Request $request
+     * @param PlayerService $player
+     * @param FleetMissionService $fleetMissionService
+     * @param PlanetServiceFactory $planetServiceFactory
+     * @return JsonResponse
+     */
+    public function calculateACSArrivalTime(Request $request, PlayerService $player, FleetMissionService $fleetMissionService, PlanetServiceFactory $planetServiceFactory): JsonResponse
+    {
+        $acsGroupId = $request->input('acs_group_id');
+        $ships = $request->input('ships', []);
+        $speedPercent = $request->input('speed', 100);
+        $planetId = $request->input('planet_id');
+
+        \Log::debug('Calculate ACS arrival time', [
+            'acs_group_id' => $acsGroupId,
+            'ships' => $ships,
+            'speed' => $speedPercent,
+            'planet_id' => $planetId,
+        ]);
+
+        // Validate inputs
+        if (!$acsGroupId || empty($ships) || !$planetId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Missing required parameters',
+            ]);
+        }
+
+        try {
+            // Get the ACS group
+            $acsGroup = ACSService::findGroup($acsGroupId);
+            if (!$acsGroup) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ACS group not found',
+                ]);
+            }
+
+            // Get the source planet
+            $planet = $planetServiceFactory->make($planetId);
+            if (!$planet || $planet->ownerId() !== $player->getId()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid planet',
+                ]);
+            }
+
+            // Create target coordinate from ACS group
+            $targetCoordinate = new Coordinate(
+                $acsGroup->galaxy_to,
+                $acsGroup->system_to,
+                $acsGroup->position_to
+            );
+
+            // Convert ships array to UnitCollection
+            $units = new UnitCollection();
+            foreach ($ships as $shipName => $amount) {
+                if ($amount > 0) {
+                    $units->addUnit(ObjectService::getUnitObjectByMachineName($shipName), $amount);
+                }
+            }
+
+            // Calculate this fleet's natural arrival time at the selected speed
+            $currentTime = time();
+            $duration = $fleetMissionService->calculateFleetMissionDuration($planet, $targetCoordinate, $units, $speedPercent);
+            $naturalArrivalTime = $currentTime + $duration;
+
+            // Calculate at 100% for the 30% rule validation
+            $durationAt100 = $fleetMissionService->calculateFleetMissionDuration($planet, $targetCoordinate, $units, 100);
+
+            \Log::debug('Natural arrival time calculated', [
+                'natural_arrival_time' => $naturalArrivalTime,
+                'natural_arrival_formatted' => date('Y-m-d H:i:s', $naturalArrivalTime),
+                'group_current_arrival' => $acsGroup->arrival_time,
+                'group_current_arrival_formatted' => date('Y-m-d H:i:s', $acsGroup->arrival_time),
+                'is_slower' => $naturalArrivalTime > $acsGroup->arrival_time,
+            ]);
+
+            // Get existing fleets in the group
+            $existingFleets = $acsGroup->fleetMembers;
+
+            // Check if this fleet would delay the group
+            if ($naturalArrivalTime > $acsGroup->arrival_time) {
+                // This fleet is slower - would delay the ENTIRE group
+                $newGroupArrival = $naturalArrivalTime;
+
+                // Check each existing fleet to ensure delay doesn't violate their 30% rule
+                foreach ($existingFleets as $member) {
+                    $existingMission = $member->fleetMission;
+
+                    // Calculate the existing fleet's duration at 100% speed
+                    $existingDurationAt100 = $fleetMissionService->calculateFleetMissionDuration(
+                        $planetServiceFactory->make($existingMission->planet_id_from),
+                        new Coordinate($existingMission->galaxy_to, $existingMission->system_to, $existingMission->position_to),
+                        $fleetMissionService->getFleetUnits($existingMission),
+                        100
+                    );
+
+                    // Calculate what the new duration would be
+                    $newDuration = $newGroupArrival - $existingMission->time_departure;
+
+                    // Calculate the NEW speed this fleet would be traveling at
+                    $newSpeed = ($existingDurationAt100 / max($newDuration, 1)) * 100;
+                    $newSpeed = max(10, min(100, $newSpeed));
+
+                    // Calculate current speed
+                    $currentDuration = $existingMission->time_arrival - $existingMission->time_departure;
+                    $currentSpeed = ($existingDurationAt100 / max($currentDuration, 1)) * 100;
+                    $currentSpeed = max(10, min(100, $currentSpeed));
+
+                    // Check if new speed violates 30% rule (new speed must be >= current speed - 30)
+                    $minimumAllowed = $currentSpeed - 30;
+
+                    if ($newSpeed < $minimumAllowed) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Your fleet is too slow to join this ACS group. Delaying the group to match your fleet would violate the 30% speed rule for existing members.',
+                            'current_speed' => round($currentSpeed, 1),
+                            'required_speed' => round($newSpeed, 1),
+                            'minimum_allowed' => round($minimumAllowed, 1),
+                        ]);
+                    }
+                }
+
+                // All checks passed - return the delayed arrival time
+                return response()->json([
+                    'success' => true,
+                    'arrival_time' => $newGroupArrival,
+                    'arrival_time_formatted' => date('d/m/Y H:i:s', $newGroupArrival),
+                    'is_delayed' => true,
+                    'delay_seconds' => $newGroupArrival - $acsGroup->arrival_time,
+                ]);
+            } else {
+                // This fleet is faster - will be slowed down to match the group
+                $targetArrivalTime = $acsGroup->arrival_time;
+
+                // Calculate what speed this fleet needs to match the group
+                $requiredDuration = $targetArrivalTime - $currentTime;
+                $requiredSpeed = ($durationAt100 / max($requiredDuration, 1)) * 100;
+                $requiredSpeed = max(10, min(100, $requiredSpeed));
+
+                // Calculate current group's slowest speed for 30% rule validation
+                $groupSlowestSpeed = 100;
+                foreach ($existingFleets as $member) {
+                    $fleetMission = $member->fleetMission;
+                    $fleetDuration = $fleetMission->time_arrival - $fleetMission->time_departure;
+                    $fleetDurationAt100 = $fleetMissionService->calculateFleetMissionDuration(
+                        $planetServiceFactory->make($fleetMission->planet_id_from),
+                        new Coordinate($fleetMission->galaxy_to, $fleetMission->system_to, $fleetMission->position_to),
+                        $fleetMissionService->getFleetUnits($fleetMission),
+                        100
+                    );
+                    $fleetSpeed = ($fleetDurationAt100 / max($fleetDuration, 1)) * 100;
+                    $fleetSpeed = max(10, min(100, $fleetSpeed));
+                    $groupSlowestSpeed = min($groupSlowestSpeed, $fleetSpeed);
+                }
+
+                // Check 30% rule
+                $minimumAllowedSpeed = max(10, $groupSlowestSpeed - 30);
+
+                if ($requiredSpeed < $minimumAllowedSpeed) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Your fleet is too fast to join this ACS group at the current timing. To match the group\'s arrival, you would need to fly at ' . round($requiredSpeed, 1) . '% speed, but the 30% rule requires at least ' . round($minimumAllowedSpeed, 1) . '% speed.',
+                        'required_speed' => round($requiredSpeed, 1),
+                        'minimum_allowed_speed' => round($minimumAllowedSpeed, 1),
+                        'group_slowest_speed' => round($groupSlowestSpeed, 1),
+                    ]);
+                }
+
+                // This fleet will match the group's arrival time
+                return response()->json([
+                    'success' => true,
+                    'arrival_time' => $targetArrivalTime,
+                    'arrival_time_formatted' => date('d/m/Y H:i:s', $targetArrivalTime),
+                    'is_delayed' => false,
+                ]);
+            }
+        } catch (Exception $e) {
+            \Log::error('Error calculating ACS arrival time: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error calculating arrival time: ' . $e->getMessage(),
+            ]);
+        }
     }
 
     /**
