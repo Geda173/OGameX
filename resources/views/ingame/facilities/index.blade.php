@@ -27,12 +27,12 @@
                     @foreach ($buildings[0] as $building)
                         <li class="technology {{ $building->object->class_name }} hasDetails tooltip hideTooltipOnMouseenter js_hideTipOnMobile ipiHintable tpd-hideOnClickOutside"
                             data-technology="{{ $building->object->id }}"
-                            data-is-spaceprovider=""
+                            data-is-spaceprovider="{{ $building->object->machine_name == 'space_dock' ? '1' : '' }}"
                             aria-label="{{ $building->object->title }}"
                             data-ipi-hint="ipiTechnology{{ $building->object->class_name }}"
                             @if ($building->currently_building)
                                 data-status="active"
-                                data-is-spaceprovider=""
+                                data-is-spaceprovider="{{ $building->object->machine_name == 'space_dock' ? '1' : '' }}"
                                 data-progress="26"
                                 data-start="1713521207"
                                 data-end="1713604880"
@@ -76,7 +76,7 @@
                                 <button
                                         class="upgrade tooltip hideOthers js_hideTipOnMobile"
                                         aria-label="Expand {!! $building->object->title !!} on level {!! ($building->current_level + 1) !!}" title="Expand {!! $building->object->title !!} on level {!! ($building->current_level + 1) !!}"
-                                        data-technology="{{ $building->object->id }}" data-is-spaceprovider="">
+                                        data-technology="{{ $building->object->id }}" data-is-spaceprovider="{{ $building->object->machine_name == 'space_dock' ? '1' : '' }}">
                                 </button>
                             @endif
                             @if ($building->currently_building)
