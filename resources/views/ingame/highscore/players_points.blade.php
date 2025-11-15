@@ -96,8 +96,8 @@
 
                     <td class="sendmsg">
                         <div class="sendmsg_content">
-                            <a href="javascript:void(0)" class="sendMail js_openChat tooltip" data-playerid="114167" title="Write message"><span class="icon icon_chat"></span></a>
-                            <a class="tooltip overlay js_hideTipOnMobile icon" title="Buddy request" data-overlay-title="Buddy request" href="#buddies&amp;action=7&amp;id=114167&amp;ajax=1">
+                            <a href="javascript:void(0)" class="sendMail js_openChat tooltip" data-playerid="{{ $highscorePlayer['id'] }}" title="Write message"><span class="icon icon_chat"></span></a>
+                            <a class="tooltip overlay js_hideTipOnMobile icon" title="Buddy request" data-overlay-title="Buddy request" href="{{ route('buddies.overlay', ['add' => $highscorePlayer['id']]) }}">
                                 <span class="icon icon_user"></span>
                             </a>
 

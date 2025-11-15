@@ -35,6 +35,14 @@ class GlobalGame
             // Update player.
             $player->update();
 
+            // Update last_login_at timestamp for buddy online status tracking
+            // Only update if the last login was more than 5 minutes ago to avoid excessive updates
+            $user = $request->user();
+            if ($user && (!$user->last_login_at || $user->last_login_at->lt(now()->subMinutes(5)))) {
+                $user->last_login_at = now();
+                $user->save();
+            }
+
             // Update current planet of player.
             // TODO: due to how planet update locking works, in the "load player" call above
             // the player object and all of its planets are loaded for the first time. Then here

@@ -75794,9 +75794,14 @@ FleetDispatcher.prototype.init = function () {
 
 FleetDispatcher.prototype.displayErrors = function (errors) {
   // only display the first error
-  let error = errors[0] || undefined;
+  // Check if errors exists and is an array before accessing
+  if (!errors || !Array.isArray(errors) || errors.length === 0) {
+    return;
+  }
 
-  if (error) {
+  let error = errors[0];
+
+  if (error && error.message) {
     fadeBox(error.message, true);
   }
 };
@@ -78602,8 +78607,9 @@ function getPlayerTooltip(galaxyContentObject) {
                 <li>
                     <a style="margin-top: 4px;"
                     href="${actions.buddies.link}"
-                    target="_blank" title="${actions.buddies.title}"
-                    class="js_hideTipOnMobile no_decoration">
+                    title="${actions.buddies.title}"
+                    class="js_hideTipOnMobile no_decoration overlay"
+                    data-overlay-title="${actions.buddies.title}">
                         <span class="support_icon icon icon_mail" style="margin-top: 5px;"></span> &nbsp;
                         <div style="position:absolute; top: 32px;left:30px">${actions.buddies.title}</div>
                     </a>
@@ -78882,8 +78888,9 @@ function getActions(galaxyContentObject, systemData) {
     if (player.isAdmin) {
       messageLink = `
                 <a href="${actions.buddies.link}"
-                    target="_blank" title="${actions.buddies.title}"
-                    class="tooltip js_hideTipOnMobile icon">
+                    title="${actions.buddies.title}"
+                    class="tooltip js_hideTipOnMobile icon overlay"
+                    data-overlay-title="${actions.buddies.title}">
                         <span class="support_icon icon icon_mail"></span>
                 </a>
             `;

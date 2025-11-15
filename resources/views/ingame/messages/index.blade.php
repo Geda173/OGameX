@@ -464,6 +464,37 @@
             (function ($) {
                 ogame.messages.initMessages('d99f68937305e0b2c3ff3f059259fcec');
                 requestsReady();
+
+                // Activate the correct tab and subtab based on URL parameters
+                var urlParams = new URLSearchParams(window.location.search);
+                var activeTab = urlParams.get('tab');
+                var activeSubtab = urlParams.get('subtab');
+
+                if (activeTab && activeSubtab) {
+                    // Activate the correct subtab immediately after page load
+                    setTimeout(function() {
+                        // Find the subtab link that matches our target
+                        var selector = 'a[href*="tab=' + activeTab + '"][href*="subtab=' + activeSubtab + '"]';
+                        var subtabLink = $(selector).first();
+
+                        if (subtabLink.length > 0) {
+                            // Find the parent <li> element
+                            var subtabLi = subtabLink.closest('li');
+
+                            // Find which tabs widget this subtab belongs to
+                            var tabsWidget = subtabLi.closest('.ui-tabs');
+
+                            // Find the index of this subtab within its tabs widget
+                            var allSubtabs = tabsWidget.find('> ul.subtabs > li, > ul.ui-tabs-nav > li');
+                            var subtabIndex = allSubtabs.index(subtabLi);
+
+                            // Use jQuery UI tabs API to activate the correct tab
+                            if (subtabIndex >= 0) {
+                                tabsWidget.tabs('option', 'active', subtabIndex);
+                            }
+                        }
+                    }, 100);
+                }
             })(jQuery);
         </script>
     </div>

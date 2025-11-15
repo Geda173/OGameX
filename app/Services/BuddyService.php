@@ -3,6 +3,8 @@
 namespace OGame\Services;
 
 use Illuminate\Support\Carbon;
+use OGame\Factories\PlayerServiceFactory;
+use OGame\GameMessages\BuddyRequest as BuddyRequestMessage;
 use OGame\Models\Buddy;
 use OGame\Models\BuddyRequest;
 use OGame\Models\User;
@@ -40,12 +42,34 @@ class BuddyService
             return null;
         }
 
-        return BuddyRequest::create([
+        $buddyRequest = BuddyRequest::create([
             'sender_id' => $senderId,
             'receiver_id' => $receiverId,
             'message' => $message,
             'status' => 'pending',
         ]);
+
+        // Send a message to the receiver about the buddy request
+        try {
+            $playerServiceFactory = resolve(PlayerServiceFactory::class);
+            $receiverPlayer = $playerServiceFactory->make($receiverId);
+            $senderPlayer = $playerServiceFactory->make($senderId);
+            $messageService = resolve(MessageService::class, ['player' => $receiverPlayer]);
+
+            $messageService->sendSystemMessageToPlayer(
+                $receiverPlayer,
+                BuddyRequestMessage::class,
+                [
+                    'sender_id' => $senderId,
+                    'sender_name' => $senderPlayer->getUsername(),
+                    'message' => $message ?? 'No message provided.',
+                ]
+            );
+        } catch (\Exception $e) {
+            // Silently fail if message sending fails - buddy request still created
+        }
+
+        return $buddyRequest;
     }
 
     /**
@@ -232,5 +256,42 @@ class BuddyService
             $query->where('sender_id', $userId2)->where('receiver_id', $userId1);
         })->where('status', 'pending')
         ->exists();
+    }
+
+    /**
+     * Get count of online buddies for a user
+     * A buddy is considered online if they logged in within the last 15 minutes
+     *
+     * @param int $userId
+     * @return int
+     */
+    public static function getOnlineBuddiesCount(int $userId): int
+    {
+        $fifteenMinutesAgo = Carbon::now()->subMinutes(15);
+
+        return Buddy::where('user_id', $userId)
+            ->whereHas('buddyUser', function ($query) use ($fifteenMinutesAgo) {
+                $query->where('last_login_at', '>=', $fifteenMinutesAgo);
+            })
+            ->count();
+    }
+
+    /**
+     * Get all online buddies for a user
+     * A buddy is considered online if they logged in within the last 15 minutes
+     *
+     * @param int $userId
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public static function getOnlineBuddies(int $userId)
+    {
+        $fifteenMinutesAgo = Carbon::now()->subMinutes(15);
+
+        return Buddy::where('user_id', $userId)
+            ->whereHas('buddyUser', function ($query) use ($fifteenMinutesAgo) {
+                $query->where('last_login_at', '>=', $fifteenMinutesAgo);
+            })
+            ->with('buddyUser')
+            ->get();
     }
 }

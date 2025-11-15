@@ -89,9 +89,9 @@
                                                     @endif
                                                 </td>
                                                 <td>
-                                                    <form method="POST" action="{{ route('buddies.removeBuddy', $buddy->buddy_id) }}" style="display:inline;">
+                                                    <form method="POST" action="{{ route('buddies.removeBuddy', $buddy->buddy_id) }}" style="display:inline;" id="remove-buddy-form-{{ $buddy->buddy_id }}">
                                                         @csrf
-                                                        <button type="submit" class="btn_blue" onclick="return confirm('Are you sure you want to remove this buddy?');" style="padding: 2px 8px;">Remove</button>
+                                                        <button type="button" class="btn_blue remove-buddy-btn" data-buddy-id="{{ $buddy->buddy_id }}" data-buddy-name="{{ $buddy->buddyUser->username }}" style="padding: 2px 8px;">Remove</button>
                                                     </form>
                                                 </td>
                                             </tr>
@@ -279,6 +279,27 @@
                 }
             }, 100);
             @endif
+
+            // Handle buddy removal with custom confirmation dialog
+            const removeBuddyButtons = document.querySelectorAll('.remove-buddy-btn');
+            removeBuddyButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const buddyId = this.getAttribute('data-buddy-id');
+                    const buddyName = this.getAttribute('data-buddy-name');
+                    const formId = 'remove-buddy-form-' + buddyId;
+
+                    errorBoxDecision(
+                        'Remove Buddy',
+                        'Are you sure you want to remove <strong>' + buddyName + '</strong> from your buddy list?',
+                        'Yes',
+                        'No',
+                        function() {
+                            // Submit the form when user confirms
+                            document.getElementById(formId).submit();
+                        }
+                    );
+                });
+            });
         });
     </script>
 @endsection

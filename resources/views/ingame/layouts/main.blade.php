@@ -117,7 +117,7 @@
                            accesskey=""
                            href="{{ route('buddies.index') }}"
                         >
-                            @lang('Buddies')</a>
+                            @lang('Buddies')@if($newBuddyRequestCount > 0) <span class="textlime"> ({{ $newBuddyRequestCount }})</span>@endif</a>
                     </li>
                     <li><a class="overlay"
                            href="{{ route('search.overlay') }}"
@@ -1222,15 +1222,129 @@ Combat simulation save slots +20">
 <!-- Chat Bar -->
 <div id="chatBar">
     <ul class="chat_bar_list">
-        <li id="chatBarPlayerList" class="chat_bar_pl_list_item">
-            <div class="cb_playerlist_box"
-                 style="display:none;">
+        <li id="chatBarPlayerList" class="chat_bar_pl_list_item" style="position: relative;">
+            <div class="cb_playerlist_box online_buddies_dropdown" style="display:none;">
+                @if($onlineBuddiesCount > 0)
+                    @php
+                        try {
+                            $onlineBuddies = \OGame\Services\BuddyService::getOnlineBuddies($currentPlayer->getId());
+                        } catch (\Exception $e) {
+                            $onlineBuddies = collect([]);
+                        }
+                    @endphp
+                    <div class="online_buddies_header">
+                        <h3>Online Buddies</h3>
+                    </div>
+                    <ul class="online_buddy_list">
+                        @foreach($onlineBuddies as $buddy)
+                            <li class="buddy_online_item">
+                                <a href="{{ route('buddies.index') }}" class="buddy_link">
+                                    <span class="status_icon_online" style="display: inline-block; width: 8px; height: 8px; background-color: #6f9; border-radius: 50%; margin-right: 8px;"></span>
+                                    <span class="buddy_name">{{ $buddy->buddyUser->username }}</span>
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                @else
+                    <div class="online_buddies_header">
+                        <h3>Online Buddies</h3>
+                    </div>
+                    <div class="no_buddies_online" style="padding: 10px; text-align: center; color: #999;">
+                        No buddies currently online
+                    </div>
+                @endif
             </div>
-            <span class="onlineCount">@lang(':count Contact(s) online', ['count' => 0])</span>
+            <span class="onlineCount" onclick="toggleOnlineBuddies(event)" style="cursor: pointer;">
+                @lang(':count Contact(s) online', ['count' => $onlineBuddiesCount])
+            </span>
         </li>
     </ul><!-- END Chat Bar List -->
 </div>
 <!-- END Chat Bar -->
+
+<style>
+.online_buddies_dropdown {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    margin-bottom: 5px;
+    min-width: 250px;
+    background: #0d1014;
+    border: 1px solid #405064;
+    border-radius: 4px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+}
+
+.online_buddies_header {
+    background: linear-gradient(to bottom, #1b2024 0%, #0d1014 100%);
+    border-bottom: 1px solid #405064;
+    padding: 10px 15px;
+}
+
+.online_buddies_header h3 {
+    margin: 0;
+    font-size: 14px;
+    color: #6f9fc0;
+    font-weight: bold;
+}
+
+.online_buddy_list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.buddy_online_item {
+    border-bottom: 1px solid #1a1f24;
+}
+
+.buddy_online_item:last-child {
+    border-bottom: none;
+}
+
+.buddy_online_item .buddy_link {
+    display: block;
+    padding: 10px 15px;
+    color: #6f9fc0;
+    text-decoration: none;
+    transition: background-color 0.2s;
+}
+
+.buddy_online_item .buddy_link:hover {
+    background-color: #1a2329;
+}
+
+.buddy_name {
+    font-size: 13px;
+}
+</style>
+
+<script type="text/javascript">
+function toggleOnlineBuddies(event) {
+    event.stopPropagation();
+    var playerListBox = document.querySelector('#chatBarPlayerList .cb_playerlist_box');
+    if (playerListBox) {
+        if (playerListBox.style.display === 'none') {
+            playerListBox.style.display = 'block';
+        } else {
+            playerListBox.style.display = 'none';
+        }
+    }
+}
+
+// Close the buddy list when clicking outside
+document.addEventListener('click', function(event) {
+    var chatBar = document.getElementById('chatBarPlayerList');
+    var playerListBox = document.querySelector('#chatBarPlayerList .cb_playerlist_box');
+
+    if (chatBar && playerListBox && !chatBar.contains(event.target)) {
+        playerListBox.style.display = 'none';
+    }
+});
+</script>
 
 <button class="scroll_to_top">
     <span class="arrow"></span>@lang('Back to top')

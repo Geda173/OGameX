@@ -342,4 +342,37 @@ class MessageService
             ->where('user_id', $this->player->getId())
             ->delete();
     }
+
+    /**
+     * Deletes all messages for the current player in a specific tab/subtab.
+     *
+     * @param string $tab
+     * @param string $subtab
+     * @return int Number of messages deleted
+     */
+    public function deleteAllMessagesForTab(string $tab, string $subtab = ''): int
+    {
+        // Validate that the tab exists
+        if (!isset($this->tabs[$tab])) {
+            throw new \InvalidArgumentException('Invalid tab: ' . $tab);
+        }
+
+        // If subtab is empty, we use the first subtab of the tab.
+        if (empty($subtab)) {
+            $subtab = $this->tabs[$tab][0];
+        }
+
+        // Get all message keys for this tab/subtab.
+        $messageKeys = GameMessageFactory::GetGameMessageKeysByTab($tab, $subtab);
+
+        // If no message keys found, return 0
+        if (empty($messageKeys)) {
+            return 0;
+        }
+
+        // Delete all messages for this user in this tab/subtab.
+        return Message::where('user_id', $this->player->getId())
+            ->whereIn('key', $messageKeys)
+            ->delete();
+    }
 }
