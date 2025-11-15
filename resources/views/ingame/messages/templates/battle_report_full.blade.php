@@ -178,7 +178,7 @@
                 <span class="participant_label {{ $attacker_class }}">@lang('Attacker'):</span>
 @if($is_acs && $acs_participants && count($acs_participants['attackers']) > 1)
                 <select id="attacker_select_combatreport" class="participant_select" style="margin-left: 10px; padding: 3px; max-width: 300px;">
-                    <option value="combined">@lang('Combined fleet')</option>
+                    <option value="combined" selected>@lang('Combined fleet')</option>
 @foreach($acs_participants['attackers'] as $index => $participant)
                     <option value="{{ $index }}" data-participant-index="{{ $index }}">{{ $participant['player_name'] }}</option>
 @endforeach
@@ -254,7 +254,7 @@
                 <span class="participant_label {{ $defender_class }}">@lang('Defender'):</span>
 @if($is_acs && $acs_participants && count($acs_participants['defenders']) > 1)
                 <select id="defender_select_combatreport" class="participant_select" style="margin-left: 10px; padding: 3px; max-width: 300px;">
-                    <option value="combined">@lang('Combined fleet')</option>
+                    <option value="combined" selected>@lang('Combined fleet')</option>
 @foreach($acs_participants['defenders'] as $index => $participant)
 @if($participant['is_planet_owner'])
                     <option value="{{ $index }}" data-participant-index="{{ $index }}">{{ $participant['player_name'] }} (@lang('Planet Owner'))</option>
