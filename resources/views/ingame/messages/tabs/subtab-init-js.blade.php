@@ -89,6 +89,11 @@
             return;
         }
 
+        // Debug logging
+        console.log('Delete All - Tab URL:', tabUrl);
+        console.log('Delete All - Parsed Tab:', currentTab);
+        console.log('Delete All - Parsed Subtab:', currentSubtab);
+
         errorBoxDecision(
             'Delete All Messages',
             'Are you sure you want to delete all messages in this tab? This action cannot be undone.',
@@ -106,12 +111,15 @@
                     requestData.subtab = currentSubtab;
                 }
 
+                console.log('Delete All - Request Data:', requestData);
+
                 // Make AJAX request to delete all messages
                 $.ajax({
                     url: '{{ route('messages.deleteall') }}',
                     type: 'POST',
                     data: requestData,
                     success: function(response) {
+                        console.log('Delete All - Response:', response);
                         if (response.success) {
                             // Show success message and redirect to the current tab
                             fadeBox('All messages deleted successfully.', false);
@@ -121,6 +129,8 @@
                             if (currentSubtab) {
                                 redirectUrl += '&subtab=' + encodeURIComponent(currentSubtab);
                             }
+
+                            console.log('Delete All - Redirect URL:', redirectUrl);
 
                             // Redirect after a short delay to show the success message
                             setTimeout(function() {

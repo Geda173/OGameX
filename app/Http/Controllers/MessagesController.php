@@ -196,6 +196,12 @@ class MessagesController extends OGameController
                 $subtab = '';
             }
 
+            \Log::info('Delete All Messages Request', [
+                'tab' => $tab,
+                'subtab' => $subtab,
+                'all_params' => $request->all(),
+            ]);
+
             // Validate that tab is provided
             if (empty($tab)) {
                 return response()->json([
@@ -205,6 +211,12 @@ class MessagesController extends OGameController
             }
 
             $deletedCount = $messageService->deleteAllMessagesForTab($tab, $subtab);
+
+            \Log::info('Delete All Messages Result', [
+                'tab' => $tab,
+                'subtab' => $subtab,
+                'deleted_count' => $deletedCount,
+            ]);
 
             return response()->json([
                 'success' => true,
