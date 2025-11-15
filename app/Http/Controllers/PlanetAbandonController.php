@@ -112,6 +112,7 @@ class PlanetAbandonController extends OGameController
             ],
             'password_checked' => true,
             'intent' => route('planetabandon.abandon'),
+            'newAjaxToken' => csrf_token(),
             // TODO: the original code includes "productionBox" key with HTML inside of it, check later if it's needed?
         ]);
     }
