@@ -1811,6 +1811,7 @@ class PlanetService
 
     /**
      * Get building count from planet (number of fields occupied by buildings)
+     * Each building level occupies one field (e.g., Metal Mine level 5 = 5 fields)
      *
      * @return int
      */
@@ -1821,8 +1822,8 @@ class PlanetService
         // Exclude space_dock as it floats in orbit and doesn't consume a planet field
         unset($buildings['space_dock']);
 
-        // Count number of buildings, not sum of levels (each building occupies 1 field regardless of level)
-        return count($buildings);
+        // Sum of all building levels (each level occupies 1 field)
+        return collect($buildings)->sum();
     }
 
     /**

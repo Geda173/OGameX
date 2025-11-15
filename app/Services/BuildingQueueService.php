@@ -99,9 +99,10 @@ class BuildingQueueService
             throw new Exception('Requirements not met to build this object.');
         }
 
-        // Check if this is a new building (not an upgrade) and if fields are available
+        // Check if fields are available for this building/upgrade
         // Space dock floats in orbit and doesn't require a planet field
-        if ($current_level == 0 && $building->machine_name !== 'space_dock') {
+        // Each building level occupies one field, so upgrades also require available fields
+        if ($building->machine_name !== 'space_dock') {
             $current_buildings = $planet->getBuildingCount();
             $max_fields = $planet->getPlanetFieldMax();
             if ($current_buildings >= $max_fields) {
