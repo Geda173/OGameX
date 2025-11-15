@@ -175,11 +175,12 @@
         <!-- possible classes: winner, draw, defeated -->
         <div class="combat_participant attacker winner">
             <div class="common_info">
+                <span class="participant_label {{ $attacker_class }}">@lang('Attacker'):</span>
 @if($is_acs && $acs_participants && count($acs_participants['attackers']) > 1)
-                <select id="attacker_select_combatreport" class="participant_select" style="margin-right: 10px; padding: 3px;">
+                <select id="attacker_select_combatreport" class="participant_select" style="margin-left: 10px; padding: 3px; max-width: 300px;">
                     <option value="combined">@lang('Combined fleet')</option>
 @foreach($acs_participants['attackers'] as $index => $participant)
-                    <option value="{{ $index }}" data-participant-index="{{ $index }}">@lang('Fleet Participant') #{{ $index + 1 }} ({{ $participant['player_name'] }})</option>
+                    <option value="{{ $index }}" data-participant-index="{{ $index }}">{{ $participant['player_name'] }}</option>
 @endforeach
                 </select>
 @else
@@ -187,7 +188,6 @@
                     <span>{{ $attacker_name }}</span>
                 </span>
 @endif
-                <span class="participant_label {{ $attacker_class }}">@lang('Attacker'):</span>
             </div>
             <br class="clearfloat">
 
@@ -251,14 +251,15 @@
         <!-- START Defender -->
         <div class="combat_participant defender defeated">
             <div class="common_info">
+                <span class="participant_label {{ $defender_class }}">@lang('Defender'):</span>
 @if($is_acs && $acs_participants && count($acs_participants['defenders']) > 1)
-                <select id="defender_select_combatreport" class="participant_select" style="margin-right: 10px; padding: 3px;">
+                <select id="defender_select_combatreport" class="participant_select" style="margin-left: 10px; padding: 3px; max-width: 300px;">
                     <option value="combined">@lang('Combined fleet')</option>
 @foreach($acs_participants['defenders'] as $index => $participant)
 @if($participant['is_planet_owner'])
-                    <option value="{{ $index }}" data-participant-index="{{ $index }}">@lang('Fleet Participant') #{{ $index + 1 }} ({{ $participant['player_name'] }} - @lang('Planet Owner'))</option>
+                    <option value="{{ $index }}" data-participant-index="{{ $index }}">{{ $participant['player_name'] }} (@lang('Planet Owner'))</option>
 @else
-                    <option value="{{ $index }}" data-participant-index="{{ $index }}">@lang('Fleet Participant') #{{ $index + 1 }} ({{ $participant['player_name'] }})</option>
+                    <option value="{{ $index }}" data-participant-index="{{ $index }}">{{ $participant['player_name'] }}</option>
 @endif
 @endforeach
                 </select>
@@ -267,7 +268,6 @@
                     <span class="tooltip js_hideTipOnMobile" data-tooltip-title="{{ $defender_name }}">{{ $defender_name }}</span>
                 </span>
 @endif
-                <span class="participant_label {{ $defender_class }}">@lang('Defender'):</span>
             </div>
             <br class="clearfloat">
 
@@ -698,7 +698,7 @@
                 $('#attacker_shields_display').text(combinedAttacker.shields);
                 $('#attacker_armor_display').text(combinedAttacker.armor);
 
-                // Update ship counts
+                // Update ship counts and visibility
                 $('.attacker .military_ships li, .attacker .civil_ships li').each(function() {
                     var shipDiv = $(this).find('div[class*="buildingimg"]');
                     var shipClass = shipDiv.attr('class');
@@ -707,6 +707,9 @@
                         var shipId = matches[1] || matches[2];
                         var count = combinedAttacker.units[shipId] || 0;
                         $(this).find('.detail_shipsleft').text(count);
+
+                        // Show all ships for combined view
+                        $(this).show();
                     }
                 });
             } else {
@@ -719,7 +722,7 @@
                     $('#attacker_shields_display').text(participant.shields);
                     $('#attacker_armor_display').text(participant.armor);
 
-                    // Update ship counts
+                    // Update ship counts and hide ships with 0 count
                     $('.attacker .military_ships li, .attacker .civil_ships li').each(function() {
                         var shipDiv = $(this).find('div[class*="buildingimg"]');
                         var shipClass = shipDiv.attr('class');
@@ -728,6 +731,13 @@
                             var shipId = matches[1] || matches[2];
                             var count = participant.units[shipId] || 0;
                             $(this).find('.detail_shipsleft').text(count);
+
+                            // Hide ships with 0 count for individual participants
+                            if (count === 0) {
+                                $(this).hide();
+                            } else {
+                                $(this).show();
+                            }
                         }
                     });
                 }
@@ -744,7 +754,7 @@
                 $('#defender_shields_display').text(combinedDefender.shields);
                 $('#defender_armor_display').text(combinedDefender.armor);
 
-                // Update ship counts (military and civil)
+                // Update ship counts and visibility (military and civil)
                 $('.defender .military_ships li:not(.defense_ships li), .defender .civil_ships li').each(function() {
                     var shipDiv = $(this).find('div[class*="buildingimg"]');
                     var shipClass = shipDiv.attr('class');
@@ -753,10 +763,13 @@
                         var shipId = matches[1] || matches[2];
                         var count = combinedDefender.units[shipId] || 0;
                         $(this).find('.detail_shipsleft').text(count);
+
+                        // Show all ships for combined view
+                        $(this).show();
                     }
                 });
 
-                // Update defense counts
+                // Update defense counts and visibility
                 $('.defender li').each(function() {
                     var defenseDiv = $(this).find('div[class*="defenseimg"]');
                     if (defenseDiv.length > 0) {
@@ -766,6 +779,9 @@
                             var defenseId = matches[1];
                             var count = combinedDefender.units[defenseId] || 0;
                             $(this).find('.detail_shipsleft').text(count);
+
+                            // Show all defenses for combined view
+                            $(this).show();
                         }
                     }
                 });
@@ -779,7 +795,7 @@
                     $('#defender_shields_display').text(participant.shields);
                     $('#defender_armor_display').text(participant.armor);
 
-                    // Update ship counts (military and civil)
+                    // Update ship counts and hide ships with 0 count (military and civil)
                     $('.defender .military_ships li:not(.defense_ships li), .defender .civil_ships li').each(function() {
                         var shipDiv = $(this).find('div[class*="buildingimg"]');
                         var shipClass = shipDiv.attr('class');
@@ -788,10 +804,17 @@
                             var shipId = matches[1] || matches[2];
                             var count = participant.units[shipId] || 0;
                             $(this).find('.detail_shipsleft').text(count);
+
+                            // Hide ships with 0 count for individual participants
+                            if (count === 0) {
+                                $(this).hide();
+                            } else {
+                                $(this).show();
+                            }
                         }
                     });
 
-                    // Update defense counts
+                    // Update defense counts and hide defenses with 0 count
                     $('.defender li').each(function() {
                         var defenseDiv = $(this).find('div[class*="defenseimg"]');
                         if (defenseDiv.length > 0) {
@@ -801,6 +824,13 @@
                                 var defenseId = matches[1];
                                 var count = participant.units[defenseId] || 0;
                                 $(this).find('.detail_shipsleft').text(count);
+
+                                // Hide defenses with 0 count for individual participants
+                                if (count === 0) {
+                                    $(this).hide();
+                                } else {
+                                    $(this).show();
+                                }
                             }
                         }
                     });
