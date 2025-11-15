@@ -46,7 +46,6 @@ class JumpGateController extends OGameController
             if ($playerPlanet->isMoon() &&
                 $playerPlanet->getPlanetId() !== $planet->getPlanetId() &&
                 $playerPlanet->getObjectLevel('jump_gate') >= 1) {
-
                 $availableMoons[] = [
                     'id' => $playerPlanet->getPlanetId(),
                     'name' => $playerPlanet->getPlanetName(),
@@ -126,7 +125,6 @@ class JumpGateController extends OGameController
             if ($playerPlanet->isMoon() &&
                 $playerPlanet->getPlanetId() !== $planet->getPlanetId() &&
                 $playerPlanet->getObjectLevel('jump_gate') >= 1) {
-
                 $availableMoons[] = [
                     'id' => $playerPlanet->getPlanetId(),
                     'name' => $playerPlanet->getPlanetName(),
