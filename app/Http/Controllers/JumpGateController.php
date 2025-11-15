@@ -197,8 +197,8 @@ class JumpGateController extends OGameController
     private function performJump($sourcePlanet, $targetPlanet, UnitCollection $units): void
     {
         // Remove ships from source and add to target
-        $sourcePlanet->removeUnits($units);
-        $targetPlanet->addUnits($units);
+        $sourcePlanet->removeUnits($units, true);
+        $targetPlanet->addUnits($units, true);
 
         // Set cooldown on both moons (1 hour = 3600 seconds)
         $cooldownEnd = time() + 3600;
