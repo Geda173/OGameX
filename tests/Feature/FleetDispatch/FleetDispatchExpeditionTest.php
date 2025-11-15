@@ -141,6 +141,47 @@ class FleetDispatchExpeditionTest extends FleetDispatchTestCase
     }
 
     /**
+     * Test that bonus expedition slots from settings work correctly.
+     */
+    public function testBonusExpeditionSlots(): void
+    {
+        $this->basicSetup();
+
+        // Set astrophysics to level 1 (1 slot)
+        $this->playerSetResearchLevel('astrophysics', 1);
+        $this->assertEquals(1, $this->planetService->getPlayer()->getExpeditionSlotsMax(), 'Max expedition slots should be 1 with astrophysics level 1');
+
+        // Set bonus expedition slots to 2
+        $settingsService = app(\OGame\Services\SettingsService::class);
+        $settingsService->set('bonus_expedition_slots', 2);
+
+        // Refresh player service to get updated settings
+        $this->planetService = $this->planetServiceFactory->make($this->planetService->getPlanetId(), true);
+
+        // Now max slots should be 3 (1 from research + 2 bonus)
+        $this->assertEquals(3, $this->planetService->getPlayer()->getExpeditionSlotsMax(), 'Max expedition slots should be 3 with astrophysics level 1 plus 2 bonus');
+
+        // First expedition should succeed
+        $this->sendTestExpedition();
+        $this->assertEquals(1, $this->planetService->getPlayer()->getExpeditionSlotsInUse(), 'Expedition slots in use should be 1 after first expedition');
+
+        // Second expedition should succeed (would fail without bonus)
+        $this->sendTestExpedition();
+        $this->assertEquals(2, $this->planetService->getPlayer()->getExpeditionSlotsInUse(), 'Expedition slots in use should be 2 after second expedition');
+
+        // Third expedition should succeed (thanks to bonus)
+        $this->sendTestExpedition();
+        $this->assertEquals(3, $this->planetService->getPlayer()->getExpeditionSlotsInUse(), 'Expedition slots in use should be 3 after third expedition');
+
+        // Fourth expedition should fail (exceeds max even with bonus)
+        $this->sendTestExpedition(false);
+        $this->assertEquals(3, $this->planetService->getPlayer()->getExpeditionSlotsInUse(), 'Expedition slots in use should still be 3 after fourth expedition attempt (max reached)');
+
+        // Reset bonus to 0
+        $settingsService->set('bonus_expedition_slots', 0);
+    }
+
+    /**
      * Test that current expedition slots in use is calculated correctly.
      */
     public function testCurrentExpeditionSlotsInUse(): void
@@ -557,6 +598,66 @@ class FleetDispatchExpeditionTest extends FleetDispatchTestCase
         $this->assertMessageReceivedAndContains('fleets', 'expeditions', [
             'Expedition Result',
         ]);
+    }
+
+    /**
+     * Test that expedition holding time is properly included in the return trip calculation.
+     * Verifies that the return trip starts after the holding time has elapsed, not immediately.
+     *
+     * @return void
+     */
+    public function testExpeditionHoldingTimeIncludedInReturnTrip(): void
+    {
+        $this->basicSetup();
+
+        // Enable only the "failed" expedition outcome to avoid modifiers affecting return time.
+        $this->settingsEnableExpeditionOutcomes([ExpeditionOutcomeType::Failed]);
+
+        // Send the expedition mission with a 2 hour holding time.
+        $holdingTime = 2; // hours
+        $unitCollection = new UnitCollection();
+        $unitCollection->addUnit(ObjectService::getUnitObjectByMachineName('large_cargo'), 1000);
+        $this->sendMissionToPosition16($unitCollection, new Resources(1, 1, 0, 0), true, $holdingTime);
+
+        // Get the mission.
+        $fleetMissionService = resolve(FleetMissionService::class, ['player' => $this->planetService->getPlayer()]);
+        $originalMission = $fleetMissionService->getActiveFleetMissionsForCurrentPlayer()->first();
+
+        // Calculate the outbound travel time.
+        $outboundTravelTime = $originalMission->time_arrival - $originalMission->time_departure;
+
+        // Wait for the mission to complete (arrival + holding + return).
+        $this->travel(10)->hours();
+
+        // Load the planet again to get the latest state.
+        $this->get('/overview');
+        $this->planetService->reloadPlanet();
+
+        // Get the return trip mission for the original mission.
+        $returnTripMission = $fleetMissionService->getFleetMissionByParentId($originalMission->id, false);
+
+        // Assert that the return trip departure time equals arrival time + holding time.
+        $expectedReturnDeparture = $originalMission->time_arrival + ($holdingTime * 3600);
+        $this->assertEquals(
+            $expectedReturnDeparture,
+            $returnTripMission->time_departure,
+            'Return trip should start after the holding time has elapsed'
+        );
+
+        // Assert that the return trip duration equals the outbound travel time.
+        $returnTripDuration = $returnTripMission->time_arrival - $returnTripMission->time_departure;
+        $this->assertEquals(
+            $outboundTravelTime,
+            $returnTripDuration,
+            'Return trip duration should equal the outbound travel time'
+        );
+
+        // Assert that the return trip does NOT arrive instantly.
+        $this->assertGreaterThan(
+            $originalMission->time_arrival + ($holdingTime * 3600),
+            $returnTripMission->time_arrival,
+            'Return trip should not be instant - it should take time to travel back'
+        );
     }
 
     /**

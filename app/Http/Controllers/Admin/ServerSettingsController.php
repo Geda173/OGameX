@@ -40,15 +40,18 @@ class ServerSettingsController extends OGameController
             'ignore_inactive_systems_on' => $settingsService->ignoreInactiveSystemsOn(),
             'number_of_galaxies' => $settingsService->numberOfGalaxies(),
             'battle_engine' => $settingsService->battleEngine(),
-            'expedition_failed' => $settingsService->expeditionFailedEnabled(),
-            'expedition_failed_and_delay' => $settingsService->expeditionFailedAndDelayEnabled(),
-            'expedition_failed_and_speedup' => $settingsService->expeditionFailedAndSpeedupEnabled(),
-            'expedition_gain_ships' => $settingsService->expeditionGainShipsEnabled(),
-            'expedition_gain_dark_matter' => $settingsService->expeditionGainDarkMatterEnabled(),
-            'expedition_gain_resources' => $settingsService->expeditionGainResourcesEnabled(),
-            'expedition_gain_merchant_trade' => $settingsService->expeditionGainMerchantTradeEnabled(),
-            'expedition_gain_item' => $settingsService->expeditionGainItemEnabled(),
-            'expedition_loss_of_fleet' => $settingsService->expeditionLossOfFleetEnabled(),
+            'bonus_expedition_slots' => $settingsService->bonusExpeditionSlots(),
+            'expedition_rewards_multiplier' => $settingsService->expeditionRewardsMultiplier(),
+            'expedition_weight_ships' => $settingsService->expeditionWeightShips(),
+            'expedition_weight_resources' => $settingsService->expeditionWeightResources(),
+            'expedition_weight_delay' => $settingsService->expeditionWeightDelay(),
+            'expedition_weight_speedup' => $settingsService->expeditionWeightSpeedup(),
+            'expedition_weight_nothing' => $settingsService->expeditionWeightNothing(),
+            'expedition_weight_black_hole' => $settingsService->expeditionWeightBlackHole(),
+            'expedition_weight_pirates' => $settingsService->expeditionWeightPirates(),
+            'expedition_weight_aliens' => $settingsService->expeditionWeightAliens(),
+            'expedition_weight_dark_matter' => $settingsService->expeditionWeightDarkMatter(),
+            'expedition_weight_merchant' => $settingsService->expeditionWeightMerchant(),
         ]);
     }
 
@@ -85,15 +88,19 @@ class ServerSettingsController extends OGameController
 
         $settingsService->set('battle_engine', request('battle_engine'));
 
-        $settingsService->set('expedition_failed', request('expedition_failed', 0));
-        $settingsService->set('expedition_failed_and_delay', request('expedition_failed_and_delay', 0));
-        $settingsService->set('expedition_failed_and_speedup', request('expedition_failed_and_speedup', 0));
-        $settingsService->set('expedition_gain_ships', request('expedition_gain_ships', 0));
-        $settingsService->set('expedition_gain_dark_matter', request('expedition_gain_dark_matter', 0));
-        $settingsService->set('expedition_gain_resources', request('expedition_gain_resources', 0));
-        $settingsService->set('expedition_gain_merchant_trade', request('expedition_gain_merchant_trade', 0));
-        $settingsService->set('expedition_gain_item', request('expedition_gain_item', 0));
-        $settingsService->set('expedition_loss_of_fleet', request('expedition_loss_of_fleet', 0));
+        // Expedition event settings
+        $settingsService->set('bonus_expedition_slots', request('bonus_expedition_slots', 0));
+        $settingsService->set('expedition_rewards_multiplier', request('expedition_rewards_multiplier', 1.0));
+        $settingsService->set('expedition_weight_ships', request('expedition_weight_ships', 24));
+        $settingsService->set('expedition_weight_resources', request('expedition_weight_resources', 34));
+        $settingsService->set('expedition_weight_delay', request('expedition_weight_delay', 9));
+        $settingsService->set('expedition_weight_speedup', request('expedition_weight_speedup', 4));
+        $settingsService->set('expedition_weight_nothing', request('expedition_weight_nothing', 29));
+        $settingsService->set('expedition_weight_black_hole', request('expedition_weight_black_hole', 1));
+        $settingsService->set('expedition_weight_pirates', request('expedition_weight_pirates', 0));
+        $settingsService->set('expedition_weight_aliens', request('expedition_weight_aliens', 0));
+        $settingsService->set('expedition_weight_dark_matter', request('expedition_weight_dark_matter', 0));
+        $settingsService->set('expedition_weight_merchant', request('expedition_weight_merchant', 0));
 
         return redirect()->route('admin.serversettings.index')->with('success', __('Changes saved!'));
     }

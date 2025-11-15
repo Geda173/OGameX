@@ -29,7 +29,11 @@ class GenerateHighscores extends Command
      */
     public function handle(HighscoreService $highscoreService, PlayerServiceFactory $playerServiceFactory): void
     {
-        $users = User::query()->whereHas('tech');
+        // FIXED: Skip users marked as highscore_exempt (e.g., test accounts, admins)
+        $users = User::query()
+            ->whereHas('tech')
+            ->where('highscore_exempt', false);
+
         $this->info('Updating highscores...');
         $bar = $this->output->createProgressBar();
         $bar->start($users->count());

@@ -104,12 +104,26 @@ Metal: :metal Crystal: :crystal Deuterium: :deuterium',
     ],
 
     // ------------------------
+    'espionage_detected' => [
+        'from'    => 'Fleet Command',
+        'subject' => 'Espionage report from Planet :planet',
+        'body'    => "A foreign fleet from planet :planet (:attacker_name) was sighted near your planet\n:defender\nChance of counter-espionage: :chance%",
+    ],
+
+    // ------------------------
     'battle_report' => [
         'from' => 'Fleet Command',
         'subject' => 'Combat report :planet',
     ],
 
       // ------------------------
+    'fleet_lost_contact' => [
+        'from' => 'Fleet Command',
+        'subject' => 'Contact with the attacking fleet has been lost. :coordinates',
+        'body' => '(That means it was destroyed in the first round.)',
+    ],
+
+    // ------------------------
     'fleet_lost_contact' => [
         'from' => 'Fleet Command',
         'subject' => 'Contact with the attacking fleet has been lost. :coordinates',
@@ -253,6 +267,38 @@ Metal: :metal Crystal: :crystal Deuterium: :deuterium',
         ],
     ],
 
+    // Battle Pirates
+    'expedition_battle_pirates' => [
+        'from' => 'Fleet Command',
+        'subject' => 'Expedition Result',
+        // An expedition message can have different variations which are parsed by the ExpeditionBattlePirates class.
+        'body' => [
+            '1' => 'Some primitive barbarians are attacking us with spaceships that can`t even be named as such. If the fire gets serious we will be forced to fire back.',
+            '2' => 'We needed to fight some pirates which were, fortunately, only a few.',
+            '3' => 'We caught some radio transmissions from some drunk pirates. Seems like we will be under attack soon.',
+            '4' => 'Our expedition was attacked by a small group of space pirates!',
+            '5' => 'Some really desperate space pirates tried to capture our expedition fleet.',
+            '6' => 'Pirates ambushed the expedition fleet without warning! They fought fiercely for their loot.',
+            '7' => 'A ragtag fleet of space pirates intercepted us, demanding tribute. We gave them a battle instead!',
+        ],
+    ],
+
+    // Battle Aliens
+    'expedition_battle_aliens' => [
+        'from' => 'Fleet Command',
+        'subject' => 'Expedition Result',
+        // An expedition message can have different variations which are parsed by the ExpeditionBattleAliens class.
+        'body' => [
+            '1' => 'We picked up some strange signals from unknown ships. They turned out to be hostile!',
+            '2' => 'An alien patrol detected our expedition fleet and attacked immediately!',
+            '3' => 'Your expedition fleet had an unfriendly first contact with an unknown species.',
+            '4' => 'Some exotic looking ships attacked the expedition fleet without warning!',
+            '5' => 'A fleet of alien warships emerged from hyperspace and engaged us!',
+            '6' => 'We encountered a technologically advanced alien species. Unfortunately, they were not peaceful.',
+            '7' => 'Our sensors detected unknown energy signatures. Before we could retreat, alien ships attacked!',
+        ],
+    ],
+
     // Loss of Fleet
     'expedition_loss_of_fleet' => [
         'from' => 'Fleet Command',
@@ -261,5 +307,117 @@ Metal: :metal Crystal: :crystal Deuterium: :deuterium',
         'body' => [
             '1' => 'A core meltdown of the lead ship leads to a chain reaction, which destroys the entire expedition fleet in a spectacular explosion.',
         ],
+    ],
+
+    // ------------------------
+    // Missile Attack Report (Attacker)
+    'missile_attack_report' => [
+        'from' => 'Missile Command',
+        'subject' => 'Missile attack on :target_coords',
+        'body' => 'Your interplanetary missiles have reached their target at :target_coords.
+
+Missiles launched: :missiles_sent
+Missiles intercepted: :missiles_intercepted
+Missiles hit: :missiles_hit
+
+Defenses destroyed: :defenses_destroyed',
+    ],
+
+    // ------------------------
+    // Missile Defense Report (Defender)
+    'missile_defense_report' => [
+        'from' => 'Defense Command',
+        'subject' => 'Missile attack on :planet_coords',
+        'body' => 'Your planet at :planet_coords has been attacked by interplanetary missiles from :attacker_name!
+
+Incoming missiles: :missiles_incoming
+Missiles intercepted: :missiles_intercepted
+Missiles hit: :missiles_hit
+
+Defenses destroyed: :defenses_destroyed',
+    ],
+
+    // ------------------------
+    // ACS Invitation
+    'acs_invitation' => [
+        'from' => 'ACS Command',
+        'subject' => 'Invitation to join ACS attack',
+        'body' => ':inviter has invited you to join an ACS (Alliance Combat System) attack!
+
+ACS Group: :acs_group_name
+Target: [coordinates]:target_coordinates[/coordinates]
+Arrival Time: :arrival_time
+
+You can join this attack by sending your fleet to the same coordinates with the ACS Attack mission and selecting this group.',
+    ],
+
+    // ------------------------
+    // Moon Destruction - Success (fleet survives)
+    'moon_destruction_success' => [
+        'from' => 'Fleet Command',
+        'subject' => 'Moon destruction',
+        'body' => 'Your fleet from :from has arrived at the moon :to. The weapons of the Deathstar fire an alternating graviton shock at the moon, building up to a massive quake and finally tearing the satellite apart. All buildings on the moon were destroyed. A complete success! The fleet is returning to its home planet.
+
+Moon destruction chance: :moon_chance%
+Deathstar destruction chance: :deathstar_chance%',
+    ],
+
+    // ------------------------
+    // Moon Destruction - Failed (fleet survives)
+    'moon_destruction_failed' => [
+        'from' => 'Fleet Command',
+        'subject' => 'Moon destruction',
+        'body' => 'Your fleet from :from has arrived at the moon :to. The structure of the moon was not sufficiently weakened, and the fleet is returning to its home planet.
+
+Moon destruction chance: :moon_chance%
+Deathstar destruction chance: :deathstar_chance%',
+    ],
+
+    // ------------------------
+    // Moon Destruction - Failed, fleet destroyed (moon survives)
+    'moon_destruction_fleet_destroyed' => [
+        'from' => 'Fleet Command',
+        'subject' => 'Moon destruction',
+        'body' => 'Your fleet from :from has arrived at the moon :to. Your Deathstar aims its alternating graviton shock cannon at the satellite. Light quakes shake the surface of the moon. But something is wrong. The graviton cannon causes the Deathstar to vibrate. There is feedback. The Deathstar ruptures into millions of pieces. The resulting shock waves destroy your entire fleet.
+
+Moon destruction chance: :moon_chance%
+Deathstar destruction chance: :deathstar_chance%',
+    ],
+
+    // ------------------------
+    // Moon Destruction - Success but fleet destroyed
+    'moon_destruction_success_fleet_destroyed' => [
+        'from' => 'Fleet Command',
+        'subject' => 'Moon destruction',
+        'body' => 'Your fleet from :from has arrived at the moon :to. The weapons of the Deathstar fire an alternating graviton shock at the moon, building up to a massive quake and finally tearing the satellite apart. All buildings on the moon were destroyed. However, the graviton feedback destroys the Deathstar and your entire fleet.
+
+Moon destruction chance: :moon_chance%
+Deathstar destruction chance: :deathstar_chance%',
+    ],
+
+    // ------------------------
+    // Moon Destruction - Moon not found
+    'moon_destruction_moon_not_found' => [
+        'from' => 'Fleet Command',
+        'subject' => 'Fleet Mission Failed',
+        'body' => 'Your fleet from :from was supposed to destroy the moon at :to, but upon arrival found no moon at the target coordinates. The fleet had to turn back without completing its mission.',
+    ],
+
+    // ------------------------
+    // Moon Destruction - Attempt notification (defender)
+    'moon_destruction_attempt' => [
+        'from' => 'Defense Command',
+        'subject' => 'Moon under attack!',
+        'body' => 'Your moon at :coordinates has been attacked with a moon destruction mission!
+
+Result: :result',
+    ],
+
+    // ------------------------
+    // Moon Destroyed notification (defender)
+    'moon_destroyed' => [
+        'from' => 'Defense Command',
+        'subject' => 'Moon destroyed!',
+        'body' => 'Your moon at :coordinates has been completely destroyed by a Deathstar attack! All buildings, ships, and defenses on the moon have been lost.',
     ],
 ];

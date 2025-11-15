@@ -17,6 +17,7 @@ class ResearchQueueViewModel extends QueueViewModel
 
     public bool $building;
     public int $level_target;
+    public bool $teardown = false; // Research cannot be torn down
 
     /**
      * Constructor.
@@ -41,6 +42,7 @@ class ResearchQueueViewModel extends QueueViewModel
         $this->planet = $planet;
         $this->building = $building;
         $this->level_target = $level_target;
+        $this->teardown = false; // Research cannot be torn down
 
         parent::__construct($id, $object, $time_countdown, $time_total);
     }
