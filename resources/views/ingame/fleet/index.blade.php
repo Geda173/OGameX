@@ -1652,6 +1652,10 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
             }
         }
 
+        // Debounce timer for ACS updates
+        let acsUpdateTimeout = null;
+        let lastUpdateParams = null;
+
         // Update ACS group info when selection changes
         function updateACSGroupInfo() {
             const select = document.getElementById('acsGroupSelect');
@@ -1667,9 +1671,6 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                 if (typeof unions !== 'undefined' && unions) {
                     const group = unions.find(g => g.id === selectedValue);
                     if (group) {
-                        // Show loading message first
-                        info.innerHTML = '✓ Joining ACS group. Calculating arrival time...';
-
                         // Collect ships from the form
                         const ships = {};
                         const shipInputs = document.querySelectorAll('input[name^="ship["]');
@@ -1710,8 +1711,6 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                         }
                         const speed = speedInput ? parseInt(speedInput.value) : 10;
 
-                        console.log('Current speed value:', speed, 'from input:', speedInput);
-
                         // If no ships selected, show static message
                         if (Object.keys(ships).length === 0) {
                             info.innerHTML = '✓ Joining ACS group. Your fleet will automatically synchronize to arrive at <strong>' +
@@ -1719,12 +1718,26 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                             return;
                         }
 
-                        console.log('Calling ACS arrival calculation with:', {
+                        // Create parameter string for comparison
+                        const currentParams = JSON.stringify({
                             acs_group_id: selectedValue,
                             ships: ships,
                             speed: speed,
                             planet_id: currentPlanet.id
                         });
+
+                        // Only update if parameters have changed
+                        if (currentParams === lastUpdateParams) {
+                            console.log('ACS parameters unchanged, skipping update');
+                            return;
+                        }
+
+                        lastUpdateParams = currentParams;
+
+                        console.log('ACS parameters changed, updating. Speed:', speed, 'Ships:', ships);
+
+                        // Show loading message
+                        info.innerHTML = '✓ Joining ACS group. Calculating arrival time...';
 
                         // Call the backend to calculate the actual arrival time
                         fetch('{{ route('fleet.acs.calculate.arrival') }}', {
@@ -1740,7 +1753,10 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                                 planet_id: currentPlanet.id
                             })
                         })
-                        .then(response => response.json())
+                        .then(response => {
+                            console.log('Response status:', response.status);
+                            return response.json();
+                        })
                         .then(data => {
                             console.log('ACS arrival calculation response:', data);
 
@@ -1752,10 +1768,14 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                                     message += ' <span style="color: #ff9900;">(Group will be delayed by ' + Math.round(data.delay_seconds / 60) + ' minutes)</span>';
                                 }
 
+                                console.log('Updating info element with:', message);
                                 info.innerHTML = message;
+                                console.log('Info element after update:', info.innerHTML);
                             } else {
                                 // Show error message
-                                info.innerHTML = '<span style="color: #ff0000;">✗ ' + (data.message || 'Error calculating arrival time') + '</span>';
+                                const errorMsg = '<span style="color: #ff0000;">✗ ' + (data.message || 'Error calculating arrival time') + '</span>';
+                                console.log('Showing error:', errorMsg);
+                                info.innerHTML = errorMsg;
                             }
                         })
                         .catch(error => {
@@ -1767,6 +1787,14 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                     }
                 }
             }
+        }
+
+        // Debounced version for observers
+        function debouncedUpdateACSGroupInfo() {
+            clearTimeout(acsUpdateTimeout);
+            acsUpdateTimeout = setTimeout(function() {
+                updateACSGroupInfo();
+            }, 300); // Wait 300ms after last change
         }
 
         // Initialize on DOM ready
@@ -1876,8 +1904,8 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                 const durationObserver = new MutationObserver(function(mutations) {
                     const select = document.getElementById('acsGroupSelect');
                     if (select && parseInt(select.value) > 0) {
-                        console.log('Flight duration changed, recalculating ACS arrival time');
-                        updateACSGroupInfo();
+                        console.log('Flight duration changed, triggering debounced update');
+                        debouncedUpdateACSGroupInfo();
                     }
                 });
 
@@ -1896,8 +1924,8 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                 const arrivalObserver = new MutationObserver(function(mutations) {
                     const select = document.getElementById('acsGroupSelect');
                     if (select && parseInt(select.value) > 0) {
-                        console.log('Arrival time changed, recalculating ACS arrival time');
-                        updateACSGroupInfo();
+                        console.log('Arrival time changed, triggering debounced update');
+                        debouncedUpdateACSGroupInfo();
                     }
                 });
 
