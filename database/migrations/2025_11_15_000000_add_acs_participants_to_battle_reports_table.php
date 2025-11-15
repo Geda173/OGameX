@@ -11,7 +11,9 @@ return new class () extends Migration {
     public function up(): void
     {
         Schema::table('battle_reports', function (Blueprint $table) {
-            $table->json('acs_participants')->nullable()->after('repaired_defenses');
+            if (!Schema::hasColumn('battle_reports', 'acs_participants')) {
+                $table->json('acs_participants')->nullable()->after('repaired_defenses');
+            }
         });
     }
 
@@ -21,7 +23,9 @@ return new class () extends Migration {
     public function down(): void
     {
         Schema::table('battle_reports', function (Blueprint $table) {
-            $table->dropColumn('acs_participants');
+            if (Schema::hasColumn('battle_reports', 'acs_participants')) {
+                $table->dropColumn('acs_participants');
+            }
         });
     }
 };
