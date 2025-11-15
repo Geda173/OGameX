@@ -14,6 +14,76 @@ use OGame\Services\PlayerService;
 class JumpGateController extends OGameController
 {
     /**
+     * Shows the jump gate as an overlay (AJAX request)
+     *
+     * @param Request $request
+     * @param PlayerService $player
+     * @return View
+     * @throws Exception
+     */
+    public function overlay(Request $request, PlayerService $player): View
+    {
+        $planet = $player->planets->current();
+
+        // Verify this is a moon with a jump gate
+        if (!$planet->isMoon()) {
+            return view('ingame.jumpgate.error')->with([
+                'error_message' => 'Jump gate is only available on moons.',
+            ]);
+        }
+
+        $jumpGateLevel = $planet->getObjectLevel('jump_gate');
+        if ($jumpGateLevel < 1) {
+            return view('ingame.jumpgate.error')->with([
+                'error_message' => 'Jump gate is not built on this moon.',
+            ]);
+        }
+
+        // Get all player's moons with jump gates
+        $availableMoons = [];
+
+        foreach ($player->planets->all() as $playerPlanet) {
+            if ($playerPlanet->isMoon() &&
+                $playerPlanet->getPlanetId() !== $planet->getPlanetId() &&
+                $playerPlanet->getObjectLevel('jump_gate') >= 1) {
+
+                $availableMoons[] = [
+                    'id' => $playerPlanet->getPlanetId(),
+                    'name' => $playerPlanet->getPlanetName(),
+                    'coordinates' => $playerPlanet->getPlanetCoordinates(),
+                    'cooldown_remaining' => $this->getCooldownRemaining($playerPlanet),
+                ];
+            }
+        }
+
+        // Get ships available on this moon
+        $shipObjects = ObjectService::getShipObjects();
+        $availableShips = [];
+        foreach ($shipObjects as $shipObject) {
+            $amount = $planet->getObjectAmount($shipObject->machine_name);
+            if ($amount > 0) {
+                $availableShips[] = [
+                    'id' => $shipObject->id,
+                    'machine_name' => $shipObject->machine_name,
+                    'title' => $shipObject->title,
+                    'amount' => $amount,
+                ];
+            }
+        }
+
+        // Check if current jump gate is on cooldown
+        $currentCooldown = $this->getCooldownRemaining($planet);
+
+        return view('ingame.jumpgate.overlay')->with([
+            'player' => $player,
+            'planet' => $planet,
+            'available_moons' => $availableMoons,
+            'available_ships' => $availableShips,
+            'cooldown_remaining' => $currentCooldown,
+        ]);
+    }
+
+    /**
      * Shows the jump gate index page
      *
      * @param Request $request

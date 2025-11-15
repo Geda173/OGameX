@@ -108,6 +108,7 @@ Route::middleware(['auth', 'globalgame', 'locale'])->group(function () {
 
     // Jump Gate
     Route::get('/jumpgate', [JumpGateController::class, 'index'])->name('jumpgate.index');
+    Route::get('/jumpgate/overlay', [JumpGateController::class, 'overlay'])->name('jumpgate.overlay');
     Route::post('/jumpgate/execute', [JumpGateController::class, 'execute'])->name('jumpgate.execute');
 
     // Galaxy

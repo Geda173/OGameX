@@ -355,11 +355,34 @@ class GalaxyController extends OGameController
 
         // Can only phalanx planets (not own planets)
         if (!$planet->getPlayer()->equals($this->playerService)) {
-            $phalanxMoon = $this->playerService->getMoonWithPhalanxInRange(
-                $coords->galaxy,
-                $coords->system,
-                $coords->position
-            );
+            // Prefer current moon if it has phalanx in range
+            $currentPlanet = $this->playerService->planets->current();
+            $phalanxMoon = null;
+
+            if ($currentPlanet->isMoon()) {
+                $phalanxLevel = $currentPlanet->getObjectLevel('sensor_phalanx');
+                if ($phalanxLevel > 0) {
+                    $currentCoords = $currentPlanet->getPlanetCoordinates();
+                    $range = $this->playerService->calculatePhalanxRange($phalanxLevel);
+
+                    // Check if target is in range (must be same galaxy)
+                    if ($currentCoords->galaxy === $coords->galaxy) {
+                        $systemDistance = abs($currentCoords->system - $coords->system);
+                        if ($systemDistance <= $range) {
+                            $phalanxMoon = $currentPlanet;
+                        }
+                    }
+                }
+            }
+
+            // If current moon can't be used, find any moon with phalanx in range
+            if ($phalanxMoon === null) {
+                $phalanxMoon = $this->playerService->getMoonWithPhalanxInRange(
+                    $coords->galaxy,
+                    $coords->system,
+                    $coords->position
+                );
+            }
 
             if ($phalanxMoon !== null) {
                 // We have a phalanx in range
@@ -885,13 +908,35 @@ class GalaxyController extends OGameController
                 ]);
             }
 
-            // Check if player has a moon with phalanx in range
-            $moon = $player->getMoonWithPhalanxInRange($galaxy, $system, $position);
+            // Prefer current moon if it has phalanx in range
+            $currentPlanet = $player->planets->current();
+            $moon = null;
+
+            if ($currentPlanet->isMoon()) {
+                $phalanxLevel = $currentPlanet->getObjectLevel('sensor_phalanx');
+                if ($phalanxLevel > 0) {
+                    $currentCoords = $currentPlanet->getPlanetCoordinates();
+                    $range = $player->calculatePhalanxRange($phalanxLevel);
+
+                    // Check if target is in range (must be same galaxy)
+                    if ($currentCoords->galaxy === $galaxy) {
+                        $systemDistance = abs($currentCoords->system - $system);
+                        if ($systemDistance <= $range) {
+                            $moon = $currentPlanet;
+                        }
+                    }
+                }
+            }
+
+            // If current moon can't be used, find any moon with phalanx in range
             if ($moon === null) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No sensor phalanx in range of target coordinates',
-                ]);
+                $moon = $player->getMoonWithPhalanxInRange($galaxy, $system, $position);
+                if ($moon === null) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'No sensor phalanx in range of target coordinates',
+                    ]);
+                }
             }
 
             // Calculate deuterium cost
@@ -905,9 +950,10 @@ class GalaxyController extends OGameController
 
             // Check if moon has enough deuterium
             if ($moon->deuterium()->get() < $deuteriumCost) {
+                $moonName = $moon->getPlanetName();
                 return response()->json([
                     'success' => false,
-                    'message' => 'Not enough deuterium to deploy phalanx',
+                    'message' => "Not enough deuterium on {$moonName} to deploy phalanx (need " . number_format($deuteriumCost) . ")",
                 ]);
             }
 
