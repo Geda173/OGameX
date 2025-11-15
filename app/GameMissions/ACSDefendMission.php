@@ -75,9 +75,54 @@ class ACSDefendMission extends GameMission
             return new MissionPossibleStatus(false);
         }
 
+        // Note: Alliance Depot is not required for ACS Defend missions.
+        // The depot only reduces the amount of deuterium that must be carried in cargo.
+        // Without a depot, the fleet must carry all required deuterium in its cargo hold.
+        // Deuterium validation is handled in FleetController during mission dispatch.
+
         // If all checks pass, the mission is possible.
         \Log::debug('ACS Defend mission is POSSIBLE!');
         return new MissionPossibleStatus(true);
+    }
+
+    /**
+     * Additional validation for ACS Defend mission.
+     *
+     * @inheritdoc
+     */
+    public function startMissionSanityChecks(PlanetService $planet, Coordinate $targetCoordinate, PlanetType $targetType, UnitCollection $units, \OGame\Models\Resources $resources): void
+    {
+        // First run the parent sanity checks (resources, units, fleet slots, mission possible).
+        parent::startMissionSanityChecks($planet, $targetCoordinate, $targetType, $units, $resources);
+
+        // Note: Deuterium validation for hold time is performed in FleetController
+        // during mission dispatch, where the holding time is known.
+        // The Alliance Depot is optional - it only reduces deuterium cargo requirements.
+    }
+
+    /**
+     * Get the Alliance Depot level for a planet or moon.
+     * For moons, also checks the parent planet's Alliance Depot.
+     *
+     * @param PlanetService $planet
+     * @return int The Alliance Depot level (0 if no Alliance Depot)
+     */
+    private function getAllianceDepotLevel(PlanetService $planet): int
+    {
+        $allianceDepotLevel = $planet->getObjectLevel('alliance_depot');
+
+        // If this is a moon and has no Alliance Depot, check the parent planet.
+        if ($allianceDepotLevel === 0 && $planet->isMoon() && $planet->hasPlanet()) {
+            try {
+                $parentPlanet = $planet->planet();
+                $allianceDepotLevel = $parentPlanet->getObjectLevel('alliance_depot');
+            } catch (\RuntimeException $e) {
+                // If parent planet doesn't exist, keep level at 0.
+                $allianceDepotLevel = 0;
+            }
+        }
+
+        return $allianceDepotLevel;
     }
 
     /**
@@ -121,20 +166,32 @@ class ACSDefendMission extends GameMission
         $units = $this->fleetMissionService->getFleetUnits($mission);
         $totalConsumptionNeeded = $holdConsumptionService->calculateTotalConsumption($units, (int)$holdDurationHours);
 
-        // Check if target planet has Alliance Depot
-        $depotLevel = $targetPlanet->getObjectLevel('alliance_depot');
+        // Check if target planet has Alliance Depot (or parent planet if moon)
+        $depotLevel = $this->getAllianceDepotLevel($targetPlanet);
 
         // Calculate Alliance Depot supply (20,000 deut/hour per level)
         $depotSupplyRate = 20000; // per hour per level
         $depotSupplyAvailable = $depotLevel * $depotSupplyRate * $holdDurationHours;
 
-        // Check how much deuterium the planet actually has
-        $planetDeuterium = $targetPlanet->deuterium()->get();
+        // Get the planet that should provide the deuterium
+        // If defending a moon and the moon has no Alliance Depot, use the parent planet
+        $depotPlanet = $targetPlanet;
+        if ($targetPlanet->isMoon() && $targetPlanet->getObjectLevel('alliance_depot') === 0 && $targetPlanet->hasPlanet()) {
+            try {
+                $depotPlanet = $targetPlanet->planet();
+            } catch (\RuntimeException $e) {
+                // If parent planet doesn't exist, use moon
+                $depotPlanet = $targetPlanet;
+            }
+        }
+
+        // Check how much deuterium the depot planet actually has
+        $planetDeuterium = $depotPlanet->deuterium()->get();
         $depotSupplyUsed = min($depotSupplyAvailable, $planetDeuterium, $totalConsumptionNeeded);
 
-        // Deduct depot supply from planet storage
+        // Deduct depot supply from depot planet storage
         if ($depotSupplyUsed > 0) {
-            $targetPlanet->deductResources(new \OGame\Models\Resources(0, 0, $depotSupplyUsed, 0));
+            $depotPlanet->deductResources(new \OGame\Models\Resources(0, 0, $depotSupplyUsed, 0));
         }
 
         // Calculate how much fleet cargo needs to cover

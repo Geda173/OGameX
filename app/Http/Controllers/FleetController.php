@@ -414,8 +414,15 @@ class FleetController extends OGameController
                 }
 
                 return response()->json([
-                    'status' => 'error',
-                    'message' => $errorMessage,
+                    'success' => false,
+                    'errors' => [
+                        [
+                            'message' => $errorMessage,
+                            'error' => 140019
+                        ]
+                    ],
+                    'components' => [],
+                    'newAjaxToken' => csrf_token(),
                 ]);
             }
 
