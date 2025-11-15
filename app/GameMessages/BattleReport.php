@@ -198,6 +198,27 @@ class BattleReport extends GameMessage
             }
         }
 
+        // Extract attacker origin coordinates if available
+        $attacker_origin_coords = null;
+        $attacker_origin_type = null;
+        $attacker_origin_is_deep_space = false;
+
+        if ($isExpeditionBattle && $attackerPlayerId < 0) {
+            // For NPC attackers in expeditions, show deep space coordinates
+            $attacker_origin_coords = $this->battleReportModel->planet_galaxy . ':' .
+                                     $this->battleReportModel->planet_system . ':' .
+                                     $this->battleReportModel->planet_position;
+            $attacker_origin_is_deep_space = true;
+        } elseif (isset($this->battleReportModel->attacker['origin_galaxy']) &&
+                  isset($this->battleReportModel->attacker['origin_system']) &&
+                  isset($this->battleReportModel->attacker['origin_position'])) {
+            // Regular attacker with origin planet
+            $attacker_origin_coords = $this->battleReportModel->attacker['origin_galaxy'] . ':' .
+                                     $this->battleReportModel->attacker['origin_system'] . ':' .
+                                     $this->battleReportModel->attacker['origin_position'];
+            $attacker_origin_type = $this->battleReportModel->attacker['origin_type'] ?? PlanetType::Planet->value;
+        }
+
         $defender_weapons = $this->battleReportModel->defender['weapon_technology'] * 10;
         $defender_shields = $this->battleReportModel->defender['shielding_technology'] * 10;
         $defender_armor = $this->battleReportModel->defender['armor_technology'] * 10;
@@ -345,10 +366,70 @@ class BattleReport extends GameMessage
             $defender_planet_link = route('galaxy.index', ['galaxy' => $coordinate->galaxy, 'system' => $coordinate->system, 'position' => $coordinate->position]);
         }
 
+        // Check if this is an ACS battle and prepare participants data
+        $isACS = isset($this->battleReportModel->general['is_acs']) && $this->battleReportModel->general['is_acs'];
+        $acsParticipants = null;
+
+        if ($isACS && !empty($this->battleReportModel->acs_participants)) {
+            // Convert participant units to UnitCollection objects for easier use in the view
+            $acsParticipants = [
+                'attackers' => [],
+                'defenders' => [],
+            ];
+
+            foreach ($this->battleReportModel->acs_participants['attackers'] as $index => $participantData) {
+                $units = new UnitCollection();
+                foreach ($participantData['units'] as $machine_name => $amount) {
+                    $units->addUnit(ObjectService::getUnitObjectByMachineName($machine_name), $amount);
+                }
+
+                $participant = [
+                    'player_id' => $participantData['player_id'],
+                    'player_name' => $participantData['player_name'],
+                    'units' => $units,
+                    'weapon_technology' => $participantData['weapon_technology'] * 10,
+                    'shielding_technology' => $participantData['shielding_technology'] * 10,
+                    'armor_technology' => $participantData['armor_technology'] * 10,
+                ];
+
+                // Add origin coordinates if available
+                if (isset($participantData['origin_galaxy']) &&
+                    isset($participantData['origin_system']) &&
+                    isset($participantData['origin_position'])) {
+                    $participant['origin_coords'] = $participantData['origin_galaxy'] . ':' .
+                                                   $participantData['origin_system'] . ':' .
+                                                   $participantData['origin_position'];
+                    $participant['origin_type'] = $participantData['origin_type'] ?? PlanetType::Planet->value;
+                }
+
+                $acsParticipants['attackers'][] = $participant;
+            }
+
+            foreach ($this->battleReportModel->acs_participants['defenders'] as $index => $participantData) {
+                $units = new UnitCollection();
+                foreach ($participantData['units'] as $machine_name => $amount) {
+                    $units->addUnit(ObjectService::getUnitObjectByMachineName($machine_name), $amount);
+                }
+
+                $acsParticipants['defenders'][] = [
+                    'player_id' => $participantData['player_id'],
+                    'player_name' => $participantData['player_name'],
+                    'units' => $units,
+                    'weapon_technology' => $participantData['weapon_technology'] * 10,
+                    'shielding_technology' => $participantData['shielding_technology'] * 10,
+                    'armor_technology' => $participantData['armor_technology'] * 10,
+                    'is_planet_owner' => $participantData['is_planet_owner'] ?? false,
+                ];
+            }
+        }
+
         return [
             'subject' => $this->getSubject(),
             'from' => $this->getFrom(),
             'attacker_name' => $attacker_name,
+            'attacker_origin_coords' => $attacker_origin_coords,
+            'attacker_origin_type' => $attacker_origin_type,
+            'attacker_origin_is_deep_space' => $attacker_origin_is_deep_space,
             'defender_name' => $defender_name,
             'attacker_class' => ($winner === 'attacker') ? 'undermark' : (($winner === 'draw') ? 'middlemark' : 'overmark'),
             'defender_class' => ($winner === 'defender') ? 'undermark' : (($winner === 'draw') ? 'middlemark' : 'overmark'),
@@ -380,6 +461,8 @@ class BattleReport extends GameMessage
             'attacker_units_start' => $attacker_units,
             'defender_units_start' => $defender_units,
             'rounds' => $rounds,
+            'is_acs' => $isACS,
+            'acs_participants' => $acsParticipants,
         ];
     }
 }

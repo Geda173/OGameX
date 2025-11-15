@@ -224,6 +224,7 @@
             };
 
             var currentPlanet = {
+                "id": {{ $planet->getPlanetId() }},
                 "galaxy": {{ $planet->getPlanetCoordinates()->galaxy }},
                 "system": {{ $planet->getPlanetCoordinates()->system }},
                 "position": {{ $planet->getPlanetCoordinates()->position }},
@@ -1651,6 +1652,10 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
             }
         }
 
+        // Cache ships with specific key to prevent cross-contamination
+        // Key format: "planetId_acsGroupId"
+        window.acsShipCache = window.acsShipCache || {};
+
         // Update ACS group info when selection changes
         function updateACSGroupInfo() {
             const select = document.getElementById('acsGroupSelect');
@@ -1662,12 +1667,231 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
 
             if (selectedValue === 0) {
                 info.innerHTML = '✓ You will create a new ACS group. Other players can join your attack.';
+                // Clear ALL cache when creating new group
+                window.acsShipCache = {};
+                window.lastACSMessage = null;
             } else {
                 if (typeof unions !== 'undefined' && unions) {
                     const group = unions.find(g => g.id === selectedValue);
                     if (group) {
-                        info.innerHTML = '✓ Joining ACS group. Your fleet will automatically synchronize to arrive at <strong>' +
-                            group.arrival_time_formatted + '</strong> with ' + group.fleet_count + ' other fleet(s).';
+                        // Create cache key: planetId_acsGroupId
+                        const cacheKey = currentPlanet.id + '_' + selectedValue;
+                        console.log('Cache key:', cacheKey);
+
+                        // Collect ships from the form OR use fleetDispatcher OR use cache
+                        let ships = {};
+
+                        // Try to use cached ships first (for speed changes on page 3)
+                        if (window.acsShipCache[cacheKey] && Object.keys(window.acsShipCache[cacheKey]).length > 0) {
+                            console.log('Using cached ships for key:', cacheKey);
+                            ships = window.acsShipCache[cacheKey];
+                        } else {
+
+                        // Debug: Log what properties fleetDispatcher actually has
+                        if (typeof fleetDispatcher !== 'undefined') {
+                            console.log('🔍 Debugging FleetDispatcher object:');
+                            console.log('  shipsToSend:', fleetDispatcher.shipsToSend);
+                            if (fleetDispatcher.shipsToSend && fleetDispatcher.shipsToSend.length > 0) {
+                                console.log('  shipsToSend[0]:', fleetDispatcher.shipsToSend[0]);
+                                console.log('  shipsToSend[0] keys:', Object.keys(fleetDispatcher.shipsToSend[0]));
+                            }
+                        }
+
+                        // Try to get ships from FleetDispatcher - handle array properly
+                        if (typeof fleetDispatcher !== 'undefined' && fleetDispatcher.shipsToSend) {
+                            console.log('Extracting ships from shipsToSend array...');
+
+                            // shipsToSend is an array of ship objects
+                            if (Array.isArray(fleetDispatcher.shipsToSend)) {
+                                fleetDispatcher.shipsToSend.forEach(function(shipObj) {
+                                    console.log('Ship object:', shipObj);
+
+                                    // Extract ship ID and number from the object
+                                    const shipId = shipObj.id || shipObj.shipId || shipObj.ship_id;
+                                    const amount = shipObj.number || shipObj.amount || shipObj.count || 0;
+
+                                    console.log('  Ship ID:', shipId, 'Amount:', amount);
+
+                                    if (shipId && amount > 0) {
+                                        const shipIdToName = {
+                                            '202': 'small_cargo',
+                                            '203': 'large_cargo',
+                                            '204': 'light_fighter',
+                                            '205': 'heavy_fighter',
+                                            '206': 'cruiser',
+                                            '207': 'battle_ship',
+                                            '208': 'colony_ship',
+                                            '209': 'recycler',
+                                            '210': 'espionage_probe',
+                                            '211': 'bomber',
+                                            '213': 'destroyer',
+                                            '214': 'deathstar',
+                                            '215': 'battlecruiser'
+                                        };
+                                        const machineName = shipIdToName[shipId];
+                                        if (machineName) {
+                                            ships[machineName] = amount;
+                                            console.log('  ✓ Added:', machineName, '=', amount);
+                                        }
+                                    }
+                                });
+                                console.log('✓ Ships extracted from shipsToSend:', ships);
+                            }
+                        }
+
+                        // Fallback: collect from form inputs
+                        if (Object.keys(ships).length === 0) {
+                            console.log('No ships in FleetDispatcher, trying form inputs');
+                            const shipInputs = document.querySelectorAll('input[name^="ship["]');
+                            console.log('Found', shipInputs.length, 'ship inputs');
+                            shipInputs.forEach(input => {
+                                const match = input.name.match(/ship\[(\d+)\]/);
+                                if (match) {
+                                    const shipId = match[1];
+                                    const amount = parseInt(input.value) || 0;
+                                    console.log('Ship', shipId, 'has value:', amount);
+                                    if (amount > 0) {
+                                        // Convert ship ID to machine name
+                                        const shipIdToName = {
+                                            '202': 'small_cargo',
+                                            '203': 'large_cargo',
+                                            '204': 'light_fighter',
+                                            '205': 'heavy_fighter',
+                                            '206': 'cruiser',
+                                            '207': 'battle_ship',
+                                            '208': 'colony_ship',
+                                            '209': 'recycler',
+                                            '210': 'espionage_probe',
+                                            '211': 'bomber',
+                                            '213': 'destroyer',
+                                            '214': 'deathstar',
+                                            '215': 'battlecruiser'
+                                        };
+                                        const machineName = shipIdToName[shipId];
+                                        if (machineName) {
+                                            ships[machineName] = amount;
+                                        }
+                                    }
+                                }
+                            });
+                            console.log('Ships from form inputs:', ships);
+                        }
+                        } // End of cache check else
+
+                        // If no ships selected, show static message
+                        if (Object.keys(ships).length === 0) {
+                            console.log('⚠️ NO SHIPS FOUND - Using static message');
+                            info.innerHTML = '✓ Joining ACS group. Your fleet will automatically synchronize to arrive at <strong>' +
+                                group.arrival_time_formatted + '</strong> with ' + group.fleet_count + ' other fleet(s).';
+                            window.lastACSMessage = info.innerHTML;
+                            return;
+                        }
+
+                        console.log('✓ Found ships:', Object.keys(ships).length, 'types');
+
+                        // Cache ships for future speed changes (keyed by planet + ACS group)
+                        if (!window.acsShipCache[cacheKey]) {
+                            console.log('Caching ships for key:', cacheKey);
+                            window.acsShipCache[cacheKey] = ships;
+
+                            // Limit cache size to prevent memory leaks (keep max 5 entries)
+                            const cacheKeys = Object.keys(window.acsShipCache);
+                            if (cacheKeys.length > 5) {
+                                console.log('Cache size limit reached, removing oldest entry');
+                                const oldestKey = cacheKeys[0];
+                                delete window.acsShipCache[oldestKey];
+                            }
+                        }
+
+                        // Get speed from FleetDispatcher object if available, otherwise from input
+                        let speed = 10;
+                        if (typeof fleetDispatcher !== 'undefined' && fleetDispatcher.speedPercent) {
+                            speed = fleetDispatcher.speedPercent;
+                        } else {
+                            // Fallback: try to get from input
+                            let speedInput = document.querySelector('input[name="speed"]');
+                            if (!speedInput) {
+                                speedInput = document.getElementById('speed');
+                            }
+                            speed = speedInput ? parseInt(speedInput.value) : 10;
+                        }
+
+                        console.log('Calling API: ACS group', selectedValue, 'with speed:', speed, 'ships:', ships);
+
+                        // Call the backend to calculate the actual arrival time
+                        fetch('{{ route('fleet.acs.calculate.arrival') }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            },
+                            body: JSON.stringify({
+                                acs_group_id: selectedValue,
+                                ships: ships,
+                                speed: speed,
+                                planet_id: currentPlanet.id
+                            })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            console.log('========== API RESPONSE RECEIVED ==========');
+                            console.log('Success:', data.success);
+                            console.log('Arrival time:', data.arrival_time_formatted);
+                            console.log('Is delayed:', data.is_delayed);
+
+                            // Get fresh reference to the element
+                            const infoElement = document.getElementById('acsGroupInfo');
+                            if (!infoElement) {
+                                console.error('❌ acsGroupInfo element NOT FOUND!');
+                                return;
+                            }
+
+                            console.log('✓ Element found:', infoElement);
+
+                            if (data.success) {
+                                // Build new message
+                                const newArrivalTime = data.arrival_time_formatted;
+                                let message = '✓ Joining ACS group. Your fleet will automatically synchronize to arrive at <strong>' +
+                                    newArrivalTime + '</strong> with ' + group.fleet_count + ' other fleet(s).';
+
+                                if (data.is_delayed) {
+                                    message += ' <span style="color: #ff9900;">(Group will be delayed by ' + Math.round(data.delay_seconds / 60) + ' minutes)</span>';
+                                }
+
+                                console.log('Current element HTML:', infoElement.innerHTML);
+                                console.log('New message to set:', message);
+
+                                // Store message globally for continuous enforcement
+                                window.lastACSMessage = message;
+
+                                // Method 3: Remove and recreate (most aggressive)
+                                console.log('Replacing element completely');
+                                const parent = infoElement.parentNode;
+                                const newElement = document.createElement('div');
+                                newElement.id = 'acsGroupInfo';
+                                newElement.style.marginTop = '5px';
+                                newElement.style.fontSize = '11px';
+                                newElement.style.color = '#6f9fc8';
+                                newElement.innerHTML = message;
+                                parent.replaceChild(newElement, infoElement);
+
+                                console.log('After replacement:', document.getElementById('acsGroupInfo').innerHTML);
+                                console.log('Stored in window.lastACSMessage for enforcement');
+                                console.log('========== UPDATE COMPLETE ==========');
+                            } else {
+                                // Show error message
+                                const errorMsg = '<span style="color: #ff0000;">✗ ' + (data.message || 'Error calculating arrival time') + '</span>';
+                                console.log('Showing error:', errorMsg);
+                                window.lastACSMessage = errorMsg;
+                                infoElement.innerHTML = errorMsg;
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error calculating ACS arrival time:', error);
+                            // Fallback to static message
+                            info.innerHTML = '✓ Joining ACS group. Your fleet will automatically synchronize to arrive at <strong>' +
+                                group.arrival_time_formatted + '</strong> with ' + group.fleet_count + ' other fleet(s).';
+                        });
                     }
                 }
             }
@@ -1718,6 +1942,13 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                 const observer = new MutationObserver(function(mutations) {
                     console.log('Mission input changed via mutation');
                     updateACSGroupVisibility();
+
+                    // Clear ship cache when mission type changes away from ACS Attack
+                    const currentMission = parseInt(missionInput.value);
+                    if (currentMission !== 2) { // 2 = ACS Attack
+                        console.log('Mission changed away from ACS Attack, clearing ship cache');
+                        window.acsShipCache = {};
+                    }
                 });
 
                 observer.observe(missionInput, {
@@ -1757,6 +1988,75 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                 });
             }
 
+            // Listen for ship quantity changes to recalculate ACS arrival time
+            const shipInputs = document.querySelectorAll('input[name^="ship["]');
+            shipInputs.forEach(input => {
+                input.addEventListener('change', function() {
+                    // Only update if an ACS group is selected
+                    const select = document.getElementById('acsGroupSelect');
+                    if (select && parseInt(select.value) > 0) {
+                        console.log('Ship quantity changed, recalculating ACS arrival time');
+                        updateACSGroupInfo();
+                    }
+                });
+            });
+
+            // Add MutationObserver to detect external changes to acsGroupInfo
+            const watchElement = document.getElementById('acsGroupInfo');
+            if (watchElement) {
+                const watcher = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        console.log('⚠️ acsGroupInfo was modified externally!');
+                        console.log('  Type:', mutation.type);
+                        console.log('  Old value:', mutation.oldValue);
+                        console.log('  New value:', document.getElementById('acsGroupInfo').innerHTML);
+                        console.log('  Stack trace:', new Error().stack);
+                    });
+                });
+
+                watcher.observe(watchElement, {
+                    childList: true,
+                    characterData: true,
+                    subtree: true,
+                    characterDataOldValue: true
+                });
+                console.log('✓ Watching acsGroupInfo for external changes');
+            }
+
+            // Store the last message we set globally
+            window.lastACSMessage = null;
+
+            // Poll for speed changes and continuously enforce the message
+            let lastKnownSpeed = null;
+
+            setInterval(function() {
+                const select = document.getElementById('acsGroupSelect');
+                if (select && parseInt(select.value) > 0) {
+                    // Get current speed
+                    let currentSpeed = 10;
+                    if (typeof fleetDispatcher !== 'undefined' && fleetDispatcher.speedPercent) {
+                        currentSpeed = fleetDispatcher.speedPercent;
+                    }
+
+                    // Check if speed has changed
+                    if (currentSpeed !== lastKnownSpeed) {
+                        console.log('Speed changed from', lastKnownSpeed, 'to', currentSpeed);
+                        lastKnownSpeed = currentSpeed;
+                        updateACSGroupInfo();
+                    }
+
+                    // CONTINUOUSLY enforce the last message (in case something overwrites it)
+                    if (window.lastACSMessage) {
+                        const infoEl = document.getElementById('acsGroupInfo');
+                        if (infoEl && infoEl.innerHTML !== window.lastACSMessage) {
+                            console.log('🔄 Restoring ACS message (was overwritten)');
+                            infoEl.innerHTML = window.lastACSMessage;
+                        }
+                    }
+                }
+            }, 500); // Check twice per second
+
+            console.log('✓ Polling for speed changes and enforcing message');
             console.log('ACS UI initialization complete');
         }
 

@@ -417,7 +417,7 @@ class ACSAttackMission extends GameMission
 
         // Distribute loot and losses among all participating attackers.
         // Create ONE battle report for the ACS attack (sent to all players)
-        $reportId = $this->createBattleReport($attackerFleets[0]['player'], $defenderPlanet, $battleResult, $repairedDefenses, true);
+        $reportId = $this->createBattleReport($attackerFleets[0]['player'], $defenderPlanet, $battleResult, $repairedDefenses, true, $attackerFleets);
 
         // Track unique players to avoid sending duplicate reports to same player
         $reportedPlayers = [];
@@ -715,9 +715,10 @@ class ACSAttackMission extends GameMission
      * @param BattleResult $battleResult The result of the battle.
      * @param UnitCollection $repairedDefenses The defensive structures that were repaired after the battle.
      * @param bool $isACSReport Whether this is an ACS battle report.
+     * @param array|null $attackerFleets Optional array of attacker fleet data for ACS attacks.
      * @return int
      */
-    private function createBattleReport(PlayerService $attackPlayer, PlanetService $defenderPlanet, BattleResult $battleResult, UnitCollection $repairedDefenses, bool $isACSReport = false): int
+    private function createBattleReport(PlayerService $attackPlayer, PlanetService $defenderPlanet, BattleResult $battleResult, UnitCollection $repairedDefenses, bool $isACSReport = false, ?array $attackerFleets = null): int
     {
         // Create new battle report record.
         $report = new BattleReport();
@@ -735,7 +736,8 @@ class ACSAttackMission extends GameMission
             'is_acs' => $isACSReport,
         ];
 
-        $report->attacker = [
+        // Build attacker data array
+        $attackerData = [
             'player_id' => $attackPlayer->getId(),
             'resource_loss' => $battleResult->attackerResourceLoss->sum(),
             'units' => $battleResult->attackerUnitsStart->toArray(),
@@ -743,6 +745,21 @@ class ACSAttackMission extends GameMission
             'shielding_technology' => $battleResult->attackerShieldLevel,
             'armor_technology' => $battleResult->attackerArmorLevel,
         ];
+
+        // Add origin planet coordinates for the first attacker (main attacker) if available
+        if ($isACSReport && $attackerFleets !== null && !empty($attackerFleets)) {
+            $firstFleet = $attackerFleets[0];
+            $originMission = $firstFleet['mission'];
+            $originPlanet = $this->planetServiceFactory->make($originMission->planet_id_from, true);
+            if ($originPlanet !== null) {
+                $attackerData['origin_galaxy'] = $originPlanet->getPlanetCoordinates()->galaxy;
+                $attackerData['origin_system'] = $originPlanet->getPlanetCoordinates()->system;
+                $attackerData['origin_position'] = $originPlanet->getPlanetCoordinates()->position;
+                $attackerData['origin_type'] = $originPlanet->getPlanetType()->value;
+            }
+        }
+
+        $report->attacker = $attackerData;
 
         $report->defender = [
             'player_id' => $defenderPlanet->getPlayer()->getId(),
@@ -787,6 +804,88 @@ class ACSAttackMission extends GameMission
         }
 
         $report->rounds = $rounds;
+
+        // Store individual participant data for ACS battles
+        if ($isACSReport && $attackerFleets !== null) {
+            $acsParticipants = [
+                'attackers' => [],
+                'defenders' => [],
+            ];
+
+            // Store each attacking fleet's data
+            foreach ($attackerFleets as $index => $fleet) {
+                $player = $fleet['player'];
+                $units = $fleet['units'];
+                $mission = $fleet['mission'];
+
+                // Get origin planet coordinates
+                $originPlanet = $this->planetServiceFactory->make($mission->planet_id_from, true);
+
+                $participantData = [
+                    'player_id' => $player->getId(),
+                    'player_name' => $player->getUsername(false),
+                    'units' => $units->toArray(),
+                    'weapon_technology' => $player->getResearchLevel('weapon_technology'),
+                    'shielding_technology' => $player->getResearchLevel('shielding_technology'),
+                    'armor_technology' => $player->getResearchLevel('armor_technology'),
+                ];
+
+                // Add origin coordinates
+                if ($originPlanet !== null) {
+                    $participantData['origin_galaxy'] = $originPlanet->getPlanetCoordinates()->galaxy;
+                    $participantData['origin_system'] = $originPlanet->getPlanetCoordinates()->system;
+                    $participantData['origin_position'] = $originPlanet->getPlanetCoordinates()->position;
+                    $participantData['origin_type'] = $originPlanet->getPlanetType()->value;
+                }
+
+                $acsParticipants['attackers'][] = $participantData;
+            }
+
+            // Calculate ACS Defend units to separate planet units from fleet units
+            $acsDefendUnitsStart = new UnitCollection();
+            if (!empty($battleResult->defendingMissions)) {
+                foreach ($battleResult->defendingMissions as $defendingMission) {
+                    $defendingUnits = $this->fleetMissionService->getFleetUnits($defendingMission);
+                    $acsDefendUnitsStart->addCollection($defendingUnits);
+                }
+            }
+
+            // Calculate planet's own units (excluding ACS Defend fleets)
+            $planetUnitsStart = clone $battleResult->defenderUnitsStart;
+            $planetUnitsStart->subtractCollection($acsDefendUnitsStart);
+
+            // Store planet owner as primary defender with only their planet's units
+            $acsParticipants['defenders'][] = [
+                'player_id' => $defenderPlanet->getPlayer()->getId(),
+                'player_name' => $defenderPlanet->getPlayer()->getUsername(false),
+                'units' => $planetUnitsStart->toArray(),
+                'weapon_technology' => $battleResult->defenderWeaponLevel,
+                'shielding_technology' => $battleResult->defenderShieldLevel,
+                'armor_technology' => $battleResult->defenderArmorLevel,
+                'is_planet_owner' => true,
+            ];
+
+            // Store ACS Defend participants with their individual fleet units
+            if (!empty($battleResult->defendingMissions)) {
+                foreach ($battleResult->defendingMissions as $defendingMission) {
+                    $defendingPlayer = resolve(\OGame\Services\PlayerService::class, ['player_id' => $defendingMission->user_id]);
+                    $defendingUnits = $this->fleetMissionService->getFleetUnits($defendingMission);
+
+                    $acsParticipants['defenders'][] = [
+                        'player_id' => $defendingPlayer->getId(),
+                        'player_name' => $defendingPlayer->getUsername(false),
+                        'units' => $defendingUnits->toArray(),
+                        'weapon_technology' => $defendingPlayer->getResearchLevel('weapon_technology'),
+                        'shielding_technology' => $defendingPlayer->getResearchLevel('shielding_technology'),
+                        'armor_technology' => $defendingPlayer->getResearchLevel('armor_technology'),
+                        'is_planet_owner' => false,
+                    ];
+                }
+            }
+
+            $report->acs_participants = $acsParticipants;
+        }
+
         $report->save();
 
         return $report->id;

@@ -102,6 +102,7 @@ Route::middleware(['auth', 'globalgame', 'locale'])->group(function () {
     Route::get('/ajax/fleet/acs-eligible-players', [FleetController::class, 'getEligiblePlayers'])->name('fleet.acs.eligible');
     Route::post('/ajax/fleet/acs-invite', [FleetController::class, 'invitePlayerToACS'])->name('fleet.acs.invite');
     Route::post('/ajax/fleet/acs-convert', [FleetController::class, 'convertAttackToACS'])->name('fleet.acs.convert');
+    Route::post('/ajax/fleet/acs-calculate-arrival', [FleetController::class, 'calculateACSArrivalTime'])->name('fleet.acs.calculate.arrival');
 
     Route::get('/ajax/fleet/eventbox/fetch', [FleetEventsController::class, 'fetchEventBox'])->name('fleet.eventbox.fetch');
     Route::get('/ajax/fleet/eventlist/fetch', [FleetEventsController::class, 'fetchEventList'])->name('fleet.eventlist.fetch');

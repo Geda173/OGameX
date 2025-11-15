@@ -195,7 +195,7 @@ class AttackMission extends GameMission
         }
 
         // Create battle report (always created with full details)
-        $reportId = $this->createBattleReport($attackerPlayer, $defenderPlanet, $battleResult, $repairedDefenses);
+        $reportId = $this->createBattleReport($attackerPlayer, $defenderPlanet, $battleResult, $repairedDefenses, $origin_planet);
 
         // Send appropriate messages based on battle outcome
         if ($attackerDestroyedFirstRound) {
@@ -269,7 +269,7 @@ class AttackMission extends GameMission
      * @param UnitCollection $repairedDefenses The defensive structures that were repaired after the battle.
      * @return int
      */
-    private function createBattleReport(PlayerService $attackPlayer, PlanetService $defenderPlanet, BattleResult $battleResult, UnitCollection $repairedDefenses): int
+    private function createBattleReport(PlayerService $attackPlayer, PlanetService $defenderPlanet, BattleResult $battleResult, UnitCollection $repairedDefenses, ?PlanetService $attackerOriginPlanet = null): int
     {
         // Create new battle report record.
         $report = new BattleReport();
@@ -286,7 +286,8 @@ class AttackMission extends GameMission
             'moon_created' => $battleResult->moonCreated,
         ];
 
-        $report->attacker = [
+        // Build attacker data array
+        $attackerData = [
             'player_id' => $attackPlayer->getId(),
             'resource_loss' => $battleResult->attackerResourceLoss->sum(),
             'units' => $battleResult->attackerUnitsStart->toArray(),
@@ -294,6 +295,16 @@ class AttackMission extends GameMission
             'shielding_technology' => $battleResult->attackerShieldLevel,
             'armor_technology' => $battleResult->attackerArmorLevel,
         ];
+
+        // Add origin planet coordinates if available (not available for NPC attackers in expeditions)
+        if ($attackerOriginPlanet !== null) {
+            $attackerData['origin_galaxy'] = $attackerOriginPlanet->getPlanetCoordinates()->galaxy;
+            $attackerData['origin_system'] = $attackerOriginPlanet->getPlanetCoordinates()->system;
+            $attackerData['origin_position'] = $attackerOriginPlanet->getPlanetCoordinates()->position;
+            $attackerData['origin_type'] = $attackerOriginPlanet->getPlanetType()->value;
+        }
+
+        $report->attacker = $attackerData;
 
         $report->defender = [
             'player_id' => $defenderPlanet->getPlayer()->getId(),
