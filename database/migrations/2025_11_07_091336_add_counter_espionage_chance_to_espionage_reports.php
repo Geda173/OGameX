@@ -11,9 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('espionage_reports', function (Blueprint $table) {
-            $table->tinyInteger('counter_espionage_chance')->default(0)->after('player_info');
-        });
+        // Check if column already exists before adding it
+        if (!Schema::hasColumn('espionage_reports', 'counter_espionage_chance')) {
+            Schema::table('espionage_reports', function (Blueprint $table) {
+                $table->tinyInteger('counter_espionage_chance')->default(0)->after('player_info');
+            });
+        }
     }
 
     /**
@@ -21,8 +24,11 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('espionage_reports', function (Blueprint $table) {
-            $table->dropColumn('counter_espionage_chance');
-        });
+        // Check if column exists before dropping it
+        if (Schema::hasColumn('espionage_reports', 'counter_espionage_chance')) {
+            Schema::table('espionage_reports', function (Blueprint $table) {
+                $table->dropColumn('counter_espionage_chance');
+            });
+        }
     }
 };

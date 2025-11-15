@@ -12,10 +12,13 @@ return new class () extends Migration {
      */
     public function up(): void
     {
-        Schema::table('building_queues', function (Blueprint $table) {
-            // Add teardown flag to indicate if this is a teardown operation
-            $table->tinyInteger('teardown')->default(0)->after('building');
-        });
+        // Check if column already exists before adding it
+        if (!Schema::hasColumn('building_queues', 'teardown')) {
+            Schema::table('building_queues', function (Blueprint $table) {
+                // Add teardown flag to indicate if this is a teardown operation
+                $table->tinyInteger('teardown')->default(0)->after('building');
+            });
+        }
     }
 
     /**
@@ -25,8 +28,11 @@ return new class () extends Migration {
      */
     public function down(): void
     {
-        Schema::table('building_queues', function (Blueprint $table) {
-            $table->dropColumn('teardown');
-        });
+        // Check if column exists before dropping it
+        if (Schema::hasColumn('building_queues', 'teardown')) {
+            Schema::table('building_queues', function (Blueprint $table) {
+                $table->dropColumn('teardown');
+            });
+        }
     }
 };
