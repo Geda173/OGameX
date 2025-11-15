@@ -23,8 +23,18 @@ return new class extends Migration
 
         // Only modify if column is unsigned
         if (!empty($columnType) && stripos($columnType[0]->COLUMN_TYPE, 'unsigned') !== false) {
+            Schema::table('battle_reports', function (Blueprint $table) {
+                // Drop foreign key constraint if it exists
+                $table->dropForeign(['planet_user_id']);
+            });
+
             // Change planet_user_id from unsigned to signed to allow NPC IDs (-1 for pirates, -2 for aliens)
             DB::statement('ALTER TABLE battle_reports MODIFY planet_user_id INT(10) NULL');
+
+            Schema::table('battle_reports', function (Blueprint $table) {
+                // Re-add foreign key constraint
+                $table->foreign('planet_user_id')->references('id')->on('users')->onDelete('cascade');
+            });
         }
     }
 
@@ -44,8 +54,18 @@ return new class extends Migration
 
         // Only revert if column is currently signed
         if (!empty($columnType) && stripos($columnType[0]->COLUMN_TYPE, 'unsigned') === false) {
+            Schema::table('battle_reports', function (Blueprint $table) {
+                // Drop foreign key constraint if it exists
+                $table->dropForeign(['planet_user_id']);
+            });
+
             // Revert back to unsigned
             DB::statement('ALTER TABLE battle_reports MODIFY planet_user_id INT(10) UNSIGNED NULL');
+
+            Schema::table('battle_reports', function (Blueprint $table) {
+                // Re-add foreign key constraint
+                $table->foreign('planet_user_id')->references('id')->on('users')->onDelete('cascade');
+            });
         }
     }
 };
