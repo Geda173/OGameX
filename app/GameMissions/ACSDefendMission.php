@@ -75,17 +75,10 @@ class ACSDefendMission extends GameMission
             return new MissionPossibleStatus(false);
         }
 
-        // Check if the target has an Alliance Depot.
-        // For moons, also check the parent planet's Alliance Depot.
-        $allianceDepotLevel = $this->getAllianceDepotLevel($targetPlanet);
-
-        if ($allianceDepotLevel === 0) {
-            \Log::debug('ACS Defend failed: no alliance depot');
-            if ($targetType === PlanetType::Moon) {
-                return new MissionPossibleStatus(false, __('The target moon or its parent planet must have an Alliance Depot to accept defending fleets.'));
-            }
-            return new MissionPossibleStatus(false, __('The target planet must have an Alliance Depot to accept defending fleets.'));
-        }
+        // Note: Alliance Depot is not required for ACS Defend missions.
+        // The depot only reduces the amount of deuterium that must be carried in cargo.
+        // Without a depot, the fleet must carry all required deuterium in its cargo hold.
+        // Deuterium validation is handled in FleetController during mission dispatch.
 
         // If all checks pass, the mission is possible.
         \Log::debug('ACS Defend mission is POSSIBLE!');
@@ -93,7 +86,7 @@ class ACSDefendMission extends GameMission
     }
 
     /**
-     * Additional validation for ACS Defend mission to ensure enough deuterium for the mission.
+     * Additional validation for ACS Defend mission.
      *
      * @inheritdoc
      */
@@ -102,23 +95,9 @@ class ACSDefendMission extends GameMission
         // First run the parent sanity checks (resources, units, fleet slots, mission possible).
         parent::startMissionSanityChecks($planet, $targetCoordinate, $targetType, $units, $resources);
 
-        // Additional check: Ensure there's enough deuterium for the hold duration.
-        // Note: At this point, we don't know the holding time yet (it comes from the request),
-        // so this validation will be done when the mission starts. However, we can still
-        // provide a helpful error message if there's no Alliance Depot.
-
-        $targetPlanet = $this->planetServiceFactory->makeForCoordinate($targetCoordinate, true, $targetType);
-        if ($targetPlanet === null) {
-            throw new \Exception(__('Target planet not found.'));
-        }
-
-        $allianceDepotLevel = $this->getAllianceDepotLevel($targetPlanet);
-        if ($allianceDepotLevel === 0) {
-            if ($targetType === PlanetType::Moon) {
-                throw new \Exception(__('The target moon or its parent planet must have an Alliance Depot to accept defending fleets.'));
-            }
-            throw new \Exception(__('The target planet must have an Alliance Depot to accept defending fleets.'));
-        }
+        // Note: Deuterium validation for hold time is performed in FleetController
+        // during mission dispatch, where the holding time is known.
+        // The Alliance Depot is optional - it only reduces deuterium cargo requirements.
     }
 
     /**
