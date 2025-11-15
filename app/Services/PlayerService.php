@@ -742,6 +742,38 @@ class PlayerService
     }
 
     /**
+     * Check if a planet position can be colonized based on astrophysics level.
+     *
+     * Certain positions require minimum astrophysics levels:
+     * - Positions 1 and 15 require level 8
+     * - Positions 2 and 14 require level 6
+     * - Positions 3 and 13 require level 4
+     * - Positions 4-12 have no special requirements
+     *
+     * @param int $position The planet position (1-15)
+     * @return bool True if the position can be colonized, false otherwise
+     */
+    public function canColonizePosition(int $position): bool
+    {
+        $astrophysicsLevel = $this->getResearchLevel('astrophysics');
+
+        // Check position-based requirements
+        if (($position === 1 || $position === 15) && $astrophysicsLevel < 8) {
+            return false;
+        }
+
+        if (($position === 2 || $position === 14) && $astrophysicsLevel < 6) {
+            return false;
+        }
+
+        if (($position === 3 || $position === 13) && $astrophysicsLevel < 4) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Get the missile range in systems based on Impulse Drive level.
      * Formula: (Impulse Drive Level - 1) × 5 + 5 systems
      *
