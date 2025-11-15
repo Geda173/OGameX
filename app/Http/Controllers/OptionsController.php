@@ -55,9 +55,11 @@ class OptionsController extends OGameController
             // Update username
             $player->setUsername($name);
             $player->save();
+
+            return array('success' => __('Settings saved'));
         }
 
-        return array('success' => __('Settings saved'));
+        return array();
     }
 
     /**
