@@ -789,6 +789,10 @@ class PlayerService
         // Delete all messages.
         \OGame\Models\Message::where('user_id', $this->getId())->delete();
 
+        // Delete all battle reports where this player is the defender (planet owner).
+        // Note: We don't delete reports where they're the attacker to preserve history for defenders.
+        \OGame\Models\BattleReport::where('planet_user_id', $this->getId())->delete();
+
         // Delete tech record.
         $this->user_tech->delete();
 
