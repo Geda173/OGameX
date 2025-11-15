@@ -1738,38 +1738,57 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                         })
                         .then(response => response.json())
                         .then(data => {
-                            console.log('API Response:', data);
+                            console.log('========== API RESPONSE RECEIVED ==========');
+                            console.log('Success:', data.success);
+                            console.log('Arrival time:', data.arrival_time_formatted);
+                            console.log('Is delayed:', data.is_delayed);
 
-                            // Get fresh reference to the element (in case it was replaced)
+                            // Get fresh reference to the element
                             const infoElement = document.getElementById('acsGroupInfo');
                             if (!infoElement) {
-                                console.error('acsGroupInfo element not found!');
+                                console.error('❌ acsGroupInfo element NOT FOUND!');
                                 return;
                             }
 
+                            console.log('✓ Element found:', infoElement);
+
                             if (data.success) {
+                                // Build new message
+                                const newArrivalTime = data.arrival_time_formatted;
                                 let message = '✓ Joining ACS group. Your fleet will automatically synchronize to arrive at <strong>' +
-                                    data.arrival_time_formatted + '</strong> with ' + group.fleet_count + ' other fleet(s).';
+                                    newArrivalTime + '</strong> with ' + group.fleet_count + ' other fleet(s).';
 
                                 if (data.is_delayed) {
                                     message += ' <span style="color: #ff9900;">(Group will be delayed by ' + Math.round(data.delay_seconds / 60) + ' minutes)</span>';
                                 }
 
-                                console.log('About to update element. Current innerHTML:', infoElement.innerHTML);
-                                console.log('Setting innerHTML to:', message);
+                                console.log('Current element HTML:', infoElement.innerHTML);
+                                console.log('New message to set:', message);
 
-                                // Clear first
-                                infoElement.innerHTML = '';
-                                // Then set new value
+                                // Try multiple update methods
+                                console.log('Attempting update method 1: innerHTML');
                                 infoElement.innerHTML = message;
+                                console.log('After method 1:', infoElement.innerHTML);
 
-                                // Force repaint
-                                infoElement.style.display = 'none';
-                                infoElement.offsetHeight; // Trigger reflow
-                                infoElement.style.display = '';
+                                // Method 2: textContent then innerHTML
+                                console.log('Attempting update method 2: textContent then innerHTML');
+                                infoElement.textContent = '';
+                                infoElement.innerHTML = message;
+                                console.log('After method 2:', infoElement.innerHTML);
 
-                                console.log('Updated! New innerHTML:', infoElement.innerHTML);
-                                console.log('Element visible?', window.getComputedStyle(infoElement).display);
+                                // Method 3: Remove and recreate
+                                console.log('Attempting update method 3: replace with new element');
+                                const parent = infoElement.parentNode;
+                                const newElement = document.createElement('div');
+                                newElement.id = 'acsGroupInfo';
+                                newElement.style.marginTop = '5px';
+                                newElement.style.fontSize = '11px';
+                                newElement.style.color = '#6f9fc8';
+                                newElement.innerHTML = message;
+                                parent.replaceChild(newElement, infoElement);
+                                console.log('After method 3, new element:', document.getElementById('acsGroupInfo').innerHTML);
+
+                                console.log('========== UPDATE COMPLETE ==========');
                             } else {
                                 // Show error message
                                 const errorMsg = '<span style="color: #ff0000;">✗ ' + (data.message || 'Error calculating arrival time') + '</span>';
