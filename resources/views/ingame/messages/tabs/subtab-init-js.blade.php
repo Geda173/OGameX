@@ -113,12 +113,18 @@
                     data: requestData,
                     success: function(response) {
                         if (response.success) {
-                            // Show success message and reload the page
+                            // Show success message and redirect to the current tab
                             fadeBox('All messages deleted successfully.', false);
 
-                            // Reload the page after a short delay to show the success message
+                            // Build the messages URL with current tab and subtab
+                            var redirectUrl = '{{ route('messages.index') }}?tab=' + encodeURIComponent(currentTab);
+                            if (currentSubtab) {
+                                redirectUrl += '&subtab=' + encodeURIComponent(currentSubtab);
+                            }
+
+                            // Redirect after a short delay to show the success message
                             setTimeout(function() {
-                                window.location.reload();
+                                window.location.href = redirectUrl;
                             }, 500);
                         } else {
                             console.error('Server error:', response.error);
