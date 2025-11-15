@@ -470,8 +470,6 @@
                 var activeTab = urlParams.get('tab');
                 var activeSubtab = urlParams.get('subtab');
 
-                console.log('Messages Page Load - URL Params:', {tab: activeTab, subtab: activeSubtab});
-
                 if (activeTab && activeSubtab) {
                     // Activate the correct subtab immediately after page load
                     setTimeout(function() {
