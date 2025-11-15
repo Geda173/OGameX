@@ -1654,7 +1654,6 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
 
         // Debounce timer for ACS updates
         let acsUpdateTimeout = null;
-        let lastUpdateParams = null;
 
         // Update ACS group info when selection changes
         function updateACSGroupInfo() {
@@ -1704,13 +1703,6 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                             }
                         });
 
-                        // Get speed - try both selectors
-                        let speedInput = document.querySelector('input[name="speed"]');
-                        if (!speedInput) {
-                            speedInput = document.getElementById('speed');
-                        }
-                        const speed = speedInput ? parseInt(speedInput.value) : 10;
-
                         // If no ships selected, show static message
                         if (Object.keys(ships).length === 0) {
                             info.innerHTML = '✓ Joining ACS group. Your fleet will automatically synchronize to arrive at <strong>' +
@@ -1718,26 +1710,20 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                             return;
                         }
 
-                        // Create parameter string for comparison
-                        const currentParams = JSON.stringify({
-                            acs_group_id: selectedValue,
-                            ships: ships,
-                            speed: speed,
-                            planet_id: currentPlanet.id
-                        });
-
-                        // Only update if parameters have changed
-                        if (currentParams === lastUpdateParams) {
-                            console.log('ACS parameters unchanged, skipping update');
-                            return;
+                        // Get speed from FleetDispatcher object if available, otherwise from input
+                        let speed = 10;
+                        if (typeof fleetDispatcher !== 'undefined' && fleetDispatcher.speedPercent) {
+                            speed = fleetDispatcher.speedPercent;
+                        } else {
+                            // Fallback: try to get from input
+                            let speedInput = document.querySelector('input[name="speed"]');
+                            if (!speedInput) {
+                                speedInput = document.getElementById('speed');
+                            }
+                            speed = speedInput ? parseInt(speedInput.value) : 10;
                         }
 
-                        lastUpdateParams = currentParams;
-
-                        console.log('ACS parameters changed, updating. Speed:', speed, 'Ships:', ships);
-
-                        // Show loading message
-                        info.innerHTML = '✓ Joining ACS group. Calculating arrival time...';
+                        console.log('Updating ACS arrival with speed:', speed);
 
                         // Call the backend to calculate the actual arrival time
                         fetch('{{ route('fleet.acs.calculate.arrival') }}', {
@@ -1753,13 +1739,8 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                                 planet_id: currentPlanet.id
                             })
                         })
-                        .then(response => {
-                            console.log('Response status:', response.status);
-                            return response.json();
-                        })
+                        .then(response => response.json())
                         .then(data => {
-                            console.log('ACS arrival calculation response:', data);
-
                             if (data.success) {
                                 let message = '✓ Joining ACS group. Your fleet will automatically synchronize to arrive at <strong>' +
                                     data.arrival_time_formatted + '</strong> with ' + group.fleet_count + ' other fleet(s).';
@@ -1768,14 +1749,10 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                                     message += ' <span style="color: #ff9900;">(Group will be delayed by ' + Math.round(data.delay_seconds / 60) + ' minutes)</span>';
                                 }
 
-                                console.log('Updating info element with:', message);
                                 info.innerHTML = message;
-                                console.log('Info element after update:', info.innerHTML);
                             } else {
                                 // Show error message
-                                const errorMsg = '<span style="color: #ff0000;">✗ ' + (data.message || 'Error calculating arrival time') + '</span>';
-                                console.log('Showing error:', errorMsg);
-                                info.innerHTML = errorMsg;
+                                info.innerHTML = '<span style="color: #ff0000;">✗ ' + (data.message || 'Error calculating arrival time') + '</span>';
                             }
                         })
                         .catch(error => {
@@ -1794,7 +1771,7 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
             clearTimeout(acsUpdateTimeout);
             acsUpdateTimeout = setTimeout(function() {
                 updateACSGroupInfo();
-            }, 300); // Wait 300ms after last change
+            }, 500); // Wait 500ms after last change
         }
 
         // Initialize on DOM ready
