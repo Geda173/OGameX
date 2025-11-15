@@ -689,8 +689,8 @@
 
 @if($is_acs && $acs_participants)
         //------------------------------ACS Attacker - Data-------------------------------
-        $('#attacker_select_combatreport').on('change', function () {
-            var selectedValue = $(this).val();
+        function updateAttackerDisplay() {
+            var selectedValue = $('#attacker_select_combatreport').val();
 
             if (selectedValue === 'combined') {
                 // Show combined fleet data
@@ -699,8 +699,10 @@
                 $('#attacker_armor_display').text(combinedAttacker.armor);
 
                 // Update ship counts and visibility
-                $('.attacker .military_ships li, .attacker .civil_ships li').each(function() {
+                $('.attacker ul.military_ships li, .attacker ul.ship_list_28 li').each(function() {
                     var shipDiv = $(this).find('div[class*="buildingimg"]');
+                    if (shipDiv.length === 0) return;
+
                     var shipClass = shipDiv.attr('class');
                     var matches = shipClass.match(/military(\d+)|civil(\d+)/);
                     if (matches) {
@@ -709,7 +711,7 @@
                         $(this).find('.detail_shipsleft').text(count);
 
                         // Show all ships for combined view
-                        $(this).show();
+                        $(this).css('display', '');
                     }
                 });
             } else {
@@ -723,8 +725,10 @@
                     $('#attacker_armor_display').text(participant.armor);
 
                     // Update ship counts and hide ships with 0 count
-                    $('.attacker .military_ships li, .attacker .civil_ships li').each(function() {
+                    $('.attacker ul.military_ships li, .attacker ul.ship_list_28 li').each(function() {
                         var shipDiv = $(this).find('div[class*="buildingimg"]');
+                        if (shipDiv.length === 0) return;
+
                         var shipClass = shipDiv.attr('class');
                         var matches = shipClass.match(/military(\d+)|civil(\d+)/);
                         if (matches) {
@@ -734,19 +738,21 @@
 
                             // Hide ships with 0 count for individual participants
                             if (count === 0) {
-                                $(this).hide();
+                                $(this).css('display', 'none');
                             } else {
-                                $(this).show();
+                                $(this).css('display', '');
                             }
                         }
                     });
                 }
             }
-        });
+        }
+
+        $('#attacker_select_combatreport').on('change', updateAttackerDisplay);
 
         //------------------------------ACS Defender - Data-------------------------------
-        $('#defender_select_combatreport').on('change', function () {
-            var selectedValue = $(this).val();
+        function updateDefenderDisplay() {
+            var selectedValue = $('#defender_select_combatreport').val();
 
             if (selectedValue === 'combined') {
                 // Show combined fleet data
@@ -755,8 +761,16 @@
                 $('#defender_armor_display').text(combinedDefender.armor);
 
                 // Update ship counts and visibility (military and civil)
-                $('.defender .military_ships li:not(.defense_ships li), .defender .civil_ships li').each(function() {
+                $('.defender ul.military_ships li, .defender ul.ship_list_28 li').each(function() {
+                    var defenseDiv = $(this).find('div[class*="defenseimg"]');
+                    if (defenseDiv.length > 0) {
+                        // This is a defense, handle separately
+                        return;
+                    }
+
                     var shipDiv = $(this).find('div[class*="buildingimg"]');
+                    if (shipDiv.length === 0) return;
+
                     var shipClass = shipDiv.attr('class');
                     var matches = shipClass.match(/military(\d+)|civil(\d+)/);
                     if (matches) {
@@ -765,12 +779,12 @@
                         $(this).find('.detail_shipsleft').text(count);
 
                         // Show all ships for combined view
-                        $(this).show();
+                        $(this).css('display', '');
                     }
                 });
 
                 // Update defense counts and visibility
-                $('.defender li').each(function() {
+                $('.defender ul.military_ships li, .defender ul.ship_list_28 li').each(function() {
                     var defenseDiv = $(this).find('div[class*="defenseimg"]');
                     if (defenseDiv.length > 0) {
                         var defenseClass = defenseDiv.attr('class');
@@ -781,7 +795,7 @@
                             $(this).find('.detail_shipsleft').text(count);
 
                             // Show all defenses for combined view
-                            $(this).show();
+                            $(this).css('display', '');
                         }
                     }
                 });
@@ -796,8 +810,16 @@
                     $('#defender_armor_display').text(participant.armor);
 
                     // Update ship counts and hide ships with 0 count (military and civil)
-                    $('.defender .military_ships li:not(.defense_ships li), .defender .civil_ships li').each(function() {
+                    $('.defender ul.military_ships li, .defender ul.ship_list_28 li').each(function() {
+                        var defenseDiv = $(this).find('div[class*="defenseimg"]');
+                        if (defenseDiv.length > 0) {
+                            // This is a defense, handle separately
+                            return;
+                        }
+
                         var shipDiv = $(this).find('div[class*="buildingimg"]');
+                        if (shipDiv.length === 0) return;
+
                         var shipClass = shipDiv.attr('class');
                         var matches = shipClass.match(/military(\d+)|civil(\d+)/);
                         if (matches) {
@@ -807,15 +829,15 @@
 
                             // Hide ships with 0 count for individual participants
                             if (count === 0) {
-                                $(this).hide();
+                                $(this).css('display', 'none');
                             } else {
-                                $(this).show();
+                                $(this).css('display', '');
                             }
                         }
                     });
 
                     // Update defense counts and hide defenses with 0 count
-                    $('.defender li').each(function() {
+                    $('.defender ul.military_ships li, .defender ul.ship_list_28 li').each(function() {
                         var defenseDiv = $(this).find('div[class*="defenseimg"]');
                         if (defenseDiv.length > 0) {
                             var defenseClass = defenseDiv.attr('class');
@@ -827,16 +849,18 @@
 
                                 // Hide defenses with 0 count for individual participants
                                 if (count === 0) {
-                                    $(this).hide();
+                                    $(this).css('display', 'none');
                                 } else {
-                                    $(this).show();
+                                    $(this).css('display', '');
                                 }
                             }
                         }
                     });
                 }
             }
-        });
+        }
+
+        $('#defender_select_combatreport').on('change', updateDefenderDisplay);
 @else
         //------------------------------Attacker - Data-------------------------------
         $('.attacker .participant_select').on('change.combatreport', function () {

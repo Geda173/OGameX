@@ -803,7 +803,7 @@ class ACSAttackMission extends GameMission
 
                 $acsParticipants['attackers'][] = [
                     'player_id' => $player->getId(),
-                    'player_name' => $player->getUsername(),
+                    'player_name' => $player->getUsername(false),
                     'units' => $units->toArray(),
                     'weapon_technology' => $player->getResearchLevel('weapon_technology'),
                     'shielding_technology' => $player->getResearchLevel('shielding_technology'),
@@ -827,7 +827,7 @@ class ACSAttackMission extends GameMission
             // Store planet owner as primary defender with only their planet's units
             $acsParticipants['defenders'][] = [
                 'player_id' => $defenderPlanet->getPlayer()->getId(),
-                'player_name' => $defenderPlanet->getPlayer()->getUsername(),
+                'player_name' => $defenderPlanet->getPlayer()->getUsername(false),
                 'units' => $planetUnitsStart->toArray(),
                 'weapon_technology' => $battleResult->defenderWeaponLevel,
                 'shielding_technology' => $battleResult->defenderShieldLevel,
@@ -843,7 +843,7 @@ class ACSAttackMission extends GameMission
 
                     $acsParticipants['defenders'][] = [
                         'player_id' => $defendingPlayer->getId(),
-                        'player_name' => $defendingPlayer->getUsername(),
+                        'player_name' => $defendingPlayer->getUsername(false),
                         'units' => $defendingUnits->toArray(),
                         'weapon_technology' => $defendingPlayer->getResearchLevel('weapon_technology'),
                         'shielding_technology' => $defendingPlayer->getResearchLevel('shielding_technology'),
