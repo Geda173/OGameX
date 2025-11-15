@@ -622,7 +622,7 @@ class GalaxyController extends OGameController
                 'isOutlaw' => false,
                 'maximumFleetSlots' => 13,
                 'playerId' => $player->getId(),
-                'settingsProbeCount' => 3,
+                'settingsProbeCount' => $player->getUser()->espionage_probes_amount ?? 3,
                 'showOutlawWarning' => true,
                 'slotsColonized' => $slotsColonized,
                 'switchGalaxyDeuteriumCosts' => 10,
