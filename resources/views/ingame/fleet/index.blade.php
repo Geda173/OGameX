@@ -1652,8 +1652,9 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
             }
         }
 
-        // Cache ships globally so we can reuse them
-        window.cachedACSShips = window.cachedACSShips || null;
+        // Cache ships with specific key to prevent cross-contamination
+        // Key format: "planetId_acsGroupId"
+        window.acsShipCache = window.acsShipCache || {};
 
         // Update ACS group info when selection changes
         function updateACSGroupInfo() {
@@ -1666,18 +1667,24 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
 
             if (selectedValue === 0) {
                 info.innerHTML = '✓ You will create a new ACS group. Other players can join your attack.';
-                window.cachedACSShips = null; // Clear cache
+                // Clear ALL cache when creating new group
+                window.acsShipCache = {};
+                window.lastACSMessage = null;
             } else {
                 if (typeof unions !== 'undefined' && unions) {
                     const group = unions.find(g => g.id === selectedValue);
                     if (group) {
+                        // Create cache key: planetId_acsGroupId
+                        const cacheKey = currentPlanet.id + '_' + selectedValue;
+                        console.log('Cache key:', cacheKey);
+
                         // Collect ships from the form OR use fleetDispatcher OR use cache
                         let ships = {};
 
                         // Try to use cached ships first (for speed changes on page 3)
-                        if (window.cachedACSShips && Object.keys(window.cachedACSShips).length > 0) {
-                            console.log('Using cached ships from previous calculation');
-                            ships = window.cachedACSShips;
+                        if (window.acsShipCache[cacheKey] && Object.keys(window.acsShipCache[cacheKey]).length > 0) {
+                            console.log('Using cached ships for key:', cacheKey);
+                            ships = window.acsShipCache[cacheKey];
                         } else {
 
                         // Try to get ships from FleetDispatcher first
@@ -1761,10 +1768,18 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
 
                         console.log('✓ Found ships:', Object.keys(ships).length, 'types');
 
-                        // Cache ships for future speed changes
-                        if (!window.cachedACSShips || Object.keys(window.cachedACSShips).length === 0) {
-                            console.log('Caching ships for future updates');
-                            window.cachedACSShips = ships;
+                        // Cache ships for future speed changes (keyed by planet + ACS group)
+                        if (!window.acsShipCache[cacheKey]) {
+                            console.log('Caching ships for key:', cacheKey);
+                            window.acsShipCache[cacheKey] = ships;
+
+                            // Limit cache size to prevent memory leaks (keep max 5 entries)
+                            const cacheKeys = Object.keys(window.acsShipCache);
+                            if (cacheKeys.length > 5) {
+                                console.log('Cache size limit reached, removing oldest entry');
+                                const oldestKey = cacheKeys[0];
+                                delete window.acsShipCache[oldestKey];
+                            }
                         }
 
                         // Get speed from FleetDispatcher object if available, otherwise from input
@@ -1906,6 +1921,13 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                 const observer = new MutationObserver(function(mutations) {
                     console.log('Mission input changed via mutation');
                     updateACSGroupVisibility();
+
+                    // Clear ship cache when mission type changes away from ACS Attack
+                    const currentMission = parseInt(missionInput.value);
+                    if (currentMission !== 2) { // 2 = ACS Attack
+                        console.log('Mission changed away from ACS Attack, clearing ship cache');
+                        window.acsShipCache = {};
+                    }
                 });
 
                 observer.observe(missionInput, {
