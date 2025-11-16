@@ -188,7 +188,7 @@ class NPCFleetGeneratorService
         $objectService = app(ObjectService::class);
         $npcFleet = new UnitCollection();
 
-        // Define possible NPC ship types (mix of combat and civilian ships)
+        // Define possible NPC ship types (mix of combat and cargo ships)
         $possibleShips = [
             // Combat ships
             'light_fighter' => 10,   // Weight: cheap, common
@@ -199,12 +199,9 @@ class NPCFleetGeneratorService
             'bomber' => 2,
             'destroyer' => 1,        // Weight: expensive, rare
 
-            // Civilian ships (for variety and balance)
-            'small_cargo' => 5,      // Common - used for transporting loot
+            // Cargo ships (for transporting loot)
+            'small_cargo' => 5,      // Common
             'large_cargo' => 3,      // Less common
-            'espionage_probe' => 4,  // Fairly common - used for scouting
-            'recycler' => 2,         // Rare - used for salvage operations
-            'colony_ship' => 1,      // Very rare
         ];
 
         // Select 2-4 random ship types for variety
