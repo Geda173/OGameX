@@ -88,8 +88,60 @@ class OverviewController extends OGameController
         $wreckage_count = 0;
         if ($planet->getObjectLevel('space_dock') > 0) {
             $availableWreckage = $space_dock->getAvailableWreckage($planet);
-            $has_wreckage = $availableWreckage->isNotEmpty();
-            $wreckage_count = $availableWreckage->count();
+
+            // Get repairs in progress and ready for pickup
+            $repairsInProgress = $space_dock->retrieveQueueItems($planet);
+            $readyForPickup = $space_dock->retrieveReadyForPickup($planet);
+
+            // Calculate wreckage amounts already in queue
+            $wreckageInQueue = [];
+            foreach (array_merge($repairsInProgress->toArray(), $readyForPickup->toArray()) as $repair) {
+                $battleId = $repair['battle_report_id'];
+                $shipObjectId = $repair['ship_object_id'];
+                $amount = $repair['ship_amount'];
+
+                if (!isset($wreckageInQueue[$battleId])) {
+                    $wreckageInQueue[$battleId] = [];
+                }
+                if (!isset($wreckageInQueue[$battleId][$shipObjectId])) {
+                    $wreckageInQueue[$battleId][$shipObjectId] = 0;
+                }
+                $wreckageInQueue[$battleId][$shipObjectId] += $amount;
+            }
+
+            // Count only battle reports with truly available wreckage (not in queue)
+            foreach ($availableWreckage as $report) {
+                if (empty($report->wreckage)) {
+                    continue;
+                }
+
+                $hasAvailableWreckage = false;
+                foreach ($report->wreckage as $machineName => $amount) {
+                    if ($amount <= 0) {
+                        continue;
+                    }
+
+                    try {
+                        $shipObject = \OGame\Services\ObjectService::getUnitObjectByMachineName($machineName);
+                        $amountInQueue = $wreckageInQueue[$report->id][$shipObject->id] ?? 0;
+                        $availableAmount = $amount - $amountInQueue;
+
+                        if ($availableAmount > 0) {
+                            $hasAvailableWreckage = true;
+                            break;
+                        }
+                    } catch (\Exception $e) {
+                        // Skip invalid ship types
+                        continue;
+                    }
+                }
+
+                if ($hasAvailableWreckage) {
+                    $wreckage_count++;
+                }
+            }
+
+            $has_wreckage = $wreckage_count > 0;
         }
 
         // Check for ready to pickup ships
