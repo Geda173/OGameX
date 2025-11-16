@@ -225,7 +225,10 @@ $(document).ready(function() {
     countdownInterval = setInterval(updateCountdowns, 1000);
 
     // Start all repairs button - repairs ALL wreckage immediately
-    $(document).on('click', '.btn-start-all-repairs', function() {
+    $(document).on('click', '.btn-start-all-repairs', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
         // Collect all wreckage data
         var repairRequests = [];
         @foreach ($wreckage_data as $wreckage)
