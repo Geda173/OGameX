@@ -32,18 +32,14 @@ class SpaceDockService
      */
     public function calculateWreckage(PlanetService $defenderPlanet, BattleResult $battleResult): array
     {
-        // Calculate total units destroyed
-        $totalUnitsDestroyed = $battleResult->attackerUnitsLost->getAmount() +
-                               $battleResult->defenderUnitsLost->getAmount();
-
-        // Wreckage only appears if more than 150,000 units destroyed
-        if ($totalUnitsDestroyed <= 150000) {
-            return [];
-        }
-
-        // Calculate total ship value destroyed
+        // Calculate total ship value destroyed (in resource points)
         $totalShipValue = $battleResult->attackerResourceLoss->sum() +
                          $battleResult->defenderResourceLoss->sum();
+
+        // Wreckage only appears if more than 150,000 resource points destroyed
+        if ($totalShipValue <= 150000) {
+            return [];
+        }
 
         // Check if defender's ships participated with at least 5% of ship value
         $defenderShipValue = $battleResult->defenderResourceLoss->sum();
