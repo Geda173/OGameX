@@ -258,6 +258,7 @@ $(document).ready(function() {
                     ship_machine_name: repair.ship_machine_name,
                     amount: repair.amount
                 },
+                global: false, // Suppress global AJAX error handlers
                 success: function(response) {
                     if (response.success) {
                         successCount++;
@@ -265,14 +266,19 @@ $(document).ready(function() {
                 },
                 error: function(xhr) {
                     failureCount++;
+                    // Silently handle expected errors (duplicates, already in progress)
                 },
                 complete: function() {
                     completedCount++;
                     if (completedCount === totalRequests) {
                         // All requests completed, reload overlay
-                        reloadOverlay();
-                        if (failureCount > 0 && successCount > 0) {
-                            console.log('Some repairs started (' + successCount + ' succeeded, ' + failureCount + ' skipped)');
+                        setTimeout(function() {
+                            reloadOverlay();
+                        }, 100); // Small delay to ensure backend updates are committed
+
+                        if (successCount > 0) {
+                            console.log('Started ' + successCount + ' repair(s)' +
+                                (failureCount > 0 ? ' (' + failureCount + ' already in progress)' : ''));
                         }
                     }
                 }
