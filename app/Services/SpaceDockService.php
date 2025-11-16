@@ -6,6 +6,7 @@ use Exception;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use OGame\GameMissions\BattleEngine\Models\BattleResult;
+use OGame\GameObjects\Models\Enums\GameObjectType;
 use OGame\GameObjects\Models\Units\UnitCollection;
 use OGame\Models\BattleReport;
 use OGame\Models\RepairQueue;
@@ -69,7 +70,7 @@ class SpaceDockService
             $unitObject = ObjectService::getUnitObjectByMachineName($unit->unitObject->machine_name);
 
             // Only process ships (not defenses)
-            if ($unitObject->unittype !== 'ships') {
+            if ($unitObject->type !== GameObjectType::Ship) {
                 continue;
             }
 
@@ -285,7 +286,7 @@ class SpaceDockService
 
         // Get ship object
         $shipObject = ObjectService::getUnitObjectByMachineName($shipMachineName);
-        if (!$shipObject || $shipObject->unittype !== 'ships') {
+        if (!$shipObject || $shipObject->type !== GameObjectType::Ship) {
             throw new Exception('Invalid ship type.');
         }
 
