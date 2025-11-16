@@ -72,6 +72,8 @@
                             @elseif ($building->ship_or_defense_in_progress  && $building->object->machine_name == 'shipyard')
                             @elseif ($building->object->machine_name == 'jump_gate' && $building->current_level >= 1)
                                 {{-- Jump Gate is operational, clicking opens the jump gate page --}}
+                            @elseif ($building->object->machine_name == 'space_dock' && $building->current_level >= 1)
+                                {{-- Space Dock is operational, clicking opens the space dock page --}}
                             @else
                                 <button
                                         class="upgrade tooltip hideOthers js_hideTipOnMobile"
@@ -123,6 +125,11 @@
         <script type="text/javascript">
             var planetMoveInProgress = false;
             var jumpGateOverlayUrl = "{{ route('jumpgate.overlay') }}";
+            var spaceDockUrl = "{{ route('spacedock.index') }}";
+
+            function openSpaceDock() {
+                window.location.href = spaceDockUrl;
+            }
 
             function openJumpGateOverlay() {
                 // Create dialog container
@@ -186,6 +193,32 @@
                 loca: loca
             })
             technologyDetails.init()
+
+            // Handle Space Dock clicks - redirect to Space Dock page
+            $(document).on('click', '.technology.repairDock .icon', function(e) {
+                var $tech = $(this).closest('.technology');
+                // Only handle if Space Dock is built (level >= 1)
+                var level = parseInt($tech.find('.level .stockAmount').text());
+                if (level >= 1) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    openSpaceDock();
+                    return false;
+                }
+            });
+
+            // Handle Jump Gate clicks
+            $(document).on('click', '.technology.jumpGate .icon', function(e) {
+                var $tech = $(this).closest('.technology');
+                // Only handle if Jump Gate is built (level >= 1)
+                var level = parseInt($tech.find('.level .stockAmount').text());
+                if (level >= 1) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    openJumpGateOverlay();
+                    return false;
+                }
+            });
         </script>
     </div>
     {{-- openTech querystring parameter handling --}}
