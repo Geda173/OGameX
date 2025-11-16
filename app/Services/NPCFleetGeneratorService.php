@@ -127,10 +127,14 @@ class NPCFleetGeneratorService
     /**
      * Generate fleet composition based on OGame specifications.
      *
+     * Fleet composition = Bonus combat ships + Cargo ships
+     * - Bonus ships provide ALL combat power
+     * - Fleet value percentage is spent entirely on cargo ships
+     *
      * Composition depends on battle size tier:
-     * - Level 1 (89%): Pirates 33% + 5 LF, Aliens 44% + 5 HF
-     * - Level 2 (10%): Pirates 55% + 3 Cruisers, Aliens 66% + 3 Battlecruisers
-     * - Level 3 (1%): Pirates 88% + 2 Battleships, Aliens 99% + 2 Destroyers
+     * - Level 1 (89%): Pirates 33% cargo + 5 LF, Aliens 44% cargo + 5 HF
+     * - Level 2 (10%): Pirates 55% cargo + 3 Cruisers, Aliens 66% cargo + 3 Battlecruisers
+     * - Level 3 (1%): Pirates 88% cargo + 2 Battleships, Aliens 99% cargo + 2 Destroyers
      *
      * @param int $playerFleetValue Total value of player's fleet
      * @param string $npcType 'pirate' or 'alien'
@@ -178,9 +182,11 @@ class NPCFleetGeneratorService
     }
 
     /**
-     * Generate a mixed fleet of combat ships based on allocated value.
+     * Generate a fleet of cargo ships based on allocated value.
+     * In OGame, the fleet value percentage is spent entirely on cargo ships.
+     * Combat power comes solely from the bonus ships added separately.
      *
-     * @param int $allocatedValue Total value to spend on ships
+     * @param int $allocatedValue Total value to spend on cargo ships
      * @param string $npcType 'pirate' or 'alien'
      * @return UnitCollection
      */
@@ -189,41 +195,14 @@ class NPCFleetGeneratorService
         $objectService = app(ObjectService::class);
         $npcFleet = new UnitCollection();
 
-        // Define ship types based on NPC type
-        // Pirates favor cheaper, lower-tier ships
-        // Aliens favor expensive, higher-tier ships
-        if ($npcType === 'pirate') {
-            $possibleShips = [
-                // Lower-tier combat ships (pirates are weaker)
-                'light_fighter' => 15,   // Very common for pirates
-                'heavy_fighter' => 10,
-                'cruiser' => 8,
-                'battle_ship' => 3,      // Rare for pirates
-                'battlecruiser' => 2,    // Very rare for pirates
+        // Only cargo ships - combat power comes from bonus ships
+        $possibleShips = [
+            'small_cargo' => 60,     // Common
+            'large_cargo' => 40,     // Less common
+        ];
 
-                // Cargo ships
-                'small_cargo' => 8,      // Common
-                'large_cargo' => 4,      // Less common
-            ];
-        } else {
-            // Aliens
-            $possibleShips = [
-                // Higher-tier combat ships (aliens are stronger)
-                'heavy_fighter' => 8,
-                'cruiser' => 10,
-                'battle_ship' => 12,     // Common for aliens
-                'battlecruiser' => 10,
-                'bomber' => 8,           // Aliens use bombers
-                'destroyer' => 6,        // Aliens can have destroyers
-
-                // Cargo ships (less common for aliens)
-                'small_cargo' => 4,
-                'large_cargo' => 6,
-            ];
-        }
-
-        // Select 2-4 random ship types for variety
-        $selectedShipCount = random_int(2, 4);
+        // Select 1-2 cargo ship types
+        $selectedShipCount = random_int(1, 2);
         $selectedShips = $this->weightedRandomSelection($possibleShips, $selectedShipCount);
 
         // Distribute allocated value across selected ships
