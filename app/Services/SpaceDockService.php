@@ -306,7 +306,7 @@ class SpaceDockService
 
         // Calculate repair cost (percentage of original ship cost)
         $repairCostPercentage = 0.5; // 50% of original cost
-        $shipPrice = ObjectService::getUnitObjectPrice($shipMachineName, $planet);
+        $shipPrice = ObjectService::getObjectPrice($shipMachineName, $planet);
         $totalRepairCost = new Resources(
             (int)($shipPrice->metal->get() * $amount * $repairCostPercentage),
             (int)($shipPrice->crystal->get() * $amount * $repairCostPercentage),

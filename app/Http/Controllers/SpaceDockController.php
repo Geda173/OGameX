@@ -54,7 +54,7 @@ class SpaceDockController extends OGameController
                     $shipObject = ObjectService::getUnitObjectByMachineName($machineName);
 
                     // Calculate repair cost (50% of original cost)
-                    $shipPrice = ObjectService::getUnitObjectPrice($machineName, $planet);
+                    $shipPrice = ObjectService::getObjectPrice($machineName, $planet);
                     $repairCostPercentage = 0.5;
 
                     if (!isset($wreckageData[$report->id])) {
