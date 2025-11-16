@@ -238,9 +238,18 @@ $(document).ready(function() {
             @endforeach
         @endforeach
 
-        // Send all repair requests - use allSettled to handle partial failures
-        var promises = repairRequests.map(function(repair) {
-            return $.ajax({
+        // Send all repair requests and track results
+        var successCount = 0;
+        var failureCount = 0;
+        var completedCount = 0;
+        var totalRequests = repairRequests.length;
+
+        if (totalRequests === 0) {
+            return;
+        }
+
+        repairRequests.forEach(function(repair) {
+            $.ajax({
                 url: '{{ route('spacedock.startrepair') }}',
                 method: 'POST',
                 data: {
@@ -248,24 +257,26 @@ $(document).ready(function() {
                     battle_report_id: repair.battle_report_id,
                     ship_machine_name: repair.ship_machine_name,
                     amount: repair.amount
+                },
+                success: function(response) {
+                    if (response.success) {
+                        successCount++;
+                    }
+                },
+                error: function(xhr) {
+                    failureCount++;
+                },
+                complete: function() {
+                    completedCount++;
+                    if (completedCount === totalRequests) {
+                        // All requests completed, reload overlay
+                        reloadOverlay();
+                        if (failureCount > 0 && successCount > 0) {
+                            console.log('Some repairs started (' + successCount + ' succeeded, ' + failureCount + ' skipped)');
+                        }
+                    }
                 }
-            }).then(
-                function(response) { return { status: 'fulfilled', value: response }; },
-                function(error) { return { status: 'rejected', reason: error }; }
-            );
-        });
-
-        Promise.all(promises).then(function(results) {
-            var successCount = results.filter(function(r) { return r.status === 'fulfilled'; }).length;
-            var failureCount = results.filter(function(r) { return r.status === 'rejected'; }).length;
-
-            // Always reload overlay to show current state
-            reloadOverlay();
-
-            // Show message if some failed (but don't if all succeeded or all failed due to duplicates)
-            if (failureCount > 0 && successCount > 0) {
-                console.log('Some repairs started (' + successCount + ' succeeded, ' + failureCount + ' already in progress)');
-            }
+            });
         });
     });
 
