@@ -328,22 +328,9 @@ class SpaceDockService
 
         $battleReport->save();
 
-        // Get the next queue position for this planet
-        $maxQueuePosition = RepairQueue::where([
-            ['planet_id', $planet->getPlanetId()],
-            ['canceled', 0],
-        ])->whereIn('processed', [0]) // Only active repairs
-        ->max('queue_position');
-
-        $queuePosition = ($maxQueuePosition ?? 0) + 1;
-
-        // Determine if this repair should start immediately (only if it's first in queue)
-        $shouldStartNow = ($queuePosition === 1);
-
         // Create repair queue entry
         $repairQueue = new RepairQueue();
         $repairQueue->planet_id = $planet->getPlanetId();
-        $repairQueue->queue_position = $queuePosition;
         $repairQueue->battle_report_id = $battleReportId;
         $repairQueue->ship_object_id = $shipObject->id;
         $repairQueue->ship_amount = $amount;
@@ -351,17 +338,8 @@ class SpaceDockService
         $repairQueue->crystal_cost = $totalRepairCost->crystal->get();
         $repairQueue->deuterium_cost = $totalRepairCost->deuterium->get();
         $repairQueue->time_duration = $repairTime;
-
-        // Only set start/end times if this is the first item (sequential processing)
-        if ($shouldStartNow) {
-            $repairQueue->time_start = Carbon::now()->timestamp;
-            $repairQueue->time_end = $repairQueue->time_start + $repairTime;
-        } else {
-            // Queued but not started yet
-            $repairQueue->time_start = 0;
-            $repairQueue->time_end = 0;
-        }
-
+        $repairQueue->time_start = Carbon::now()->timestamp;
+        $repairQueue->time_end = $repairQueue->time_start + $repairTime;
         $repairQueue->processed = 0;
         $repairQueue->canceled = 0;
         $repairQueue->save();
@@ -423,7 +401,7 @@ class SpaceDockService
             ['processed', 0],
             ['canceled', 0],
         ])
-            ->orderBy('queue_position', 'asc')
+            ->orderBy('time_start', 'asc')
             ->get();
     }
 
