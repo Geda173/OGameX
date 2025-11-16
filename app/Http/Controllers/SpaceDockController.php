@@ -104,8 +104,10 @@ class SpaceDockController extends OGameController
 
         // Prepare repair queue data
         $queueData = [];
+        $shipTypesInRepair = []; // Track ship types currently being repaired
         foreach ($repairQueue as $repair) {
             $shipObject = ObjectService::getUnitObjectById($repair->ship_object_id);
+            $shipTypesInRepair[] = $shipObject->machine_name; // Add to list
             $queueData[] = [
                 'id' => $repair->id,
                 'ship_name' => $shipObject->title,
@@ -147,6 +149,7 @@ class SpaceDockController extends OGameController
             'pickup_data' => $pickupData,
             'total_repairable_ships' => $totalRepairableShips,
             'total_repair_time' => $totalRepairTime,
+            'ship_types_in_repair' => $shipTypesInRepair,
         ]);
     }
 
