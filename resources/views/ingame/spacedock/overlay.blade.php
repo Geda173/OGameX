@@ -227,82 +227,68 @@ $(document).ready(function() {
     updateCountdowns();
     countdownInterval = setInterval(updateCountdowns, 1000);
 
-    // Start all repairs button - repairs ALL wreckage immediately
+    // Start all repairs button - batch ALL wreckage into one repair
     $(document).on('click', '.btn-start-all-repairs', function(e) {
         e.preventDefault();
         e.stopPropagation();
 
         console.log('Start repairs button clicked');
 
-        // Collect all wreckage data
-        var repairRequests = [];
+        // Collect all wreckage data and batch by ship type
+        var wreckageByShip = {};
+        var allBattleReportIds = [];
+
         @foreach ($wreckage_data as $wreckage)
+            allBattleReportIds.push({{ $wreckage['battle_report_id'] }});
             @foreach ($wreckage['ships'] as $ship)
-                repairRequests.push({
+                var shipName = '{{ $ship['machine_name'] }}';
+                if (!wreckageByShip[shipName]) {
+                    wreckageByShip[shipName] = {
+                        ship_machine_name: shipName,
+                        total_amount: 0,
+                        battle_reports: []
+                    };
+                }
+                wreckageByShip[shipName].total_amount += {{ $ship['amount'] }};
+                wreckageByShip[shipName].battle_reports.push({
                     battle_report_id: {{ $wreckage['battle_report_id'] }},
-                    ship_machine_name: '{{ $ship['machine_name'] }}',
                     amount: {{ $ship['amount'] }}
                 });
             @endforeach
         @endforeach
 
-        console.log('Repair requests to send:', repairRequests);
+        console.log('Batched wreckage by ship type:', wreckageByShip);
 
-        // Send all repair requests and track results
-        var successCount = 0;
-        var failureCount = 0;
-        var completedCount = 0;
-        var totalRequests = repairRequests.length;
-
-        if (totalRequests === 0) {
-            console.log('No repair requests - wreckage_data is empty');
+        if (Object.keys(wreckageByShip).length === 0) {
+            console.log('No wreckage to repair');
             return;
         }
 
-        console.log('Sending ' + totalRequests + ' repair request(s)...');
-
-        repairRequests.forEach(function(repair) {
-            $.ajax({
-                url: '{{ route('spacedock.startrepair') }}',
-                method: 'POST',
-                data: {
-                    _token: '{{ csrf_token() }}',
-                    battle_report_id: repair.battle_report_id,
-                    ship_machine_name: repair.ship_machine_name,
-                    amount: repair.amount
-                },
-                success: function(response) {
-                    console.log('Repair response:', response);
-                    if (response.success) {
-                        successCount++;
-                        console.log('Repair succeeded for', repair.ship_machine_name, 'x', repair.amount);
-                    } else {
-                        failureCount++;
-                        console.log('Repair failed:', response.error);
-                    }
-                },
-                error: function(xhr) {
-                    console.log('AJAX error:', xhr.status, xhr.responseText);
-                    failureCount++;
-                },
-                complete: function() {
-                    completedCount++;
-                    console.log('Completed', completedCount, '/', totalRequests, 'requests');
-                    if (completedCount === totalRequests) {
-                        console.log('All requests completed. Success:', successCount, 'Failed:', failureCount);
-                        // All requests completed, reload overlay
-                        setTimeout(function() {
-                            console.log('Reloading overlay...');
-                            reloadOverlay();
-                        }, 100); // Small delay to ensure backend updates are committed
-
-                        if (successCount > 0) {
-                            console.log('Started ' + successCount + ' repair(s)' +
-                                (failureCount > 0 ? ' (' + failureCount + ' skipped)' : ''));
-                        }
-                    }
+        // Send batched repair request (one request containing all ships grouped by type)
+        $.ajax({
+            url: '{{ route('spacedock.startbatchrepair') }}',
+            method: 'POST',
+            data: {
+                _token: '{{ csrf_token() }}',
+                wreckage_by_ship: wreckageByShip,
+                battle_report_ids: allBattleReportIds
+            },
+            success: function(response) {
+                console.log('Batch repair response:', response);
+                if (response.success) {
+                    console.log('Started batch repair successfully');
+                    setTimeout(function() {
+                        reloadOverlay();
+                    }, 100);
+                } else {
+                    alert(response.error || 'Error starting batch repair');
                 }
-            });
+            },
+            error: function(xhr) {
+                console.log('AJAX error:', xhr.status, xhr.responseText);
+                var errorMsg = xhr.responseJSON?.error || 'Unknown error';
+                alert('Error starting repairs: ' + errorMsg);
+            }
         });
     });
 

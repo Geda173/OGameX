@@ -299,6 +299,43 @@ class SpaceDockController extends OGameController
     }
 
     /**
+     * Start batch repair - batches all wreckage by ship type into single repairs
+     *
+     * @param Request $request
+     * @param PlayerService $player
+     * @param SpaceDockService $spaceDockService
+     * @return JsonResponse
+     */
+    public function startBatchRepair(Request $request, PlayerService $player, SpaceDockService $spaceDockService): JsonResponse
+    {
+        try {
+            $planet = $player->planets->current();
+
+            // Validate request
+            $request->validate([
+                'wreckage_by_ship' => 'required|array',
+                'battle_report_ids' => 'required|array',
+            ]);
+
+            $wreckageByShip = $request->input('wreckage_by_ship');
+            $battleReportIds = $request->input('battle_report_ids');
+
+            // Start batch repairs (one repair per ship type, combining all battles)
+            $spaceDockService->startBatchRepair($planet, $wreckageByShip, $battleReportIds);
+
+            return response()->json([
+                'success' => true,
+                'message' => __('Batch repair started successfully.'),
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], 200);
+        }
+    }
+
+    /**
      * Cancel a repair
      *
      * @param Request $request

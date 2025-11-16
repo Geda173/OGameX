@@ -346,6 +346,87 @@ class SpaceDockService
     }
 
     /**
+     * Start batch repair - combines all wreckage by ship type into single repairs.
+     *
+     * @param PlanetService $planet
+     * @param array $wreckageByShip Array where keys are ship machine names and values contain total_amount and battle_reports
+     * @param array $battleReportIds All battle report IDs involved
+     * @throws Exception
+     */
+    public function startBatchRepair(PlanetService $planet, array $wreckageByShip, array $battleReportIds): void
+    {
+        // Verify Space Dock is built
+        if ($planet->getObjectLevel('space_dock') < 1) {
+            throw new Exception('Space Dock is not built on this planet.');
+        }
+
+        // Process each ship type
+        foreach ($wreckageByShip as $shipMachineName => $data) {
+            $totalAmount = $data['total_amount'];
+            $battleReports = $data['battle_reports'];
+
+            // Get ship object
+            $shipObject = ObjectService::getUnitObjectByMachineName($shipMachineName);
+            if (!$shipObject || $shipObject->type !== GameObjectType::Ship) {
+                continue; // Skip invalid ship types
+            }
+
+            // Check if there's already a repair for this ship type in progress
+            $existingRepair = RepairQueue::where([
+                ['planet_id', $planet->getPlanetId()],
+                ['ship_object_id', $shipObject->id],
+                ['canceled', 0],
+                ['processed', 0],
+            ])->first();
+
+            if ($existingRepair) {
+                throw new Exception('A repair for ' . $shipObject->title . ' is already in progress.');
+            }
+
+            // Calculate repair time for the total amount
+            $repairTime = $this->calculateRepairTime($planet, $shipMachineName, $totalAmount);
+
+            // Deduct wreckage from all involved battle reports
+            foreach ($battleReports as $battleData) {
+                $battleReport = BattleReport::find($battleData['battle_report_id']);
+                if (!$battleReport) {
+                    continue;
+                }
+
+                $wreckage = $battleReport->wreckage ?? [];
+                if (isset($wreckage[$shipMachineName])) {
+                    $wreckage[$shipMachineName] -= $battleData['amount'];
+
+                    if ($wreckage[$shipMachineName] <= 0) {
+                        unset($wreckage[$shipMachineName]);
+                    }
+
+                    $battleReport->wreckage = $wreckage;
+                    $battleReport->syncOriginal();
+                    $battleReport->wreckage = $wreckage;
+                    $battleReport->save();
+                }
+            }
+
+            // Create single repair queue entry for this ship type
+            $repairQueue = new RepairQueue();
+            $repairQueue->planet_id = $planet->getPlanetId();
+            $repairQueue->battle_report_id = $battleReportIds[0]; // Use first battle report ID for reference
+            $repairQueue->ship_object_id = $shipObject->id;
+            $repairQueue->ship_amount = $totalAmount;
+            $repairQueue->metal_cost = 0;
+            $repairQueue->crystal_cost = 0;
+            $repairQueue->deuterium_cost = 0;
+            $repairQueue->time_duration = $repairTime;
+            $repairQueue->time_start = Carbon::now()->timestamp;
+            $repairQueue->time_end = $repairQueue->time_start + $repairTime;
+            $repairQueue->processed = 0;
+            $repairQueue->canceled = 0;
+            $repairQueue->save();
+        }
+    }
+
+    /**
      * Calculate repair time for ships.
      *
      * Based on wiki: max 12 hours, min 30 minutes.
