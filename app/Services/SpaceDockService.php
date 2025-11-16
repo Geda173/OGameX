@@ -328,7 +328,19 @@ class SpaceDockService
         // Deduct wreckage from battle report
         $wreckage = $battleReport->wreckage;
         $wreckage[$shipMachineName] -= $amount;
+
+        // If wreckage is now 0, remove the key entirely
+        if ($wreckage[$shipMachineName] <= 0) {
+            unset($wreckage[$shipMachineName]);
+        }
+
+        // Important: Reassign the entire array to trigger Laravel's dirty detection
         $battleReport->wreckage = $wreckage;
+
+        // Force Laravel to recognize the change for JSON columns
+        $battleReport->syncOriginal();
+        $battleReport->wreckage = $wreckage;
+
         $battleReport->save();
 
         // Create repair queue entry

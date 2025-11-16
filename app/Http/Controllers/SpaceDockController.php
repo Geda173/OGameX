@@ -42,7 +42,23 @@ class SpaceDockController extends OGameController
         // Get ready for pickup repairs
         $readyForPickup = $spaceDockService->retrieveReadyForPickup($planet);
 
-        // Prepare wreckage data for display
+        // Calculate wreckage amounts that are already in queue (in progress or ready for pickup)
+        $wreckageInQueue = [];
+        foreach (array_merge($repairQueue->toArray(), $readyForPickup->toArray()) as $repair) {
+            $battleId = $repair['battle_report_id'];
+            $shipObjectId = $repair['ship_object_id'];
+            $amount = $repair['ship_amount'];
+
+            if (!isset($wreckageInQueue[$battleId])) {
+                $wreckageInQueue[$battleId] = [];
+            }
+            if (!isset($wreckageInQueue[$battleId][$shipObjectId])) {
+                $wreckageInQueue[$battleId][$shipObjectId] = 0;
+            }
+            $wreckageInQueue[$battleId][$shipObjectId] += $amount;
+        }
+
+        // Prepare wreckage data for display (subtract amounts already in queue)
         $wreckageData = [];
         foreach ($availableWreckage as $report) {
             if (empty($report->wreckage)) {
@@ -57,6 +73,15 @@ class SpaceDockController extends OGameController
                 try {
                     $shipObject = ObjectService::getUnitObjectByMachineName($machineName);
 
+                    // Subtract amount already in queue for this battle/ship combination
+                    $amountInQueue = $wreckageInQueue[$report->id][$shipObject->id] ?? 0;
+                    $availableAmount = $amount - $amountInQueue;
+
+                    // Skip if no wreckage available after subtracting queue
+                    if ($availableAmount <= 0) {
+                        continue;
+                    }
+
                     if (!isset($wreckageData[$report->id])) {
                         $wreckageData[$report->id] = [
                             'battle_report_id' => $report->id,
@@ -68,7 +93,7 @@ class SpaceDockController extends OGameController
                     $wreckageData[$report->id]['ships'][] = [
                         'machine_name' => $machineName,
                         'name' => $shipObject->title,
-                        'amount' => $amount,
+                        'amount' => $availableAmount,
                     ];
                 } catch (Exception $e) {
                     // Skip invalid ship types
