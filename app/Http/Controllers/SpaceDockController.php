@@ -265,10 +265,11 @@ class SpaceDockController extends OGameController
                 'message' => __('Repair started successfully.'),
             ]);
         } catch (Exception $e) {
+            // Return 200 to prevent browser console errors for expected failures (duplicates, etc.)
             return response()->json([
                 'success' => false,
                 'error' => $e->getMessage(),
-            ], 400);
+            ], 200);
         }
     }
 

@@ -258,15 +258,17 @@ $(document).ready(function() {
                     ship_machine_name: repair.ship_machine_name,
                     amount: repair.amount
                 },
-                global: false, // Suppress global AJAX error handlers
                 success: function(response) {
                     if (response.success) {
                         successCount++;
+                    } else {
+                        failureCount++;
+                        // Response has success: false (duplicate, already in progress, etc.)
                     }
                 },
                 error: function(xhr) {
+                    // Network error or validation failure
                     failureCount++;
-                    // Silently handle expected errors (duplicates, already in progress)
                 },
                 complete: function() {
                     completedCount++;
@@ -278,7 +280,7 @@ $(document).ready(function() {
 
                         if (successCount > 0) {
                             console.log('Started ' + successCount + ' repair(s)' +
-                                (failureCount > 0 ? ' (' + failureCount + ' already in progress)' : ''));
+                                (failureCount > 0 ? ' (' + failureCount + ' skipped)' : ''));
                         }
                     }
                 }
