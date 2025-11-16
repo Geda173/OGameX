@@ -171,6 +171,31 @@ function toggleDetails() {
     $('#details-section').slideToggle(300);
 }
 
+// Global countdown interval
+var countdownInterval = null;
+
+// Function to reload overlay content
+function reloadOverlay() {
+    var spaceDockOverlayUrl = "{{ route('spacedock.overlay') }}";
+    $.get(spaceDockOverlayUrl, function(data) {
+        // Clear countdown interval before replacing content
+        if (countdownInterval) {
+            clearInterval(countdownInterval);
+        }
+
+        // Find the parent dialog and replace its content
+        var $dialog = $('#spacedock_overlay').closest('.ui-dialog-content');
+        if ($dialog.length > 0) {
+            $dialog.html(data);
+        } else {
+            // Fallback: replace the overlay div directly
+            $('#spacedock_overlay').replaceWith(data);
+        }
+    }).fail(function() {
+        alert('Failed to reload Space Dock. Please close and reopen.');
+    });
+}
+
 $(document).ready(function() {
     // Update countdowns
     function updateCountdowns() {
@@ -197,10 +222,10 @@ $(document).ready(function() {
     }
 
     updateCountdowns();
-    setInterval(updateCountdowns, 1000);
+    countdownInterval = setInterval(updateCountdowns, 1000);
 
     // Start all repairs button - repairs ALL wreckage immediately
-    $('.btn-start-all-repairs').on('click', function() {
+    $(document).on('click', '.btn-start-all-repairs', function() {
         // Collect all wreckage data
         var repairRequests = [];
         @foreach ($wreckage_data as $wreckage)
@@ -228,7 +253,7 @@ $(document).ready(function() {
         });
 
         Promise.all(promises).then(function() {
-            location.reload();
+            reloadOverlay();
         }).catch(function(error) {
             alert('@lang('Error starting repairs')');
             console.error(error);
@@ -236,7 +261,7 @@ $(document).ready(function() {
     });
 
     // Cancel repair
-    $('.btn-cancel-repair').on('click', function() {
+    $(document).on('click', '.btn-cancel-repair', function() {
         var repairId = $(this).data('repair-id');
 
         $.ajax({
@@ -248,7 +273,7 @@ $(document).ready(function() {
             },
             success: function(response) {
                 if (response.success) {
-                    location.reload();
+                    reloadOverlay();
                 } else {
                     alert(response.message || 'Error canceling repair');
                 }
@@ -260,7 +285,7 @@ $(document).ready(function() {
     });
 
     // Claim single repair
-    $('.btn-claim-repair').on('click', function() {
+    $(document).on('click', '.btn-claim-repair', function() {
         var repairId = $(this).data('repair-id');
 
         $.ajax({
@@ -272,7 +297,7 @@ $(document).ready(function() {
             },
             success: function(response) {
                 if (response.success) {
-                    location.reload();
+                    reloadOverlay();
                 } else {
                     alert(response.message || 'Error claiming repair');
                 }
@@ -284,7 +309,7 @@ $(document).ready(function() {
     });
 
     // Claim all repairs
-    $('.btn-claim-all').on('click', function() {
+    $(document).on('click', '.btn-claim-all', function() {
         $.ajax({
             url: '{{ route('spacedock.claimrepairs') }}',
             method: 'POST',
@@ -293,7 +318,7 @@ $(document).ready(function() {
             },
             success: function(response) {
                 if (response.success) {
-                    location.reload();
+                    reloadOverlay();
                 } else {
                     alert(response.message || 'Error claiming repairs');
                 }
@@ -305,7 +330,7 @@ $(document).ready(function() {
     });
 
     // Dismiss wreckage
-    $('.btn-dismiss-wreckage').on('click', function() {
+    $(document).on('click', '.btn-dismiss-wreckage', function() {
         var battleId = $(this).data('battle-id');
 
         if (!confirm('Are you sure you want to dismiss this wreckage? It cannot be recovered.')) {
@@ -321,7 +346,7 @@ $(document).ready(function() {
             },
             success: function(response) {
                 if (response.success) {
-                    location.reload();
+                    reloadOverlay();
                 } else {
                     alert(response.message || 'Error dismissing wreckage');
                 }
@@ -333,7 +358,7 @@ $(document).ready(function() {
     });
 
     // Leave to burn up (dismiss all wreckage)
-    $('.btn-leave-burn').on('click', function() {
+    $(document).on('click', '.btn-leave-burn', function() {
         if (!confirm('Are you sure you want to leave all wreckage to burn up? This action cannot be undone.')) {
             return;
         }
@@ -355,7 +380,7 @@ $(document).ready(function() {
         });
 
         Promise.all(promises).then(function() {
-            location.reload();
+            reloadOverlay();
         }).catch(function() {
             alert('Error dismissing wreckage');
         });
