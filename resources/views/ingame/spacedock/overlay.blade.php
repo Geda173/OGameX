@@ -229,6 +229,8 @@ $(document).ready(function() {
         e.preventDefault();
         e.stopPropagation();
 
+        console.log('Start repairs button clicked');
+
         // Collect all wreckage data
         var repairRequests = [];
         @foreach ($wreckage_data as $wreckage)
@@ -241,6 +243,8 @@ $(document).ready(function() {
             @endforeach
         @endforeach
 
+        console.log('Repair requests to send:', repairRequests);
+
         // Send all repair requests and track results
         var successCount = 0;
         var failureCount = 0;
@@ -248,8 +252,11 @@ $(document).ready(function() {
         var totalRequests = repairRequests.length;
 
         if (totalRequests === 0) {
+            console.log('No repair requests - wreckage_data is empty');
             return;
         }
+
+        console.log('Sending ' + totalRequests + ' repair request(s)...');
 
         repairRequests.forEach(function(repair) {
             $.ajax({
@@ -262,22 +269,27 @@ $(document).ready(function() {
                     amount: repair.amount
                 },
                 success: function(response) {
+                    console.log('Repair response:', response);
                     if (response.success) {
                         successCount++;
+                        console.log('Repair succeeded for', repair.ship_machine_name, 'x', repair.amount);
                     } else {
                         failureCount++;
-                        // Response has success: false (duplicate, already in progress, etc.)
+                        console.log('Repair failed:', response.error);
                     }
                 },
                 error: function(xhr) {
-                    // Network error or validation failure
+                    console.log('AJAX error:', xhr.status, xhr.responseText);
                     failureCount++;
                 },
                 complete: function() {
                     completedCount++;
+                    console.log('Completed', completedCount, '/', totalRequests, 'requests');
                     if (completedCount === totalRequests) {
+                        console.log('All requests completed. Success:', successCount, 'Failed:', failureCount);
                         // All requests completed, reload overlay
                         setTimeout(function() {
+                            console.log('Reloading overlay...');
                             reloadOverlay();
                         }, 100); // Small delay to ensure backend updates are committed
 
