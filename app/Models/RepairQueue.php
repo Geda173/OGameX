@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $battle_report_id
  * @property int $ship_object_id
  * @property int $ship_amount
+ * @property int $ship_amount_claimed
  * @property int $metal_cost
  * @property int $crystal_cost
  * @property int $deuterium_cost
@@ -37,6 +38,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @method static \Illuminate\Database\Eloquent\Builder|RepairQueue wherePlanetId($value)
  * @method static \Illuminate\Database\Eloquent\Builder|RepairQueue whereProcessed($value)
  * @method static \Illuminate\Database\Eloquent\Builder|RepairQueue whereShipAmount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder|RepairQueue whereShipAmountClaimed($value)
  * @method static \Illuminate\Database\Eloquent\Builder|RepairQueue whereShipObjectId($value)
  * @method static \Illuminate\Database\Eloquent\Builder|RepairQueue whereTimeDuration($value)
  * @method static \Illuminate\Database\Eloquent\Builder|RepairQueue whereTimeEnd($value)
@@ -63,6 +65,7 @@ class RepairQueue extends Model
         'battle_report_id',
         'ship_object_id',
         'ship_amount',
+        'ship_amount_claimed',
         'metal_cost',
         'crystal_cost',
         'deuterium_cost',
@@ -84,6 +87,7 @@ class RepairQueue extends Model
         'battle_report_id' => 'integer',
         'ship_object_id' => 'integer',
         'ship_amount' => 'integer',
+        'ship_amount_claimed' => 'integer',
         'metal_cost' => 'integer',
         'crystal_cost' => 'integer',
         'deuterium_cost' => 'integer',

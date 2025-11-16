@@ -137,19 +137,64 @@
             </div>
         @endif
 
-        <!-- Repairs in Progress Details -->
+        <!-- Repairs in Progress Details (with Partial Collection Support) -->
         @if (count($queue_data) > 0)
             <div style="margin-bottom: 20px;">
                 <h4 style="color: #2196F3; margin: 0 0 10px 0; font-size: 14px;">@lang('Repairs in Progress')</h4>
                 @foreach ($queue_data as $repair)
-                    <div style="padding: 8px; margin-bottom: 5px; background: #1a1d24; display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <span style="color: #fff;">{{ $repair['ship_amount'] }}x {{ $repair['ship_name'] }}</span>
-                            <span class="countdown" data-end="{{ $repair['time_end'] }}" style="margin-left: 10px; color: #ffa500;">...</span>
+                    @php
+                        $progressPercent = $repair['time_duration'] > 0
+                            ? min(100, ((time() - $repair['time_start']) / $repair['time_duration']) * 100)
+                            : 0;
+                        $hasAvailableShips = $repair['ships_available'] > 0;
+                    @endphp
+                    <div style="padding: 10px; margin-bottom: 8px; background: #1a1d24; border-left: 3px solid {{ $hasAvailableShips ? '#4CAF50' : '#2196F3' }};">
+                        <!-- Ship Info and Countdown -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <div>
+                                <span style="color: #fff; font-weight: bold;">{{ $repair['ship_amount'] }}x {{ $repair['ship_name'] }}</span>
+                                <span class="countdown" data-end="{{ $repair['time_end'] }}" style="margin-left: 10px; color: #ffa500; font-size: 12px;">...</span>
+                            </div>
                         </div>
-                        <button class="btn-cancel-repair" data-repair-id="{{ $repair['id'] }}" style="padding: 6px 16px; background: #4a3a3a; color: #e74c3c; border: 1px solid #e74c3c; border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: bold;">
-                            @lang('Cancel')
-                        </button>
+
+                        <!-- Progress Bar -->
+                        <div style="margin-bottom: 8px;">
+                            <div style="background: #0d1014; height: 18px; border-radius: 3px; overflow: hidden; position: relative;">
+                                <div style="background: linear-gradient(90deg, #2196F3, #4CAF50); height: 100%; width: {{ $progressPercent }}%; transition: width 1s linear;"></div>
+                                <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #fff; font-weight: bold;">
+                                    {{ round($progressPercent, 1) }}%
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Partial Collection Status -->
+                        <div style="font-size: 11px; color: #999; margin-bottom: 8px;">
+                            <span style="color: #4CAF50;">{{ $repair['ships_completed'] }}</span> @lang('of')
+                            <span style="color: #fff;">{{ $repair['ship_amount'] }}</span> @lang('ships completed')
+                            @if ($repair['ship_amount_claimed'] > 0)
+                                • <span style="color: #6ab871;">{{ $repair['ship_amount_claimed'] }}</span> @lang('claimed')
+                            @endif
+                            @if ($hasAvailableShips)
+                                • <span style="color: #4CAF50; font-weight: bold;">{{ $repair['ships_available'] }}</span> @lang('available to claim')
+                            @endif
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div style="display: flex; gap: 8px;">
+                            @if ($hasAvailableShips)
+                                <button class="btn-claim-partial"
+                                        data-repair-id="{{ $repair['id'] }}"
+                                        data-available="{{ $repair['ships_available'] }}"
+                                        style="padding: 6px 16px; background: #3a4a3a; color: #6ab871; border: 1px solid #6ab871; border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: bold;">
+                                    @lang('Claim') {{ $repair['ships_available'] }} @lang('ships')
+                                </button>
+                            @endif
+                            <button class="btn-cancel-repair"
+                                    data-repair-id="{{ $repair['id'] }}"
+                                    style="padding: 6px 16px; background: #4a3a3a; color: #e74c3c; border: 1px solid #e74c3c; border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: bold;">
+                                @lang('Cancel')
+                            </button>
+                        </div>
                     </div>
                 @endforeach
             </div>
@@ -355,6 +400,32 @@ $(document).ready(function() {
             },
             error: function(xhr) {
                 alert('Error: ' + (xhr.responseJSON?.message || 'Unknown error'));
+            }
+        });
+    });
+
+    // Claim partial (available ships from in-progress repair)
+    $(document).on('click', '.btn-claim-partial', function() {
+        var repairId = $(this).data('repair-id');
+        var available = $(this).data('available');
+
+        $.ajax({
+            url: '{{ route('spacedock.claimrepairs') }}',
+            method: 'POST',
+            data: {
+                _token: '{{ csrf_token() }}',
+                repair_queue_id: repairId,
+                amount: available
+            },
+            success: function(response) {
+                if (response.success) {
+                    reloadOverlay();
+                } else {
+                    alert(response.error || 'Error claiming ships');
+                }
+            },
+            error: function(xhr) {
+                alert('Error: ' + (xhr.responseJSON?.error || 'Unknown error'));
             }
         });
     });

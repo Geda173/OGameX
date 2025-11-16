@@ -334,6 +334,7 @@ class SpaceDockService
         $repairQueue->battle_report_id = $battleReportId;
         $repairQueue->ship_object_id = $shipObject->id;
         $repairQueue->ship_amount = $amount;
+        $repairQueue->ship_amount_claimed = 0;
         $repairQueue->metal_cost = $totalRepairCost->metal->get();
         $repairQueue->crystal_cost = $totalRepairCost->crystal->get();
         $repairQueue->deuterium_cost = $totalRepairCost->deuterium->get();
@@ -414,6 +415,7 @@ class SpaceDockService
             $repairQueue->battle_report_id = $battleReportIds[0]; // Use first battle report ID for reference
             $repairQueue->ship_object_id = $shipObject->id;
             $repairQueue->ship_amount = $totalAmount;
+            $repairQueue->ship_amount_claimed = 0;
             $repairQueue->metal_cost = 0;
             $repairQueue->crystal_cost = 0;
             $repairQueue->deuterium_cost = 0;
@@ -524,54 +526,154 @@ class SpaceDockService
     }
 
     /**
+     * Calculate how many ships have been completed in a repair based on elapsed time.
+     *
+     * @param RepairQueue $repair
+     * @return int Number of ships completed (but not yet claimed)
+     */
+    public function calculateCompletedShips(RepairQueue $repair): int
+    {
+        $currentTime = Carbon::now()->timestamp;
+        $elapsedTime = $currentTime - $repair->time_start;
+        $totalTime = $repair->time_duration;
+
+        // If repair hasn't started yet, no ships completed
+        if ($elapsedTime <= 0) {
+            return 0;
+        }
+
+        // If repair is fully complete, all ships are done
+        if ($elapsedTime >= $totalTime) {
+            return $repair->ship_amount;
+        }
+
+        // Calculate partial completion (OGame-style)
+        // Ships become available incrementally as they finish
+        $shipsCompleted = (int)floor(($elapsedTime / $totalTime) * $repair->ship_amount);
+
+        return $shipsCompleted;
+    }
+
+    /**
+     * Get the number of ships available to claim from a repair.
+     *
+     * @param RepairQueue $repair
+     * @return int Number of ships ready to claim
+     */
+    public function getAvailableShipsToClaim(RepairQueue $repair): int
+    {
+        $completedShips = $this->calculateCompletedShips($repair);
+        $alreadyClaimed = $repair->ship_amount_claimed ?? 0;
+
+        return max(0, $completedShips - $alreadyClaimed);
+    }
+
+    /**
      * Claim repaired ships and add them to the planet.
+     * Supports partial collection - claim any amount up to what's been completed.
      *
      * @param PlanetService $planet
      * @param int|null $repairQueueId Specific repair to claim, or null to claim all ready repairs
+     * @param int|null $amount Number of ships to claim (null = claim all available)
      * @throws Exception
      */
-    public function claimRepairs(PlanetService $planet, ?int $repairQueueId = null): void
+    public function claimRepairs(PlanetService $planet, ?int $repairQueueId = null, ?int $amount = null): void
     {
         if ($repairQueueId !== null) {
-            // Claim specific repair
-            $repairs = RepairQueue::where([
+            // Claim specific repair (partial or full)
+            $repair = RepairQueue::where([
                 ['id', $repairQueueId],
                 ['planet_id', $planet->getPlanetId()],
-                ['processed', 1],
-                ['claimed', 0],
                 ['canceled', 0],
-            ])->get();
+            ])->first();
 
-            if ($repairs->isEmpty()) {
-                throw new Exception('Repair not found or not ready for pickup.');
+            if (!$repair) {
+                throw new Exception('Repair not found.');
             }
-        } else {
-            // Claim all ready repairs
-            $repairs = $this->retrieveReadyForPickup($planet);
-        }
 
-        foreach ($repairs as $repair) {
+            // Calculate how many ships are available to claim
+            $availableShips = $this->getAvailableShipsToClaim($repair);
+
+            if ($availableShips <= 0) {
+                throw new Exception('No ships are ready to claim yet.');
+            }
+
+            // Determine how many to claim
+            $claimAmount = $amount ?? $availableShips;
+
+            if ($claimAmount > $availableShips) {
+                throw new Exception('Cannot claim more ships than are ready. Only ' . $availableShips . ' ships are available.');
+            }
+
+            if ($claimAmount <= 0) {
+                throw new Exception('Invalid claim amount.');
+            }
+
             // Get ship object
             $shipObject = ObjectService::getUnitObjectById($repair->ship_object_id);
 
-            // Create a UnitCollection with the repaired ships
-            $repairedUnits = new UnitCollection();
-            $repairedUnits->addUnit($shipObject, $repair->ship_amount);
+            // Create a UnitCollection with the claimed ships
+            $claimedUnits = new UnitCollection();
+            $claimedUnits->addUnit($shipObject, $claimAmount);
 
             // Add ships back to planet
-            $planet->addUnits($repairedUnits, false);
+            $planet->addUnits($claimedUnits, false);
 
-            // Mark as claimed
-            $repair->claimed = 1;
+            // Update claimed amount
+            $repair->ship_amount_claimed = ($repair->ship_amount_claimed ?? 0) + $claimAmount;
+
+            // If all ships have been claimed, mark as fully claimed
+            if ($repair->ship_amount_claimed >= $repair->ship_amount) {
+                $repair->claimed = 1;
+                $repair->processed = 1;
+            }
+
             $repair->save();
-        }
+            $planet->save();
+        } else {
+            // Claim all ready repairs (all available ships from all completed repairs)
+            $repairs = RepairQueue::where([
+                ['planet_id', $planet->getPlanetId()],
+                ['canceled', 0],
+            ])->get();
 
-        // Save planet once after all ships are added
-        $planet->save();
+            foreach ($repairs as $repair) {
+                $availableShips = $this->getAvailableShipsToClaim($repair);
+
+                if ($availableShips <= 0) {
+                    continue;
+                }
+
+                // Get ship object
+                $shipObject = ObjectService::getUnitObjectById($repair->ship_object_id);
+
+                // Create a UnitCollection with the available ships
+                $claimedUnits = new UnitCollection();
+                $claimedUnits->addUnit($shipObject, $availableShips);
+
+                // Add ships back to planet
+                $planet->addUnits($claimedUnits, false);
+
+                // Update claimed amount
+                $repair->ship_amount_claimed = ($repair->ship_amount_claimed ?? 0) + $availableShips;
+
+                // If all ships have been claimed, mark as fully claimed
+                if ($repair->ship_amount_claimed >= $repair->ship_amount) {
+                    $repair->claimed = 1;
+                    $repair->processed = 1;
+                }
+
+                $repair->save();
+            }
+
+            // Save planet once after all ships are added
+            $planet->save();
+        }
     }
 
     /**
      * Cancel a repair queue entry.
+     * Only restores unclaimed ships to wreckage.
      *
      * @param PlanetService $planet
      * @param int $repairQueueId
@@ -582,7 +684,6 @@ class SpaceDockService
         $repair = RepairQueue::where([
             ['id', $repairQueueId],
             ['planet_id', $planet->getPlanetId()],
-            ['processed', 0],
             ['canceled', 0],
         ])->first();
 
@@ -590,23 +691,35 @@ class SpaceDockService
             throw new Exception('Repair queue entry not found.');
         }
 
-        // Refund resources
-        $refund = new Resources(
-            $repair->metal_cost,
-            $repair->crystal_cost,
-            $repair->deuterium_cost,
-            0
-        );
-        $planet->addResources($refund);
+        // Cannot cancel fully completed and claimed repairs
+        if ($repair->claimed == 1) {
+            throw new Exception('Cannot cancel a repair that has been fully claimed.');
+        }
 
-        // Restore wreckage to battle report
-        $battleReport = BattleReport::find($repair->battle_report_id);
-        if ($battleReport) {
-            $shipObject = ObjectService::getUnitObjectById($repair->ship_object_id);
-            $wreckage = $battleReport->wreckage ?? [];
-            $wreckage[$shipObject->machine_name] = ($wreckage[$shipObject->machine_name] ?? 0) + $repair->ship_amount;
-            $battleReport->wreckage = $wreckage;
-            $battleReport->save();
+        // Calculate how many ships to restore (total - claimed)
+        $unclaimedShips = $repair->ship_amount - ($repair->ship_amount_claimed ?? 0);
+
+        // Refund resources (proportional to unclaimed ships)
+        if ($unclaimedShips > 0) {
+            $refund = new Resources(
+                (int)(($repair->metal_cost / $repair->ship_amount) * $unclaimedShips),
+                (int)(($repair->crystal_cost / $repair->ship_amount) * $unclaimedShips),
+                (int)(($repair->deuterium_cost / $repair->ship_amount) * $unclaimedShips),
+                0
+            );
+            $planet->addResources($refund);
+
+            // Restore unclaimed wreckage to battle report
+            $battleReport = BattleReport::find($repair->battle_report_id);
+            if ($battleReport) {
+                $shipObject = ObjectService::getUnitObjectById($repair->ship_object_id);
+                $wreckage = $battleReport->wreckage ?? [];
+                $wreckage[$shipObject->machine_name] = ($wreckage[$shipObject->machine_name] ?? 0) + $unclaimedShips;
+                $battleReport->wreckage = $wreckage;
+                $battleReport->syncOriginal();
+                $battleReport->wreckage = $wreckage;
+                $battleReport->save();
+            }
         }
 
         // Mark as canceled

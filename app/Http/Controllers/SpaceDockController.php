@@ -102,22 +102,33 @@ class SpaceDockController extends OGameController
             }
         }
 
-        // Prepare repair queue data
+        // Prepare repair queue data (includes partial completion info)
         $queueData = [];
         $shipTypesInRepair = []; // Track ship types currently being repaired
         foreach ($repairQueue as $repair) {
             $shipObject = ObjectService::getUnitObjectById($repair->ship_object_id);
             $shipTypesInRepair[] = $shipObject->machine_name; // Add to list
+
+            // Calculate partial completion progress
+            $completedShips = $spaceDockService->calculateCompletedShips($repair);
+            $availableShips = $spaceDockService->getAvailableShipsToClaim($repair);
+            $claimedShips = $repair->ship_amount_claimed ?? 0;
+
             $queueData[] = [
                 'id' => $repair->id,
                 'ship_name' => $shipObject->title,
                 'ship_amount' => $repair->ship_amount,
+                'ship_amount_claimed' => $claimedShips,
+                'ships_completed' => $completedShips,
+                'ships_available' => $availableShips,
                 'time_end' => $repair->time_end,
                 'time_remaining' => max(0, $repair->time_end - time()),
+                'time_start' => $repair->time_start,
+                'time_duration' => $repair->time_duration,
             ];
         }
 
-        // Prepare ready for pickup data
+        // Prepare ready for pickup data (legacy - now handled by partial collection)
         $pickupData = [];
         foreach ($readyForPickup as $repair) {
             $shipObject = ObjectService::getUnitObjectById($repair->ship_object_id);
@@ -392,8 +403,14 @@ class SpaceDockController extends OGameController
                 $repairQueueId = (int)$repairQueueId;
             }
 
-            // Claim the repairs
-            $spaceDockService->claimRepairs($planet, $repairQueueId);
+            // Optional: amount to claim (for partial collection)
+            $amount = $request->input('amount', null);
+            if ($amount !== null) {
+                $amount = (int)$amount;
+            }
+
+            // Claim the repairs (supports partial collection)
+            $spaceDockService->claimRepairs($planet, $repairQueueId, $amount);
 
             return response()->json([
                 'success' => true,
