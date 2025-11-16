@@ -48,7 +48,7 @@ class SpaceDockService
         }
 
         // Get debris field percentage from game settings
-        $debrisFieldPercentage = app(SettingsService::class)->debrisFieldPercentage();
+        $debrisFieldPercentage = app(SettingsService::class)->debrisFieldFromShips();
 
         // Get Space Dock level for the defender's planet (or moon if applicable)
         $spaceDockLevel = $defenderPlanet->getObjectLevel('space_dock');
