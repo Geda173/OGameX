@@ -377,15 +377,8 @@ class SpaceDockService
                 ['planet_id', $planet->getPlanetId()],
                 ['ship_object_id', $shipObject->id],
                 ['canceled', 0],
-                ['processed', 0],
+                ['claimed', 0], // Not fully claimed
             ])->first();
-
-            if ($existingRepair) {
-                throw new Exception('A repair for ' . $shipObject->title . ' is already in progress.');
-            }
-
-            // Calculate repair time for the total amount
-            $repairTime = $this->calculateRepairTime($planet, $shipMachineName, $totalAmount);
 
             // Deduct wreckage from all involved battle reports
             foreach ($battleReports as $battleData) {
@@ -409,22 +402,39 @@ class SpaceDockService
                 }
             }
 
-            // Create single repair queue entry for this ship type
-            $repairQueue = new RepairQueue();
-            $repairQueue->planet_id = $planet->getPlanetId();
-            $repairQueue->battle_report_id = $battleReportIds[0]; // Use first battle report ID for reference
-            $repairQueue->ship_object_id = $shipObject->id;
-            $repairQueue->ship_amount = $totalAmount;
-            $repairQueue->ship_amount_claimed = 0;
-            $repairQueue->metal_cost = 0;
-            $repairQueue->crystal_cost = 0;
-            $repairQueue->deuterium_cost = 0;
-            $repairQueue->time_duration = $repairTime;
-            $repairQueue->time_start = Carbon::now()->timestamp;
-            $repairQueue->time_end = $repairQueue->time_start + $repairTime;
-            $repairQueue->processed = 0;
-            $repairQueue->canceled = 0;
-            $repairQueue->save();
+            if ($existingRepair) {
+                // Extend existing repair by adding new ships
+                $currentTime = Carbon::now()->timestamp;
+
+                // Calculate repair time for the new ships being added
+                $additionalRepairTime = $this->calculateRepairTime($planet, $shipMachineName, $totalAmount);
+
+                // Extend the repair: add ships and extend timeline
+                $existingRepair->ship_amount += $totalAmount;
+                $existingRepair->time_duration += $additionalRepairTime;
+                $existingRepair->time_end += $additionalRepairTime;
+
+                $existingRepair->save();
+            } else {
+                // Create new repair queue entry for this ship type
+                $repairTime = $this->calculateRepairTime($planet, $shipMachineName, $totalAmount);
+
+                $repairQueue = new RepairQueue();
+                $repairQueue->planet_id = $planet->getPlanetId();
+                $repairQueue->battle_report_id = $battleReportIds[0]; // Use first battle report ID for reference
+                $repairQueue->ship_object_id = $shipObject->id;
+                $repairQueue->ship_amount = $totalAmount;
+                $repairQueue->ship_amount_claimed = 0;
+                $repairQueue->metal_cost = 0;
+                $repairQueue->crystal_cost = 0;
+                $repairQueue->deuterium_cost = 0;
+                $repairQueue->time_duration = $repairTime;
+                $repairQueue->time_start = Carbon::now()->timestamp;
+                $repairQueue->time_end = $repairQueue->time_start + $repairTime;
+                $repairQueue->processed = 0;
+                $repairQueue->canceled = 0;
+                $repairQueue->save();
+            }
         }
     }
 

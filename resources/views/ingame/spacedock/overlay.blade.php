@@ -87,27 +87,9 @@
                 <button class="btn-leave-burn" style="padding: 8px 20px; background: #4a3a3a; color: #e74c3c; border: 1px solid #e74c3c; border-radius: 3px; cursor: pointer; font-weight: bold; margin-right: 10px;">
                     @lang('Leave to burn up')
                 </button>
-                @php
-                    // Check if any wreckage can actually be repaired (not already in repair)
-                    $canRepairAny = false;
-                    foreach ($wreckage_data as $wreckage) {
-                        foreach ($wreckage['ships'] as $ship) {
-                            if (!in_array($ship['machine_name'], $ship_types_in_repair)) {
-                                $canRepairAny = true;
-                                break 2;
-                            }
-                        }
-                    }
-                @endphp
-                @if ($canRepairAny)
-                    <button class="btn-start-all-repairs" style="padding: 8px 20px; background: #3a4a3a; color: #6ab871; border: 1px solid #6ab871; border-radius: 3px; cursor: pointer; font-weight: bold;">
-                        @lang('Start repairs')
-                    </button>
-                @else
-                    <button disabled style="padding: 8px 20px; background: #2a2a2a; color: #666; border: 1px solid #444; border-radius: 3px; cursor: not-allowed; font-weight: bold;" title="All ship types are already being repaired">
-                        @lang('Start repairs') (@lang('all types in repair'))
-                    </button>
-                @endif
+                <button class="btn-start-all-repairs" style="padding: 8px 20px; background: #3a4a3a; color: #6ab871; border: 1px solid #6ab871; border-radius: 3px; cursor: pointer; font-weight: bold;">
+                    @lang('Start repairs')
+                </button>
             @endif
         </div>
         @if (count($wreckage_data) > 0 || count($queue_data) > 0 || count($pickup_data) > 0)
