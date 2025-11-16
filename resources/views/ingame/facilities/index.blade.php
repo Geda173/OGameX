@@ -66,14 +66,14 @@
                             @if ($building->currently_building)
                             @elseif (!$building->requirements_met)
                             @elseif (!$building->valid_planet_type)
+                            @elseif ($building->object->machine_name == 'space_dock' && $building->current_level >= 1)
+                                <button class="upgrade openSpaceDock" onclick="openSpaceDockOverlay(); return false;"></button>
+                            @elseif ($building->object->machine_name == 'jump_gate' && $building->current_level >= 1)
+                                <button class="upgrade openJumpGate" onclick="openJumpGateOverlay(); return false;"></button>
                             @elseif (!$building->enough_resources)
                             @elseif ($build_queue_max)
                             @elseif ($building->research_in_progress && $building->object->machine_name == 'research_lab')
                             @elseif ($building->ship_or_defense_in_progress  && $building->object->machine_name == 'shipyard')
-                            @elseif ($building->object->machine_name == 'jump_gate' && $building->current_level >= 1)
-                                {{-- Jump Gate is operational, clicking opens the jump gate page --}}
-                            @elseif ($building->object->machine_name == 'space_dock' && $building->current_level >= 1)
-                                {{-- Space Dock is operational, clicking opens the space dock page --}}
                             @else
                                 <button
                                         class="upgrade tooltip hideOthers js_hideTipOnMobile"
@@ -233,32 +233,6 @@
                 loca: loca
             })
             technologyDetails.init()
-
-            // Handle Space Dock clicks - open overlay
-            $(document).on('click', '.technology.repairDock .icon', function(e) {
-                var $tech = $(this).closest('.technology');
-                // Only handle if Space Dock is built (level >= 1)
-                var level = parseInt($tech.find('.level .stockAmount').text());
-                if (level >= 1) {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    openSpaceDockOverlay();
-                    return false;
-                }
-            });
-
-            // Handle Jump Gate clicks
-            $(document).on('click', '.technology.jumpGate .icon', function(e) {
-                var $tech = $(this).closest('.technology');
-                // Only handle if Jump Gate is built (level >= 1)
-                var level = parseInt($tech.find('.level .stockAmount').text());
-                if (level >= 1) {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    openJumpGateOverlay();
-                    return false;
-                }
-            });
         </script>
     </div>
     {{-- openTech querystring parameter handling --}}

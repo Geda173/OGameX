@@ -1,98 +1,176 @@
-<div id="spacedock_overlay" style="padding: 15px; min-width: 600px; max-height: 600px; overflow-y: auto;">
-    <h3 style="margin-top: 0; color: #6f9fc8;">Space Dock (Level {{ $space_dock_level }})</h3>
+<div id="spacedock_overlay" style="background: #0d1014; color: #fff; min-width: 600px;">
 
-    {{-- Ready for Pickup --}}
-    @if (count($pickup_data) > 0)
-        <div class="pickup-section" style="margin-bottom: 20px; padding: 10px; background: #0d1014; border: 1px solid #405064;">
-            <h4 style="color: #6f9fc8; margin-top: 0;">Ready for Pickup</h4>
-            @foreach ($pickup_data as $pickup)
-                <div style="padding: 8px; margin-bottom: 5px; background: #1a1d24; border-left: 3px solid #4CAF50;">
-                    <strong>{{ $pickup['ship_amount'] }}x {{ $pickup['ship_name'] }}</strong>
-                    <button class="btn-claim-repair" data-repair-id="{{ $pickup['id'] }}" style="float: right; padding: 4px 12px; background: #4CAF50; color: white; border: none; cursor: pointer;">
-                        Claim
-                    </button>
-                    <div style="clear: both;"></div>
+    <!-- Wreckage Status or No Wreckage Message -->
+    <div style="padding: 15px 20px; background: #0d1014; border-bottom: 1px solid #2a3a4a;">
+        @if (count($wreckage_data) > 0)
+            <!-- Wreckage Available -->
+            <div style="margin-bottom: 10px;">
+                <span style="color: #ff9800;">@lang('Wreckage burns up in'):</span>
+                <span style="color: #fff; font-weight: bold; margin-left: 5px;">2d 17h 40m</span>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <span style="color: #6f9fc8;">@lang('Repairable Ships'):</span>
+                <span style="color: #fff; margin-left: 5px;">
+                    {{ number_format($total_repairable_ships) }} @lang('Ships')
+                    @if($total_repair_time > 0)
+                        @lang('in')
+                        @php
+                            $hours = floor($total_repair_time / 3600);
+                            $minutes = floor(($total_repair_time % 3600) / 60);
+                            $seconds = $total_repair_time % 60;
+                        @endphp
+                        @if($hours > 0){{ $hours }}h @endif{{ $minutes }}m {{ $seconds }}s
+                    @endif
+                </span>
+            </div>
+
+            <div style="margin-bottom: 15px; padding: 10px; background: #1a1d24; border-left: 3px solid #6f9fc8;">
+                <div style="color: #6f9fc8; font-size: 12px; margin-bottom: 5px;">
+                    <strong>ℹ️ @lang('Repair Information'):</strong>
                 </div>
-            @endforeach
-            <button class="btn-claim-all" style="margin-top: 10px; padding: 6px 16px; background: #4CAF50; color: white; border: none; cursor: pointer;">
-                Claim All Ships
-            </button>
-        </div>
-    @endif
-
-    {{-- Repairs in Progress --}}
-    @if (count($queue_data) > 0)
-        <div class="queue-section" style="margin-bottom: 20px; padding: 10px; background: #0d1014; border: 1px solid #405064;">
-            <h4 style="color: #6f9fc8; margin-top: 0;">Repairs in Progress</h4>
-            @foreach ($queue_data as $repair)
-                <div style="padding: 8px; margin-bottom: 5px; background: #1a1d24; border-left: 3px solid #2196F3;">
-                    <strong>{{ $repair['ship_amount'] }}x {{ $repair['ship_name'] }}</strong>
-                    <span class="countdown" data-end="{{ $repair['time_end'] }}" style="margin-left: 10px; color: #ffa500;">
-                        ...
-                    </span>
-                    <button class="btn-cancel-repair" data-repair-id="{{ $repair['id'] }}" style="float: right; padding: 4px 12px; background: #f44336; color: white; border: none; cursor: pointer;">
-                        Cancel
-                    </button>
-                    <div style="clear: both;"></div>
+                <div style="color: #999; font-size: 11px; line-height: 1.5;">
+                    • @lang('Repairs require no resources, only time')<br>
+                    • @lang('Repair time: 30 minutes to 12 hours')<br>
+                    • @lang('Ships auto-reactivate after 72 hours if not claimed')<br>
+                    • @lang('Wreckage burns up after 72 hours')
                 </div>
-            @endforeach
-        </div>
-    @endif
+            </div>
+        @else
+            <div style="color: #999;">
+                @lang('There is no wreckage at this position').
+            </div>
+        @endif
 
-    {{-- Available Wreckage --}}
-    @if (count($wreckage_data) > 0)
-        <div class="wreckage-section" style="padding: 10px; background: #0d1014; border: 1px solid #405064;">
-            <h4 style="color: #6f9fc8; margin-top: 0;">Available Wreckage</h4>
-            @foreach ($wreckage_data as $wreckage)
-                <div class="wreckage-report" style="margin-bottom: 15px; padding: 10px; background: #1a1d24; border: 1px solid #2a3a4a;">
-                    <div style="color: #999; font-size: 11px; margin-bottom: 8px;">
-                        Battle from {{ $wreckage['created_at']->diffForHumans() }}
+        <!-- Repair Queue Info -->
+        @if (count($queue_data) > 0)
+            <div style="margin-top: 15px; margin-bottom: 10px;">
+                <span style="color: #6f9fc8;">@lang('Repair time remaining'):</span>
+                <span style="color: #fff; margin-left: 5px;" class="countdown" data-end="{{ $queue_data[0]['time_end'] }}">...</span>
+
+                <span style="color: #6f9fc8; margin-left: 15px;">@lang('Repaired Ships'):</span>
+                <span style="color: #fff; margin-left: 5px;">
+                    @php
+                        $total_in_queue = array_sum(array_column($queue_data, 'ship_amount'));
+                    @endphp
+                    {{ $total_in_queue }} / {{ $total_repairable_ships }}
+                </span>
+            </div>
+        @endif
+
+        <!-- Ready Ships Info -->
+        @if (count($pickup_data) > 0)
+            <div style="margin-top: 15px; margin-bottom: 10px; color: #4CAF50;">
+                <span style="font-weight: bold;">@lang('Repaired Ships'):</span>
+                <span style="margin-left: 5px;">
+                    @php
+                        $total_ready = array_sum(array_column($pickup_data, 'ship_amount'));
+                    @endphp
+                    {{ number_format($total_ready) }} @lang('Ships ready for pickup')
+                </span>
+            </div>
+        @endif
+    </div>
+
+    <!-- Action Buttons -->
+    <div style="padding: 15px 20px; background: #1a1d24; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            @if (count($pickup_data) > 0)
+                <button class="btn-claim-all" style="padding: 8px 20px; background: #3a4a3a; color: #6ab871; border: 1px solid #6ab871; border-radius: 3px; cursor: pointer; font-weight: bold; margin-right: 10px;">
+                    @lang('Collect')
+                </button>
+            @endif
+            @if (count($wreckage_data) > 0)
+                <button class="btn-leave-burn" style="padding: 8px 20px; background: #4a3a3a; color: #e74c3c; border: 1px solid #e74c3c; border-radius: 3px; cursor: pointer; font-weight: bold; margin-right: 10px;">
+                    @lang('Leave to burn up')
+                </button>
+                <button class="btn-start-all-repairs" style="padding: 8px 20px; background: #3a4a3a; color: #6ab871; border: 1px solid #6ab871; border-radius: 3px; cursor: pointer; font-weight: bold;">
+                    @lang('Start repairs')
+                </button>
+            @endif
+        </div>
+        @if (count($wreckage_data) > 0 || count($queue_data) > 0 || count($pickup_data) > 0)
+            <div>
+                <a href="#" onclick="toggleDetails(); return false;" style="color: #6f9fc8; text-decoration: underline; font-size: 12px;">
+                    @lang('Details')
+                </a>
+            </div>
+        @endif
+    </div>
+
+    <!-- Details Section (Hidden by default) -->
+    <div id="details-section" style="display: none; padding: 15px 20px; background: #0d1014; border-top: 1px solid #2a3a4a; max-height: 400px; overflow-y: auto;">
+
+        <!-- Ready for Pickup Details -->
+        @if (count($pickup_data) > 0)
+            <div style="margin-bottom: 20px;">
+                <h4 style="color: #4CAF50; margin: 0 0 10px 0; font-size: 14px;">@lang('Ready for Pickup')</h4>
+                @foreach ($pickup_data as $pickup)
+                    <div style="padding: 8px; margin-bottom: 5px; background: #1a1d24; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #fff;">{{ $pickup['ship_amount'] }}x {{ $pickup['ship_name'] }}</span>
+                        <button class="btn-claim-repair" data-repair-id="{{ $pickup['id'] }}" style="padding: 6px 16px; background: #3a4a3a; color: #6ab871; border: 1px solid #6ab871; border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: bold;">
+                            @lang('Claim')
+                        </button>
                     </div>
-                    @foreach ($wreckage['ships'] as $ship)
-                        <div style="padding: 8px; margin-bottom: 8px; background: #252930; border-left: 3px solid #ff9800;">
-                            <div style="margin-bottom: 5px;">
-                                <strong>{{ $ship['name'] }}</strong> ({{ $ship['amount'] }} available)
-                            </div>
-                            <div style="font-size: 11px; color: #999; margin-bottom: 5px;">
-                                Repair cost per unit:
-                                <span style="color: #c5c5c5;">{{ number_format($ship['metal_cost']) }}</span> Metal,
-                                <span style="color: #7d9fc2;">{{ number_format($ship['crystal_cost']) }}</span> Crystal,
-                                <span style="color: #5fa569;">{{ number_format($ship['deuterium_cost']) }}</span> Deuterium
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <input type="number"
-                                       class="repair-amount"
-                                       data-battle-id="{{ $wreckage['battle_report_id'] }}"
-                                       data-ship="{{ $ship['machine_name'] }}"
-                                       min="1"
-                                       max="{{ $ship['amount'] }}"
-                                       value="{{ $ship['amount'] }}"
-                                       style="width: 80px; padding: 4px; background: #0d1014; border: 1px solid #405064; color: white;">
-                                <button class="btn-start-repair"
-                                        data-battle-id="{{ $wreckage['battle_report_id'] }}"
-                                        data-ship="{{ $ship['machine_name'] }}"
-                                        style="padding: 4px 12px; background: #2196F3; color: white; border: none; cursor: pointer;">
-                                    Start Repair
-                                </button>
-                            </div>
+                @endforeach
+            </div>
+        @endif
+
+        <!-- Repairs in Progress Details -->
+        @if (count($queue_data) > 0)
+            <div style="margin-bottom: 20px;">
+                <h4 style="color: #2196F3; margin: 0 0 10px 0; font-size: 14px;">@lang('Repairs in Progress')</h4>
+                @foreach ($queue_data as $repair)
+                    <div style="padding: 8px; margin-bottom: 5px; background: #1a1d24; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <span style="color: #fff;">{{ $repair['ship_amount'] }}x {{ $repair['ship_name'] }}</span>
+                            <span class="countdown" data-end="{{ $repair['time_end'] }}" style="margin-left: 10px; color: #ffa500;">...</span>
                         </div>
-                    @endforeach
-                    <button class="btn-dismiss-wreckage"
-                            data-battle-id="{{ $wreckage['battle_report_id'] }}"
-                            style="margin-top: 5px; padding: 4px 12px; background: #666; color: white; border: none; cursor: pointer; font-size: 11px;">
-                        Dismiss All Wreckage from this Battle
-                    </button>
-                </div>
-            @endforeach
-        </div>
-    @else
-        <div style="padding: 20px; text-align: center; color: #999;">
-            No wreckage available for repair.
-        </div>
-    @endif
+                        <button class="btn-cancel-repair" data-repair-id="{{ $repair['id'] }}" style="padding: 6px 16px; background: #4a3a3a; color: #e74c3c; border: 1px solid #e74c3c; border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: bold;">
+                            @lang('Cancel')
+                        </button>
+                    </div>
+                @endforeach
+            </div>
+        @endif
+
+        <!-- Available Wreckage Details -->
+        @if (count($wreckage_data) > 0)
+            <div>
+                <h4 style="color: #ff9800; margin: 0 0 10px 0; font-size: 14px;">@lang('Available Wreckage')</h4>
+                @foreach ($wreckage_data as $wreckage)
+                    <div style="margin-bottom: 15px; padding: 10px; background: #1a1d24; border: 1px solid #2a3a4a;">
+                        <div style="color: #999; font-size: 11px; margin-bottom: 8px;">
+                            @lang('Battle from') {{ $wreckage['created_at']->diffForHumans() }}
+                        </div>
+                        @foreach ($wreckage['ships'] as $ship)
+                            <div style="padding: 8px; margin-bottom: 8px; background: #252930;">
+                                <div style="margin-bottom: 5px;">
+                                    <strong>{{ $ship['name'] }}</strong> - {{ $ship['amount'] }} @lang('available')
+                                </div>
+                                <div style="font-size: 11px; color: #6ab871;">
+                                    @lang('Repair cost'): <strong>@lang('No resources required')</strong> - @lang('Time only')
+                                </div>
+                            </div>
+                        @endforeach
+                        <button class="btn-dismiss-wreckage"
+                                data-battle-id="{{ $wreckage['battle_report_id'] }}"
+                                style="margin-top: 5px; padding: 6px 12px; background: #4a3a3a; color: #e74c3c; border: 1px solid #e74c3c; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: bold;">
+                            @lang('Dismiss All Wreckage from this Battle')
+                        </button>
+                    </div>
+                @endforeach
+            </div>
+        @endif
+    </div>
+
 </div>
 
 <script type="text/javascript">
+function toggleDetails() {
+    $('#details-section').slideToggle(300);
+}
+
 $(document).ready(function() {
     // Update countdowns
     function updateCountdowns() {
@@ -110,9 +188,9 @@ $(document).ready(function() {
                 var minutes = Math.floor((remaining % 3600) / 60);
                 var seconds = remaining % 60;
                 $element.text(
-                    String(hours).padStart(2, '0') + ':' +
-                    String(minutes).padStart(2, '0') + ':' +
-                    String(seconds).padStart(2, '0')
+                    String(hours).padStart(2, '0') + 'h ' +
+                    String(minutes).padStart(2, '0') + 'm ' +
+                    String(seconds).padStart(2, '0') + 's'
                 );
             }
         });
@@ -121,38 +199,39 @@ $(document).ready(function() {
     updateCountdowns();
     setInterval(updateCountdowns, 1000);
 
-    // Start repair
-    $('.btn-start-repair').on('click', function() {
-        var $btn = $(this);
-        var battleId = $btn.data('battle-id');
-        var shipMachineName = $btn.data('ship');
-        var $input = $('.repair-amount[data-battle-id="' + battleId + '"][data-ship="' + shipMachineName + '"]');
-        var amount = parseInt($input.val());
+    // Start all repairs button - repairs ALL wreckage immediately
+    $('.btn-start-all-repairs').on('click', function() {
+        // Collect all wreckage data
+        var repairRequests = [];
+        @foreach ($wreckage_data as $wreckage)
+            @foreach ($wreckage['ships'] as $ship)
+                repairRequests.push({
+                    battle_report_id: {{ $wreckage['battle_report_id'] }},
+                    ship_machine_name: '{{ $ship['machine_name'] }}',
+                    amount: {{ $ship['amount'] }}
+                });
+            @endforeach
+        @endforeach
 
-        if (!amount || amount < 1) {
-            alert('Please enter a valid amount');
-            return;
-        }
-
-        $.ajax({
-            url: '{{ route('spacedock.startrepair') }}',
-            method: 'POST',
-            data: {
-                _token: '{{ csrf_token() }}',
-                battle_report_id: battleId,
-                ship_machine_name: shipMachineName,
-                amount: amount
-            },
-            success: function(response) {
-                if (response.success) {
-                    location.reload();
-                } else {
-                    alert(response.message || 'Error starting repair');
+        // Send all repair requests
+        var promises = repairRequests.map(function(repair) {
+            return $.ajax({
+                url: '{{ route('spacedock.startrepair') }}',
+                method: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    battle_report_id: repair.battle_report_id,
+                    ship_machine_name: repair.ship_machine_name,
+                    amount: repair.amount
                 }
-            },
-            error: function(xhr) {
-                alert('Error: ' + (xhr.responseJSON?.message || 'Unknown error'));
-            }
+            });
+        });
+
+        Promise.all(promises).then(function() {
+            location.reload();
+        }).catch(function(error) {
+            alert('@lang('Error starting repairs')');
+            console.error(error);
         });
     });
 
@@ -250,6 +329,35 @@ $(document).ready(function() {
             error: function(xhr) {
                 alert('Error: ' + (xhr.responseJSON?.message || 'Unknown error'));
             }
+        });
+    });
+
+    // Leave to burn up (dismiss all wreckage)
+    $('.btn-leave-burn').on('click', function() {
+        if (!confirm('Are you sure you want to leave all wreckage to burn up? This action cannot be undone.')) {
+            return;
+        }
+
+        var battleIds = [];
+        @foreach ($wreckage_data as $wreckage)
+            battleIds.push({{ $wreckage['battle_report_id'] }});
+        @endforeach
+
+        var promises = battleIds.map(function(battleId) {
+            return $.ajax({
+                url: '{{ route('spacedock.dismisswreckage') }}',
+                method: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    battle_report_id: battleId
+                }
+            });
+        });
+
+        Promise.all(promises).then(function() {
+            location.reload();
+        }).catch(function() {
+            alert('Error dismissing wreckage');
         });
     });
 });

@@ -57,10 +57,6 @@ class SpaceDockController extends OGameController
                 try {
                     $shipObject = ObjectService::getUnitObjectByMachineName($machineName);
 
-                    // Calculate repair cost (50% of original cost)
-                    $shipPrice = ObjectService::getObjectPrice($machineName, $planet);
-                    $repairCostPercentage = 0.5;
-
                     if (!isset($wreckageData[$report->id])) {
                         $wreckageData[$report->id] = [
                             'battle_report_id' => $report->id,
@@ -73,9 +69,6 @@ class SpaceDockController extends OGameController
                         'machine_name' => $machineName,
                         'name' => $shipObject->title,
                         'amount' => $amount,
-                        'metal_cost' => (int)($shipPrice->metal->get() * $repairCostPercentage),
-                        'crystal_cost' => (int)($shipPrice->crystal->get() * $repairCostPercentage),
-                        'deuterium_cost' => (int)($shipPrice->deuterium->get() * $repairCostPercentage),
                     ];
                 } catch (Exception $e) {
                     // Skip invalid ship types
@@ -108,12 +101,27 @@ class SpaceDockController extends OGameController
             ];
         }
 
+        // Calculate total repairable ships and total repair time
+        $totalRepairableShips = 0;
+        $totalRepairTime = 0;
+        foreach ($wreckageData as $wreckage) {
+            foreach ($wreckage['ships'] as $ship) {
+                $totalRepairableShips += $ship['amount'];
+                // Calculate repair time for this ship type and amount
+                $repairTime = $spaceDockService->calculateRepairTime($planet, $ship['machine_name'], $ship['amount']);
+                // Track the maximum repair time (repairs run in parallel per the wiki)
+                $totalRepairTime = max($totalRepairTime, $repairTime);
+            }
+        }
+
         return view('ingame.spacedock.overlay')->with([
             'planet' => $planet,
             'space_dock_level' => $spaceDockLevel,
             'wreckage_data' => $wreckageData,
             'queue_data' => $queueData,
             'pickup_data' => $pickupData,
+            'total_repairable_ships' => $totalRepairableShips,
+            'total_repair_time' => $totalRepairTime,
         ]);
     }
 
@@ -158,10 +166,6 @@ class SpaceDockController extends OGameController
                 try {
                     $shipObject = ObjectService::getUnitObjectByMachineName($machineName);
 
-                    // Calculate repair cost (50% of original cost)
-                    $shipPrice = ObjectService::getObjectPrice($machineName, $planet);
-                    $repairCostPercentage = 0.5;
-
                     if (!isset($wreckageData[$report->id])) {
                         $wreckageData[$report->id] = [
                             'battle_report_id' => $report->id,
@@ -174,9 +178,6 @@ class SpaceDockController extends OGameController
                         'machine_name' => $machineName,
                         'name' => $shipObject->title,
                         'amount' => $amount,
-                        'metal_cost' => (int)($shipPrice->metal->get() * $repairCostPercentage),
-                        'crystal_cost' => (int)($shipPrice->crystal->get() * $repairCostPercentage),
-                        'deuterium_cost' => (int)($shipPrice->deuterium->get() * $repairCostPercentage),
                     ];
                 } catch (Exception $e) {
                     // Skip if ship object not found

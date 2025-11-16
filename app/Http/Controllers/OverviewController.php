@@ -101,6 +101,15 @@ class OverviewController extends OGameController
             $ready_repairs_count = $readyRepairs->count();
         }
 
+        // Check for repairs in progress
+        $has_repairs_in_progress = false;
+        $repairs_in_progress_count = 0;
+        if ($planet->getObjectLevel('space_dock') > 0) {
+            $repairsInProgress = $space_dock->retrieveQueueItems($planet);
+            $has_repairs_in_progress = $repairsInProgress->isNotEmpty();
+            $repairs_in_progress_count = $repairsInProgress->count();
+        }
+
         return view('ingame.overview.index')->with([
             'header_filename' => $planet->isMoon() ? 'moon/' . $planet->getPlanetImageType() : $planet->getPlanetBiomeType(),
             'planet_name' => $planet->getPlanetName(),
@@ -128,6 +137,8 @@ class OverviewController extends OGameController
             'wreckage_count' => $wreckage_count,
             'has_ready_repairs' => $has_ready_repairs,
             'ready_repairs_count' => $ready_repairs_count,
+            'has_repairs_in_progress' => $has_repairs_in_progress,
+            'repairs_in_progress_count' => $repairs_in_progress_count,
         ]);
     }
 }

@@ -138,16 +138,10 @@
                                                 <tr>
                                                     <td>{{ $ship['name'] }}</td>
                                                     <td>{{ number_format($ship['amount']) }}</td>
-                                                    <td>
-                                                        @if ($ship['metal_cost'] > 0)
-                                                            <span class="metal">{{ number_format($ship['metal_cost']) }}</span>
-                                                        @endif
-                                                        @if ($ship['crystal_cost'] > 0)
-                                                            <span class="crystal">{{ number_format($ship['crystal_cost']) }}</span>
-                                                        @endif
-                                                        @if ($ship['deuterium_cost'] > 0)
-                                                            <span class="deuterium">{{ number_format($ship['deuterium_cost']) }}</span>
-                                                        @endif
+                                                    <td style="color: #6ab871;">
+                                                        <strong>@lang('No resources')</strong>
+                                                        <br>
+                                                        <small style="color: #999;">@lang('Time only')</small>
                                                     </td>
                                                     <td>
                                                         <input type="number"

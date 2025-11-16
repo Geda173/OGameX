@@ -358,10 +358,10 @@ class SpaceDockService
      * @param int $amount
      * @return int Time in seconds
      */
-    private function calculateRepairTime(PlanetService $planet, string $shipMachineName, int $amount): int
+    public function calculateRepairTime(PlanetService $planet, string $shipMachineName, int $amount): int
     {
         // Get base construction time for one ship
-        $baseTime = $planet->getShipyardConstructionTime($shipMachineName);
+        $baseTime = $planet->getUnitConstructionTime($shipMachineName);
 
         // Repair time is typically faster than construction time (e.g., 50% of construction time)
         $totalRepairTime = (int)($baseTime * $amount * 0.5);
