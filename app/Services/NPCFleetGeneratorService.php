@@ -182,11 +182,12 @@ class NPCFleetGeneratorService
     }
 
     /**
-     * Generate a fleet of cargo ships based on allocated value.
-     * In OGame, the fleet value percentage is spent entirely on cargo ships.
-     * Combat power comes solely from the bonus ships added separately.
+     * Generate a fleet of cargo ships (and for aliens, some combat ships) based on allocated value.
      *
-     * @param int $allocatedValue Total value to spend on cargo ships
+     * Pirates: Fleet value spent entirely on cargo ships
+     * Aliens: Fleet value mostly on cargo, but can include some combat ships (bombers, battlecruisers)
+     *
+     * @param int $allocatedValue Total value to spend on ships
      * @param string $npcType 'pirate' or 'alien'
      * @return UnitCollection
      */
@@ -195,14 +196,25 @@ class NPCFleetGeneratorService
         $objectService = app(ObjectService::class);
         $npcFleet = new UnitCollection();
 
-        // Only cargo ships - combat power comes from bonus ships
-        $possibleShips = [
-            'small_cargo' => 60,     // Common
-            'large_cargo' => 40,     // Less common
-        ];
+        if ($npcType === 'pirate') {
+            // Pirates: Only cargo ships
+            $possibleShips = [
+                'small_cargo' => 60,     // Common
+                'large_cargo' => 40,     // Less common
+            ];
+        } else {
+            // Aliens: Mostly cargo, but can have some combat ships too
+            $possibleShips = [
+                'small_cargo' => 50,     // Common
+                'large_cargo' => 35,     // Common
+                'espionage_probe' => 10, // Uncommon
+                'battlecruiser' => 3,    // Rare
+                'bomber' => 2,           // Rare
+            ];
+        }
 
-        // Select 1-2 cargo ship types
-        $selectedShipCount = random_int(1, 2);
+        // Select 1-2 ship types for pirates, 1-3 for aliens
+        $selectedShipCount = $npcType === 'pirate' ? random_int(1, 2) : random_int(1, 3);
         $selectedShips = $this->weightedRandomSelection($possibleShips, $selectedShipCount);
 
         // Distribute allocated value across selected ships
