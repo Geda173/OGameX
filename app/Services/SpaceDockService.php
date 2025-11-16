@@ -304,26 +304,11 @@ class SpaceDockService
             throw new Exception('A repair for this ship from this battle is already in progress or awaiting pickup.');
         }
 
-        // Calculate repair cost (percentage of original ship cost)
-        $repairCostPercentage = 0.5; // 50% of original cost
-        $shipPrice = ObjectService::getObjectPrice($shipMachineName, $planet);
-        $totalRepairCost = new Resources(
-            (int)($shipPrice->metal->get() * $amount * $repairCostPercentage),
-            (int)($shipPrice->crystal->get() * $amount * $repairCostPercentage),
-            (int)($shipPrice->deuterium->get() * $amount * $repairCostPercentage),
-            0
-        );
-
-        // Verify planet has enough resources
-        if (!$planet->hasResources($totalRepairCost)) {
-            throw new Exception('Not enough resources for repair.');
-        }
+        // Space Dock repairs are FREE - only time is required (no resources needed)
+        $totalRepairCost = new Resources(0, 0, 0, 0);
 
         // Calculate repair time
         $repairTime = $this->calculateRepairTime($planet, $shipMachineName, $amount);
-
-        // Deduct resources from planet
-        $planet->deductResources($totalRepairCost);
 
         // Deduct wreckage from battle report
         $wreckage = $battleReport->wreckage;
