@@ -238,7 +238,7 @@ $(document).ready(function() {
             @endforeach
         @endforeach
 
-        // Send all repair requests
+        // Send all repair requests - use allSettled to handle partial failures
         var promises = repairRequests.map(function(repair) {
             return $.ajax({
                 url: '{{ route('spacedock.startrepair') }}',
@@ -249,14 +249,23 @@ $(document).ready(function() {
                     ship_machine_name: repair.ship_machine_name,
                     amount: repair.amount
                 }
-            });
+            }).then(
+                function(response) { return { status: 'fulfilled', value: response }; },
+                function(error) { return { status: 'rejected', reason: error }; }
+            );
         });
 
-        Promise.all(promises).then(function() {
+        Promise.all(promises).then(function(results) {
+            var successCount = results.filter(function(r) { return r.status === 'fulfilled'; }).length;
+            var failureCount = results.filter(function(r) { return r.status === 'rejected'; }).length;
+
+            // Always reload overlay to show current state
             reloadOverlay();
-        }).catch(function(error) {
-            alert('@lang('Error starting repairs')');
-            console.error(error);
+
+            // Show message if some failed (but don't if all succeeded or all failed due to duplicates)
+            if (failureCount > 0 && successCount > 0) {
+                console.log('Some repairs started (' + successCount + ' succeeded, ' + failureCount + ' already in progress)');
+            }
         });
     });
 
