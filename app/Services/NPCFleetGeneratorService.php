@@ -164,7 +164,7 @@ class NPCFleetGeneratorService
         $npcFleetValue = (int)($playerFleetValue * $fleetValuePercentage);
 
         // Generate main fleet with mixed ship types
-        $npcFleet = $this->generateMixedFleet($npcFleetValue);
+        $npcFleet = $this->generateMixedFleet($npcFleetValue, $npcType);
 
         // Add bonus ships
         try {
@@ -181,28 +181,46 @@ class NPCFleetGeneratorService
      * Generate a mixed fleet of combat ships based on allocated value.
      *
      * @param int $allocatedValue Total value to spend on ships
+     * @param string $npcType 'pirate' or 'alien'
      * @return UnitCollection
      */
-    private function generateMixedFleet(int $allocatedValue): UnitCollection
+    private function generateMixedFleet(int $allocatedValue, string $npcType): UnitCollection
     {
         $objectService = app(ObjectService::class);
         $npcFleet = new UnitCollection();
 
-        // Define possible NPC ship types (mix of combat and cargo ships)
-        $possibleShips = [
-            // Combat ships
-            'light_fighter' => 10,   // Weight: cheap, common
-            'heavy_fighter' => 8,
-            'cruiser' => 6,
-            'battle_ship' => 4,
-            'battlecruiser' => 3,
-            'bomber' => 2,
-            'destroyer' => 1,        // Weight: expensive, rare
+        // Define ship types based on NPC type
+        // Pirates favor cheaper, lower-tier ships
+        // Aliens favor expensive, higher-tier ships
+        if ($npcType === 'pirate') {
+            $possibleShips = [
+                // Lower-tier combat ships (pirates are weaker)
+                'light_fighter' => 15,   // Very common for pirates
+                'heavy_fighter' => 10,
+                'cruiser' => 8,
+                'battle_ship' => 3,      // Rare for pirates
+                'battlecruiser' => 2,    // Very rare for pirates
 
-            // Cargo ships (for transporting loot)
-            'small_cargo' => 5,      // Common
-            'large_cargo' => 3,      // Less common
-        ];
+                // Cargo ships
+                'small_cargo' => 8,      // Common
+                'large_cargo' => 4,      // Less common
+            ];
+        } else {
+            // Aliens
+            $possibleShips = [
+                // Higher-tier combat ships (aliens are stronger)
+                'heavy_fighter' => 8,
+                'cruiser' => 10,
+                'battle_ship' => 12,     // Common for aliens
+                'battlecruiser' => 10,
+                'bomber' => 8,           // Aliens use bombers
+                'destroyer' => 6,        // Aliens can have destroyers
+
+                // Cargo ships (less common for aliens)
+                'small_cargo' => 4,
+                'large_cargo' => 6,
+            ];
+        }
 
         // Select 2-4 random ship types for variety
         $selectedShipCount = random_int(2, 4);
