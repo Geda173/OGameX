@@ -125,10 +125,50 @@
         <script type="text/javascript">
             var planetMoveInProgress = false;
             var jumpGateOverlayUrl = "{{ route('jumpgate.overlay') }}";
-            var spaceDockUrl = "{{ route('spacedock.index') }}";
+            var spaceDockOverlayUrl = "{{ route('spacedock.overlay') }}";
 
-            function openSpaceDock() {
-                window.location.href = spaceDockUrl;
+            function openSpaceDockOverlay() {
+                // Create dialog container
+                var dialogId = 'spaceDockDialog_' + Date.now();
+                var $dialog = $('<div id="' + dialogId + '" class="overlayDiv"></div>');
+                $dialog.html('<div style="text-align: center; padding: 20px;"><img src="/img/icons/4161a64a933a5345d00cb9fdaa25c7.gif" alt="Loading..."></div>');
+                $('body').append($dialog);
+
+                // Load content via AJAX first
+                $.get(spaceDockOverlayUrl, function(data) {
+                    $dialog.html(data);
+
+                    // Initialize dialog AFTER content is loaded
+                    $dialog.dialog({
+                        title: 'Space Dock',
+                        modal: true,
+                        width: 700,
+                        height: 'auto',
+                        maxHeight: 650,
+                        closeText: '',
+                        position: { my: "center", at: "center" },
+                        close: function() {
+                            $(this).dialog('destroy');
+                            $(this).remove();
+                        }
+                    });
+                }).fail(function() {
+                    $dialog.html('<div style="padding: 20px; text-align: center; color: #ff6666;">Failed to load Space Dock.</div>');
+
+                    // Initialize dialog even on failure
+                    $dialog.dialog({
+                        title: 'Space Dock - Error',
+                        modal: true,
+                        width: 400,
+                        height: 'auto',
+                        closeText: '',
+                        position: { my: "center", at: "center" },
+                        close: function() {
+                            $(this).dialog('destroy');
+                            $(this).remove();
+                        }
+                    });
+                });
             }
 
             function openJumpGateOverlay() {
@@ -194,7 +234,7 @@
             })
             technologyDetails.init()
 
-            // Handle Space Dock clicks - redirect to Space Dock page
+            // Handle Space Dock clicks - open overlay
             $(document).on('click', '.technology.repairDock .icon', function(e) {
                 var $tech = $(this).closest('.technology');
                 // Only handle if Space Dock is built (level >= 1)
@@ -202,7 +242,7 @@
                 if (level >= 1) {
                     e.stopPropagation();
                     e.preventDefault();
-                    openSpaceDock();
+                    openSpaceDockOverlay();
                     return false;
                 }
             });

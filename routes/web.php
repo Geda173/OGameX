@@ -85,6 +85,7 @@ Route::middleware(['auth', 'globalgame', 'locale'])->group(function () {
 
     // Space Dock
     Route::get('/spacedock', [SpaceDockController::class, 'index'])->name('spacedock.index');
+    Route::get('/spacedock/overlay', [SpaceDockController::class, 'overlay'])->name('spacedock.overlay');
     Route::post('/spacedock/start-repair', [SpaceDockController::class, 'startRepair'])->name('spacedock.startrepair');
     Route::post('/spacedock/cancel-repair', [SpaceDockController::class, 'cancelRepair'])->name('spacedock.cancelrepair');
     Route::post('/spacedock/claim-repairs', [SpaceDockController::class, 'claimRepairs'])->name('spacedock.claimrepairs');

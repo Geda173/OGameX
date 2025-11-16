@@ -13,6 +13,111 @@ use OGame\Services\SpaceDockService;
 class SpaceDockController extends OGameController
 {
     /**
+     * Shows the space dock as an overlay (AJAX request)
+     *
+     * @param Request $request
+     * @param PlayerService $player
+     * @param SpaceDockService $spaceDockService
+     * @return View
+     * @throws Exception
+     */
+    public function overlay(Request $request, PlayerService $player, SpaceDockService $spaceDockService): View
+    {
+        $planet = $player->planets->current();
+
+        // Verify space dock is built
+        $spaceDockLevel = $planet->getObjectLevel('space_dock');
+        if ($spaceDockLevel < 1) {
+            return view('ingame.spacedock.error')->with([
+                'error_message' => 'Space Dock is not built on this planet.',
+            ]);
+        }
+
+        // Get available wreckage from battle reports
+        $availableWreckage = $spaceDockService->getAvailableWreckage($planet);
+
+        // Get current repair queue (in progress)
+        $repairQueue = $spaceDockService->retrieveQueueItems($planet);
+
+        // Get ready for pickup repairs
+        $readyForPickup = $spaceDockService->retrieveReadyForPickup($planet);
+
+        // Prepare wreckage data for display
+        $wreckageData = [];
+        foreach ($availableWreckage as $report) {
+            if (empty($report->wreckage)) {
+                continue;
+            }
+
+            foreach ($report->wreckage as $machineName => $amount) {
+                if ($amount <= 0) {
+                    continue;
+                }
+
+                try {
+                    $shipObject = ObjectService::getUnitObjectByMachineName($machineName);
+
+                    // Calculate repair cost (50% of original cost)
+                    $shipPrice = ObjectService::getObjectPrice($machineName, $planet);
+                    $repairCostPercentage = 0.5;
+
+                    if (!isset($wreckageData[$report->id])) {
+                        $wreckageData[$report->id] = [
+                            'battle_report_id' => $report->id,
+                            'created_at' => $report->created_at,
+                            'ships' => [],
+                        ];
+                    }
+
+                    $wreckageData[$report->id]['ships'][] = [
+                        'machine_name' => $machineName,
+                        'name' => $shipObject->title,
+                        'amount' => $amount,
+                        'metal_cost' => (int)($shipPrice->metal->get() * $repairCostPercentage),
+                        'crystal_cost' => (int)($shipPrice->crystal->get() * $repairCostPercentage),
+                        'deuterium_cost' => (int)($shipPrice->deuterium->get() * $repairCostPercentage),
+                    ];
+                } catch (Exception $e) {
+                    // Skip invalid ship types
+                    continue;
+                }
+            }
+        }
+
+        // Prepare repair queue data
+        $queueData = [];
+        foreach ($repairQueue as $repair) {
+            $shipObject = ObjectService::getUnitObjectById($repair->ship_object_id);
+            $queueData[] = [
+                'id' => $repair->id,
+                'ship_name' => $shipObject->title,
+                'ship_amount' => $repair->ship_amount,
+                'time_end' => $repair->time_end,
+                'time_remaining' => max(0, $repair->time_end - time()),
+            ];
+        }
+
+        // Prepare ready for pickup data
+        $pickupData = [];
+        foreach ($readyForPickup as $repair) {
+            $shipObject = ObjectService::getUnitObjectById($repair->ship_object_id);
+            $pickupData[] = [
+                'id' => $repair->id,
+                'ship_name' => $shipObject->title,
+                'ship_amount' => $repair->ship_amount,
+            ];
+        }
+
+        return view('ingame.spacedock.overlay')->with([
+            'planet' => $planet,
+            'space_dock_level' => $spaceDockLevel,
+            'wreckage_data' => $wreckageData,
+            'queue_data' => $queueData,
+            'pickup_data' => $pickupData,
+        ]);
+    }
+
+    /**
      * Shows the space dock index page
      *
      * @param Request $request
