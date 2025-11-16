@@ -12,6 +12,7 @@ use OGame\Services\BuildingQueueService;
 use OGame\Services\HighscoreService;
 use OGame\Services\PlayerService;
 use OGame\Services\ResearchQueueService;
+use OGame\Services\SpaceDockService;
 use OGame\Services\UnitQueueService;
 
 class OverviewController extends OGameController
@@ -23,10 +24,11 @@ class OverviewController extends OGameController
      * @param BuildingQueueService $building_queue
      * @param ResearchQueueService $research_queue
      * @param UnitQueueService $unit_queue
+     * @param SpaceDockService $space_dock
      * @return View
      * @throws Exception
      */
-    public function index(PlayerService $player, BuildingQueueService $building_queue, ResearchQueueService $research_queue, UnitQueueService $unit_queue): View
+    public function index(PlayerService $player, BuildingQueueService $building_queue, ResearchQueueService $research_queue, UnitQueueService $unit_queue, SpaceDockService $space_dock): View
     {
         $this->setBodyId('overview');
 
@@ -81,6 +83,24 @@ class OverviewController extends OGameController
             return AppUtil::formatNumber(Highscore::where('player_id', $player->getId())->first()->general ?? 0);
         });
 
+        // Check for available wreckage (Space Dock notification)
+        $has_wreckage = false;
+        $wreckage_count = 0;
+        if ($planet->getObjectLevel('space_dock') > 0) {
+            $availableWreckage = $space_dock->getAvailableWreckage($planet);
+            $has_wreckage = $availableWreckage->isNotEmpty();
+            $wreckage_count = $availableWreckage->count();
+        }
+
+        // Check for ready to pickup ships
+        $has_ready_repairs = false;
+        $ready_repairs_count = 0;
+        if ($planet->getObjectLevel('space_dock') > 0) {
+            $readyRepairs = $space_dock->retrieveReadyForPickup($planet);
+            $has_ready_repairs = $readyRepairs->isNotEmpty();
+            $ready_repairs_count = $readyRepairs->count();
+        }
+
         return view('ingame.overview.index')->with([
             'header_filename' => $planet->isMoon() ? 'moon/' . $planet->getPlanetImageType() : $planet->getPlanetBiomeType(),
             'planet_name' => $planet->getPlanetName(),
@@ -104,6 +124,10 @@ class OverviewController extends OGameController
             'has_moon' => $has_moon,
             'has_planet' => $has_planet,
             'other_planet' => $other_planet,
+            'has_wreckage' => $has_wreckage,
+            'wreckage_count' => $wreckage_count,
+            'has_ready_repairs' => $has_ready_repairs,
+            'ready_repairs_count' => $ready_repairs_count,
         ]);
     }
 }

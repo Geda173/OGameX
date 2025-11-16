@@ -992,12 +992,17 @@ class PlanetService
                 $this->updateUnitQueue(false);
 
                 // ------
-                // 4. Update resource production / consumption
+                // 4. Update repair queue
+                // ------
+                $this->updateRepairQueue(false);
+
+                // ------
+                // 5. Update resource production / consumption
                 // ------
                 $this->updateResourceProductionStats(false);
 
                 // ------
-                // 5. Update resource storage
+                // 6. Update resource storage
                 // ------
                 $this->updateResourceStorageStats(false);
 
@@ -1395,6 +1400,23 @@ class PlanetService
                 // Update planet fleet amount
                 $this->addUnit($object->machine_name, $unit_amount, $save_planet);
             }
+        }
+    }
+
+    /**
+     * Update the repair queue for this planet.
+     * Process any completed repairs (mark as ready for pickup).
+     *
+     * @param bool $save_planet
+     * @return void
+     */
+    public function updateRepairQueue(bool $save_planet = true): void
+    {
+        $spaceDockService = resolve(SpaceDockService::class);
+        $spaceDockService->processRepairs($this);
+
+        if ($save_planet) {
+            $this->save();
         }
     }
 

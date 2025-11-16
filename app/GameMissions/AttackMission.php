@@ -16,6 +16,7 @@ use OGame\Services\DebrisFieldService;
 use OGame\Services\ObjectService;
 use OGame\Services\PlanetService;
 use OGame\Services\PlayerService;
+use OGame\Services\SpaceDockService;
 use Throwable;
 
 class AttackMission extends GameMission
@@ -336,6 +337,11 @@ class AttackMission extends GameMission
         file_put_contents('/tmp/battle_debug.txt', $debugInfo, FILE_APPEND);
 
         $report->repaired_defenses = $repairedDefensesArray;
+
+        // Calculate wreckage for Space Dock repairs
+        $spaceDockService = resolve(SpaceDockService::class);
+        $wreckage = $spaceDockService->calculateWreckage($defenderPlanet, $battleResult);
+        $report->wreckage = $wreckage;
 
         $rounds = [];
         foreach ($battleResult->rounds as $round) {

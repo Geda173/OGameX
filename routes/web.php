@@ -30,6 +30,7 @@ use OGame\Http\Controllers\SearchController;
 use OGame\Http\Controllers\ServerSettingsController;
 use OGame\Http\Controllers\ShipyardController;
 use OGame\Http\Controllers\ShopController;
+use OGame\Http\Controllers\SpaceDockController;
 use OGame\Http\Controllers\TechtreeController;
 
 /*
@@ -81,6 +82,13 @@ Route::middleware(['auth', 'globalgame', 'locale'])->group(function () {
     Route::get('/shipyard', [ShipyardController::class, 'index'])->name('shipyard.index');
     Route::get('/ajax/shipyard', [ShipyardController::class, 'ajax'])->name('shipyard.ajax');
     Route::post('/shipyard/add-buildrequest', [ShipyardController::class, 'addBuildRequest'])->name('shipyard.addbuildrequest');
+
+    // Space Dock
+    Route::get('/spacedock', [SpaceDockController::class, 'index'])->name('spacedock.index');
+    Route::post('/spacedock/start-repair', [SpaceDockController::class, 'startRepair'])->name('spacedock.startrepair');
+    Route::post('/spacedock/cancel-repair', [SpaceDockController::class, 'cancelRepair'])->name('spacedock.cancelrepair');
+    Route::post('/spacedock/claim-repairs', [SpaceDockController::class, 'claimRepairs'])->name('spacedock.claimrepairs');
+    Route::post('/spacedock/dismiss-wreckage', [SpaceDockController::class, 'dismissWreckage'])->name('spacedock.dismisswreckage');
 
     // Defense
     Route::get('/defense', [DefenseController::class, 'index'])->name('defense.index');

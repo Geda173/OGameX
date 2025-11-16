@@ -101,6 +101,21 @@
                     </div>
                 @endif
 
+                @if ($has_wreckage || $has_ready_repairs)
+                    <div id="wreckage_notification" style="position: absolute; top: 10px; right: 10px; background: rgba(255, 100, 0, 0.9); padding: 8px 12px; border-radius: 4px; border: 2px solid #ff6600;">
+                        @if ($has_wreckage)
+                            <a href="{{ route('spacedock.index') }}" style="color: #fff; text-decoration: none; font-weight: bold; display: block; margin-bottom: 5px;">
+                                ⚠️ {{ $wreckage_count }} @lang('Wreckage field(s) available')
+                            </a>
+                        @endif
+                        @if ($has_ready_repairs)
+                            <a href="{{ route('spacedock.index') }}" style="color: #00ff00; text-decoration: none; font-weight: bold; display: block;">
+                                ✓ {{ $ready_repairs_count }} @lang('Repair(s) ready for pickup')
+                            </a>
+                        @endif
+                    </div>
+                @endif
+
                 <div id="header_text">
                     <h2>
                         <a href="javascript:void(0);" class="openPlanetRenameGiveupBox">
