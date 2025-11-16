@@ -274,13 +274,14 @@ $(document).ready(function() {
                 battle_report_ids: allBattleReportIds
             },
             success: function(response) {
-                console.log('Batch repair response:', response);
+                console.log('Batch repair response:', JSON.stringify(response, null, 2));
                 if (response.success) {
                     console.log('Started batch repair successfully');
                     setTimeout(function() {
                         reloadOverlay();
                     }, 100);
                 } else {
+                    console.log('Batch repair failed:', response.error);
                     alert(response.error || 'Error starting batch repair');
                 }
             },
