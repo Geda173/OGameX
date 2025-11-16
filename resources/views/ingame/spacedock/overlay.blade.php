@@ -48,12 +48,15 @@
                 <span style="color: #6f9fc8;">@lang('Repair time remaining'):</span>
                 <span style="color: #fff; margin-left: 5px;" class="countdown" data-end="{{ $queue_data[0]['time_end'] }}">...</span>
 
-                <span style="color: #6f9fc8; margin-left: 15px;">@lang('Repaired Ships'):</span>
+                <span style="color: #6f9fc8; margin-left: 15px;">@lang('Ships in repair'):</span>
                 <span style="color: #fff; margin-left: 5px;">
                     @php
                         $total_in_queue = array_sum(array_column($queue_data, 'ship_amount'));
                     @endphp
-                    {{ $total_in_queue }} / {{ $total_repairable_ships }}
+                    {{ number_format($total_in_queue) }}
+                    @if ($total_repairable_ships > 0)
+                        @lang('of') {{ number_format($total_repairable_ships + $total_in_queue) }} @lang('total')
+                    @endif
                 </span>
             </div>
         @endif
