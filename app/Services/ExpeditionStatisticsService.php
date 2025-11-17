@@ -371,14 +371,16 @@ class ExpeditionStatisticsService
             try {
                 $unitObject = ObjectService::getUnitObjectByMachineName($shipType);
                 $shipCost = $unitObject->price->resources;
-                $totalValue += ($shipCost->metal + $shipCost->crystal + $shipCost->deuterium) * $count;
+                // Use ->get() to access Resource values
+                $shipValue = $shipCost->metal->get() + $shipCost->crystal->get() + $shipCost->deuterium->get();
+                $totalValue += $shipValue * $count;
             } catch (\Exception $e) {
                 // Ship type not found, skip
                 continue;
             }
         }
 
-        return $totalValue;
+        return (int)$totalValue;
     }
 
     /**
@@ -395,14 +397,16 @@ class ExpeditionStatisticsService
             try {
                 $unitObject = ObjectService::getUnitObjectByMachineName($shipType);
                 $shipCost = $unitObject->price->resources;
-                $totalValue += ($shipCost->metal + $shipCost->crystal + $shipCost->deuterium) * $count;
+                // Use ->get() to access Resource values
+                $shipValue = $shipCost->metal->get() + $shipCost->crystal->get() + $shipCost->deuterium->get();
+                $totalValue += $shipValue * $count;
             } catch (\Exception $e) {
                 // Ship type not found, skip
                 continue;
             }
         }
 
-        return $totalValue;
+        return (int)$totalValue;
     }
 
     /**
