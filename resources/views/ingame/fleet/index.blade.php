@@ -255,7 +255,7 @@
                 "type": {{ $planet->getPlanetType() }},
                 "name": "{{ $planet->getPlanetName() }}"
             }];
-            var standardFleets = [];
+            var standardFleets = @json($standardFleets ?? []);
             var unions = @json($acsGroups ?? []);
 
             // Debug: Log target coordinates and ACS query info
@@ -512,12 +512,35 @@
                                     <th class="fleet_name">Name</th>
                                     <th class="fleet_actions">Actions</th>
                                 </tr>
+                                @php
+                                    $chunks = array_chunk($standardFleets, 2);
+                                @endphp
+                                @foreach($chunks as $chunk)
                                 <tr>
+                                    @foreach($chunk as $fleet)
+                                    <td class="textCenter">{{ $fleet['id'] }}</td>
+                                    <td class="fleet_name">{{ $fleet['name'] }}</td>
+                                    <td>
+                                        <a href="javascript:void(0);" class="changeFleet" rel="{{ $fleet['id'] }}">Load</a> |
+                                        <a href="javascript:void(0);" onclick="setShipsFleet(@json($fleet['ships']), '{{ addslashes($fleet['name']) }}', {{ $fleet['id'] }})" class="overlay" data-overlay-inline="#fleetTemplatesEdit" data-overlay-title="Edit template">Edit</a> |
+                                        <form method="POST" action="{{ route('fleet.save-standard-fleet') }}" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this template?');">
+                                            @csrf
+                                            <input type="hidden" name="mode" value="delete">
+                                            <input type="hidden" name="template_id" value="{{ $fleet['id'] }}">
+                                            <button type="submit" style="background:none;border:none;color:#6f9fc8;cursor:pointer;padding:0;">Delete</button>
+                                        </form>
+                                    </td>
+                                    @endforeach
+                                    @for($i = count($chunk); $i < 2; $i++)
                                     <td colspan="3"></td>
-
-                                    <td colspan="3"></td>
-
+                                    @endfor
                                 </tr>
+                                @endforeach
+                                @if(empty($standardFleets))
+                                <tr>
+                                    <td colspan="6" class="textCenter">No saved templates</td>
+                                </tr>
+                                @endif
                                 </tbody>
                             </table>
                             <a href="javascript: void(0);" class="btn_blue float_right overlay" id="addNewTpl"
@@ -528,7 +551,8 @@
                             <br class="clearfloat">
                         </div><!-- #fleetzOverview -->
                         <div id="fleetTemplatesEdit" style="display:none;">
-                            <form method="POST" action="#" name="submit_std" id="submit_std" value="1">
+                            <form method="POST" action="{{ route('fleet.save-standard-fleet') }}" name="submit_std" id="submit_std" value="1">
+                                @csrf
                                 <input type="hidden" name="open_std" value="1">
                                 <input type="hidden" name="template_id" id="template_id" value="0">
                                 <input type="hidden" name="mode" value="save">

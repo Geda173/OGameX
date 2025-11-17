@@ -4,6 +4,7 @@ namespace OGame\Http\Controllers;
 
 use Exception;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use OGame\Factories\GameMissionFactory;
@@ -12,6 +13,7 @@ use OGame\GameObjects\Models\Units\UnitCollection;
 use OGame\Models\Enums\PlanetType;
 use OGame\Models\Planet\Coordinate;
 use OGame\Models\Resources;
+use OGame\Models\StandardFleet;
 use OGame\Services\ACSService;
 use OGame\Services\FleetMissionService;
 use OGame\Services\ObjectService;
@@ -119,6 +121,19 @@ class FleetController extends OGameController
             ]);
         }
 
+        // Load standard fleet templates for this user
+        $standardFleets = StandardFleet::where('user_id', $player->getId())
+            ->orderBy('id')
+            ->get()
+            ->map(function ($fleet) {
+                return [
+                    'id' => $fleet->id,
+                    'name' => $fleet->name,
+                    'ships' => $fleet->ships,
+                ];
+            })
+            ->toArray();
+
         return view('ingame.fleet.index')->with([
             'player' => $player,
             'planet' => $planet,
@@ -136,6 +151,7 @@ class FleetController extends OGameController
             'expeditionSlotsInUse' => $player->getExpeditionSlotsInUse(),
             'expeditionSlotsMax' => $player->getExpeditionSlotsMax(),
             'acsGroups' => $acsGroups,
+            'standardFleets' => $standardFleets,
         ]);
     }
 
@@ -1764,5 +1780,72 @@ class FleetController extends OGameController
             'message' => 'Attack converted to ACS group',
             'acs_group_id' => $acsGroup->id
         ]);
+    }
+
+    /**
+     * Save or update a standard fleet template.
+     *
+     * @param Request $request
+     * @param PlayerService $player
+     * @return RedirectResponse
+     */
+    public function saveStandardFleet(Request $request, PlayerService $player): RedirectResponse
+    {
+        $mode = $request->input('mode');
+        $templateId = (int)$request->input('template_id', 0);
+        $templateName = $request->input('template_name', '');
+
+        // Handle delete operation
+        if ($mode === 'delete' && $templateId > 0) {
+            $standardFleet = StandardFleet::where('id', $templateId)
+                ->where('user_id', $player->getId())
+                ->first();
+
+            if ($standardFleet) {
+                $standardFleet->delete();
+            }
+
+            return redirect()->route('fleet.index')->with('status', 'Standard fleet deleted successfully.');
+        }
+
+        // Handle save operation
+        if ($mode === 'save' && !empty($templateName)) {
+            // Extract ship data from the request
+            $ships = [];
+            foreach ($request->all() as $key => $value) {
+                if (str_starts_with($key, 'ship')) {
+                    // Extract ship ID from key like "ship[202]"
+                    preg_match('/ship\[(\d+)\]/', $key, $matches);
+                    if (isset($matches[1]) && is_numeric($value) && (int)$value > 0) {
+                        $ships[(int)$matches[1]] = (int)$value;
+                    }
+                }
+            }
+
+            // If template_id is greater than 0, update existing template
+            if ($templateId > 0) {
+                $standardFleet = StandardFleet::where('id', $templateId)
+                    ->where('user_id', $player->getId())
+                    ->first();
+
+                if ($standardFleet) {
+                    $standardFleet->update([
+                        'name' => $templateName,
+                        'ships' => $ships,
+                    ]);
+                }
+            } else {
+                // Create new template
+                StandardFleet::create([
+                    'user_id' => $player->getId(),
+                    'name' => $templateName,
+                    'ships' => $ships,
+                ]);
+            }
+
+            return redirect()->route('fleet.index')->with('status', 'Standard fleet saved successfully.');
+        }
+
+        return redirect()->route('fleet.index');
     }
 }
