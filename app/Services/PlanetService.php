@@ -1783,6 +1783,11 @@ class PlanetService
         $building_percentage = $this->getBuildingPercent($object->machine_name) / 10;
 
         $object->production->planetService = $this;
+        // Destroyed planets have no owner, so we can't calculate production
+        // Return zero production index for destroyed planets
+        if ($this->player === null) {
+            return new ProductionIndex(0, 0, 0, 0);
+        }
         $object->production->playerService = $this->player;
         $object->production->universe_speed = $this->settingsService->economySpeed();
 

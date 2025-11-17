@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class () extends Migration {
@@ -12,10 +13,13 @@ return new class () extends Migration {
      */
     public function up(): void
     {
-        Schema::table('planets', function (Blueprint $table) {
-            // Drop the foreign key constraint first
-            $table->dropForeign(['user_id']);
-        });
+        // Get the actual foreign key constraint name from the database
+        $constraintName = $this->getForeignKeyName('planets', 'user_id');
+
+        if ($constraintName) {
+            // Drop the foreign key constraint using raw SQL
+            DB::statement("ALTER TABLE planets DROP FOREIGN KEY `{$constraintName}`");
+        }
 
         Schema::table('planets', function (Blueprint $table) {
             // Make user_id nullable to support destroyed planets with no owner
@@ -35,10 +39,13 @@ return new class () extends Migration {
      */
     public function down(): void
     {
-        Schema::table('planets', function (Blueprint $table) {
-            // Drop the foreign key constraint
-            $table->dropForeign(['user_id']);
-        });
+        // Get the current foreign key constraint name
+        $constraintName = $this->getForeignKeyName('planets', 'user_id');
+
+        if ($constraintName) {
+            // Drop the foreign key constraint using raw SQL
+            DB::statement("ALTER TABLE planets DROP FOREIGN KEY `{$constraintName}`");
+        }
 
         Schema::table('planets', function (Blueprint $table) {
             // Revert to non-nullable
@@ -49,5 +56,28 @@ return new class () extends Migration {
             // Re-add the original foreign key constraint
             $table->foreign('user_id')->references('id')->on('users');
         });
+    }
+
+    /**
+     * Get the foreign key constraint name for a given column.
+     *
+     * @param string $table
+     * @param string $column
+     * @return string|null
+     */
+    private function getForeignKeyName(string $table, string $column): ?string
+    {
+        $databaseName = DB::getDatabaseName();
+
+        $result = DB::select("
+            SELECT CONSTRAINT_NAME
+            FROM information_schema.KEY_COLUMN_USAGE
+            WHERE TABLE_SCHEMA = ?
+            AND TABLE_NAME = ?
+            AND COLUMN_NAME = ?
+            AND REFERENCED_TABLE_NAME IS NOT NULL
+        ", [$databaseName, $table, $column]);
+
+        return $result[0]->CONSTRAINT_NAME ?? null;
     }
 };

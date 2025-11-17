@@ -768,7 +768,7 @@ class GalaxyController extends OGameController
         if ($targetPlanet === null) {
             $canAttack = false;
             $errorMessage = 'Target planet does not exist';
-        } elseif ($targetPlanet->getPlayer()->equals($player)) {
+        } elseif ($targetPlanet->getPlayer() !== null && $targetPlanet->getPlayer()->equals($player)) {
             $canAttack = false;
             $errorMessage = 'Cannot attack own planet';
         } elseif ($currentPlanet->getPlanetCoordinates()->galaxy !== $targetCoordinate->galaxy) {
@@ -840,8 +840,8 @@ class GalaxyController extends OGameController
                 ], 400);
             }
 
-            // Check if target is own planet
-            if ($targetPlanet->getPlayer()->equals($player)) {
+            // Check if target is own planet (destroyed planets have no owner, so can be attacked)
+            if ($targetPlanet->getPlayer() !== null && $targetPlanet->getPlayer()->equals($player)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Cannot attack own planet',
