@@ -106,16 +106,27 @@ class SpaceDockService
     }
 
     /**
-     * Calculate the recovery percentage based on Space Dock level and debris field settings.
+     * Calculate the recovery percentage based on Space Dock level.
      *
-     * Based on the OGame wiki table:
-     * - Level 1: 31.50% (30% DF), 27.00% (40% DF), 22.50% (50% DF), 18.00% (60% DF), 13.50% (70% DF)
-     * - Level 2: 33.60% (30% DF), 28.80% (40% DF), 24.00% (50% DF), 19.20% (60% DF), 14.40% (70% DF)
-     * - Level 3: 34.30% (30% DF), 29.40% (40% DF), 24.50% (50% DF), 19.60% (60% DF), 14.70% (70% DF)
-     * - Level 4: 35.00% (30% DF), 30.00% (40% DF), 25.00% (50% DF), 20.00% (60% DF), 15.00% (70% DF)
+     * Recovery percentage table (levels 1-15):
+     * - Level 1: 22.50%
+     * - Level 2: 24.00%
+     * - Level 3: 24.50%
+     * - Level 4: 25.00%
+     * - Level 5: 25.50%
+     * - Level 6: 26.00%
+     * - Level 7: 26.50%
+     * - Level 8: 26.50%
+     * - Level 9: 27.00%
+     * - Level 10: 27.00%
+     * - Level 11: 27.50%
+     * - Level 12: 27.50%
+     * - Level 13: 27.50%
+     * - Level 14: 28.00%
+     * - Level 15+: 28.00%
      *
      * @param int $spaceDockLevel
-     * @param int $debrisFieldPercentage
+     * @param int $debrisFieldPercentage (unused, kept for compatibility)
      * @return float
      */
     private function calculateRecoveryPercentage(int $spaceDockLevel, int $debrisFieldPercentage): float
@@ -124,82 +135,29 @@ class SpaceDockService
             return 0;
         }
 
-        // Recovery percentage table based on wiki data
+        // Simple level-based recovery table
         $recoveryTable = [
-            1 => [
-                30 => 31.50,
-                40 => 27.00,
-                50 => 22.50,
-                60 => 18.00,
-                70 => 13.50,
-            ],
-            2 => [
-                30 => 33.60,
-                40 => 28.80,
-                50 => 24.00,
-                60 => 19.20,
-                70 => 14.40,
-            ],
-            3 => [
-                30 => 34.30,
-                40 => 29.40,
-                50 => 24.50,
-                60 => 19.60,
-                70 => 14.70,
-            ],
-            4 => [
-                30 => 35.00,
-                40 => 30.00,
-                50 => 25.00,
-                60 => 20.00,
-                70 => 15.00,
-            ],
+            1 => 22.50,
+            2 => 24.00,
+            3 => 24.50,
+            4 => 25.00,
+            5 => 25.50,
+            6 => 26.00,
+            7 => 26.50,
+            8 => 26.50,
+            9 => 27.00,
+            10 => 27.00,
+            11 => 27.50,
+            12 => 27.50,
+            13 => 27.50,
+            14 => 28.00,
+            15 => 28.00,
         ];
 
-        // Cap space dock level at 4 (higher levels use level 4 values)
-        $effectiveLevel = min($spaceDockLevel, 4);
+        // Cap at level 15 (higher levels use level 15 value)
+        $effectiveLevel = min($spaceDockLevel, 15);
 
-        // If debris field percentage is not in the table, interpolate or use closest value
-        if (!isset($recoveryTable[$effectiveLevel][$debrisFieldPercentage])) {
-            // Find the two closest debris field percentages
-            $dfKeys = array_keys($recoveryTable[$effectiveLevel]);
-            sort($dfKeys);
-
-            // If below minimum, use minimum
-            if ($debrisFieldPercentage < $dfKeys[0]) {
-                return $recoveryTable[$effectiveLevel][$dfKeys[0]];
-            }
-
-            // If above maximum, use maximum
-            if ($debrisFieldPercentage > end($dfKeys)) {
-                return $recoveryTable[$effectiveLevel][end($dfKeys)];
-            }
-
-            // Interpolate between two closest values
-            $lowerKey = 0;
-            $upperKey = 0;
-            foreach ($dfKeys as $key) {
-                if ($key <= $debrisFieldPercentage) {
-                    $lowerKey = $key;
-                }
-                if ($key >= $debrisFieldPercentage && $upperKey === 0) {
-                    $upperKey = $key;
-                }
-            }
-
-            if ($lowerKey === $upperKey) {
-                return $recoveryTable[$effectiveLevel][$lowerKey];
-            }
-
-            $lowerValue = $recoveryTable[$effectiveLevel][$lowerKey];
-            $upperValue = $recoveryTable[$effectiveLevel][$upperKey];
-
-            // Linear interpolation
-            $ratio = ($debrisFieldPercentage - $lowerKey) / ($upperKey - $lowerKey);
-            return $lowerValue + ($upperValue - $lowerValue) * $ratio;
-        }
-
-        return $recoveryTable[$effectiveLevel][$debrisFieldPercentage];
+        return $recoveryTable[$effectiveLevel];
     }
 
     /**
@@ -547,6 +505,63 @@ class SpaceDockService
             // Ships are NOT automatically added - player must manually claim them
             $repair->processed = 1;
             $repair->save();
+        }
+
+        // Also auto-claim repairs that have been waiting for 72+ hours
+        $this->autoClaimExpiredRepairs($planet);
+    }
+
+    /**
+     * Auto-claim repairs that completed more than 72 hours ago.
+     *
+     * Per OGame rules: "If this is not done, individual ships of any type
+     * will be returned to service after 3 days."
+     *
+     * This should be called periodically by the game loop.
+     *
+     * @param PlanetService $planet
+     */
+    public function autoClaimExpiredRepairs(PlanetService $planet): void
+    {
+        $threeDaysAgo = Carbon::now()->subDays(3)->timestamp;
+
+        // Find repairs that finished 72+ hours ago and haven't been fully claimed
+        $expiredRepairs = RepairQueue::where([
+            ['planet_id', $planet->getPlanetId()],
+            ['canceled', 0],
+            ['claimed', 0], // Not fully claimed
+        ])
+        ->where('time_end', '<=', $threeDaysAgo)
+        ->get();
+
+        foreach ($expiredRepairs as $repair) {
+            // Calculate unclaimed ships
+            $unclaimedShips = $repair->ship_amount - ($repair->ship_amount_claimed ?? 0);
+
+            if ($unclaimedShips <= 0) {
+                continue;
+            }
+
+            // Get ship object
+            $shipObject = ObjectService::getUnitObjectById($repair->ship_object_id);
+
+            // Create a UnitCollection with the unclaimed ships
+            $autoClaimedUnits = new UnitCollection();
+            $autoClaimedUnits->addUnit($shipObject, $unclaimedShips);
+
+            // Add ships back to planet automatically
+            $planet->addUnits($autoClaimedUnits, false);
+
+            // Mark as fully claimed
+            $repair->ship_amount_claimed = $repair->ship_amount;
+            $repair->claimed = 1;
+            $repair->processed = 1;
+            $repair->save();
+        }
+
+        // Save planet if any ships were added
+        if (!$expiredRepairs->isEmpty()) {
+            $planet->save();
         }
     }
 
