@@ -47,19 +47,26 @@ class ACSDefendMission extends GameMission
             return new MissionPossibleStatus(false);
         }
 
+        // Cannot defend destroyed planets (no owner)
+        $targetPlayer = $targetPlanet->getPlayer();
+        if ($targetPlayer === null) {
+            \Log::debug('ACS Defend failed: target planet is destroyed');
+            return new MissionPossibleStatus(false);
+        }
+
         \Log::debug('ACS Defend target found', [
-            'target_player' => $targetPlanet->getPlayer()->getId(),
+            'target_player' => $targetPlayer->getId(),
             'target_planet_name' => $targetPlanet->getPlanetName(),
         ]);
 
         // Cannot defend your own planet (use deployment for that)
-        if ($planet->getPlayer()->equals($targetPlanet->getPlayer())) {
+        if ($planet->getPlayer()->equals($targetPlayer)) {
             \Log::debug('ACS Defend failed: cannot defend own planet');
             return new MissionPossibleStatus(false);
         }
 
         // Check if target player is buddy or alliance member
-        $isBuddyOrAlliance = ACSService::isBuddyOrAllianceMember($planet->getPlayer()->getId(), $targetPlanet->getPlayer()->getId());
+        $isBuddyOrAlliance = ACSService::isBuddyOrAllianceMember($planet->getPlayer()->getId(), $targetPlayer->getId());
         \Log::debug('ACS Defend buddy check', [
             'is_buddy_or_alliance' => $isBuddyOrAlliance,
         ]);
