@@ -86,6 +86,7 @@ class ExpeditionStatisticsService
      * @param int $userId
      * @param Carbon|null $from
      * @param Carbon|null $to
+     * @param bool $debug
      * @return array{
      *     total_expeditions: int,
      *     completed_expeditions: int,
@@ -98,10 +99,11 @@ class ExpeditionStatisticsService
      *     ships_gained: array<string, int>,
      *     ships_lost: array<string, int>,
      *     outcomes: array<string, int>,
-     *     battles: array{total: int, pirate: int, alien: int}
+     *     battles: array{total: int, pirate: int, alien: int},
+     *     debug_info: array|null
      * }
      */
-    public function getPlayerStatistics(int $userId, ?Carbon $from = null, ?Carbon $to = null): array
+    public function getPlayerStatistics(int $userId, ?Carbon $from = null, ?Carbon $to = null, bool $debug = false): array
     {
         // Get expedition counts
         $expeditionQuery = FleetMission::where('mission_type', 15)
@@ -181,6 +183,22 @@ class ExpeditionStatisticsService
         $totalLoss = $this->calculateTotalLoss($shipsLost);
         $netProfit = $totalProfit - $totalLoss;
 
+        // Collect debug info if requested
+        $debugInfo = null;
+        if ($debug) {
+            $debugInfo = [
+                'total_messages' => count($messages),
+                'message_keys' => $messages->pluck('key')->unique()->values()->toArray(),
+                'sample_messages' => $messages->take(5)->map(function ($msg) {
+                    return [
+                        'key' => $msg->key,
+                        'params' => $msg->params,
+                        'created_at' => $msg->created_at->toDateTimeString(),
+                    ];
+                })->toArray(),
+            ];
+        }
+
         return [
             'total_expeditions' => $totalExpeditions,
             'completed_expeditions' => $completedExpeditions,
@@ -194,6 +212,7 @@ class ExpeditionStatisticsService
             'ships_lost' => $shipsLost,
             'outcomes' => $outcomes,
             'battles' => $battles,
+            'debug_info' => $debugInfo,
         ];
     }
 

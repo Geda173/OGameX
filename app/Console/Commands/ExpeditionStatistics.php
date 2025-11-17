@@ -15,7 +15,8 @@ class ExpeditionStatistics extends Command
                             {--days= : Number of days back from now (alternative to --from)}
                             {--player= : Specific player ID or username to show detailed stats for}
                             {--limit=20 : Maximum number of players to show in rankings (default: 20)}
-                            {--server : Show server-wide statistics}';
+                            {--server : Show server-wide statistics}
+                            {--debug : Show debug information}';
 
     protected $description = 'Display expedition statistics and player rankings';
 
@@ -119,7 +120,8 @@ class ExpeditionStatistics extends Command
             return 1;
         }
 
-        $stats = $service->getPlayerStatistics($player->id, $from, $to);
+        $debug = $this->option('debug');
+        $stats = $service->getPlayerStatistics($player->id, $from, $to, $debug);
 
         $this->info("Expedition Statistics for: {$player->username} (ID: {$player->id})");
         $this->newLine();
@@ -198,6 +200,25 @@ class ExpeditionStatistics extends Command
                 $outcomeRows[] = [$outcomeLabel, number_format($count), $percentage . '%'];
             }
             $this->table(['Outcome', 'Count', 'Percentage'], $outcomeRows);
+        }
+
+        // Show debug info if available
+        if (isset($stats['debug_info']) && $stats['debug_info']) {
+            $this->newLine();
+            $this->line("<fg=yellow>═══ Debug Information ═══</>");
+            $this->line("Total Messages Found: " . $stats['debug_info']['total_messages']);
+            $this->line("Message Keys Found: " . implode(', ', $stats['debug_info']['message_keys']));
+
+            if (!empty($stats['debug_info']['sample_messages'])) {
+                $this->newLine();
+                $this->line("<fg=yellow>Sample Messages:</>");
+                foreach ($stats['debug_info']['sample_messages'] as $msg) {
+                    $this->line("  Key: {$msg['key']}, Created: {$msg['created_at']}");
+                    if (!empty($msg['params'])) {
+                        $this->line("    Params: " . json_encode($msg['params']));
+                    }
+                }
+            }
         }
 
         return 0;
