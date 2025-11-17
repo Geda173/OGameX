@@ -9,6 +9,7 @@ use OGame\GameMissions\BattleEngine\Models\BattleResult;
 use OGame\GameObjects\Models\Enums\GameObjectType;
 use OGame\GameObjects\Models\Units\UnitCollection;
 use OGame\Models\BattleReport;
+use OGame\Models\Enums\PlanetType;
 use OGame\Models\RepairQueue;
 use OGame\Models\Resources;
 
@@ -176,14 +177,27 @@ class SpaceDockService
         $coordinates = $planet->getPlanetCoordinates();
         $threeDaysAgo = Carbon::now()->subDays(3);
 
-        // Get battle reports for this planet
+        // Build planet types to query - include both planet and moon if they exist
+        $planetTypes = [$planet->getPlanetType()->value];
+
+        // If this is a planet with a moon, also include moon wreckage
+        if ($planet->isPlanet() && $planet->hasMoon()) {
+            $planetTypes[] = PlanetType::Moon->value;
+        }
+
+        // If this is a moon with a planet, also include planet wreckage
+        if ($planet->isMoon() && $planet->hasPlanet()) {
+            $planetTypes[] = PlanetType::Planet->value;
+        }
+
+        // Get battle reports for this planet and/or moon
         $reports = BattleReport::where([
             ['planet_galaxy', $coordinates->galaxy],
             ['planet_system', $coordinates->system],
             ['planet_position', $coordinates->position],
-            ['planet_type', $planet->getPlanetType()->value],
             ['wreckage_dismissed', 0], // Exclude dismissed wreckage
         ])
+            ->whereIn('planet_type', $planetTypes)
             ->where('created_at', '>=', $threeDaysAgo)
             ->whereNotNull('wreckage')
             ->get();
