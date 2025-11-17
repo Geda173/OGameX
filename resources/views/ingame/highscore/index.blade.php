@@ -67,7 +67,8 @@
                             </a>
 
                             <div id="subnav_fleet" class="fleft subnav">
-                                <a href="javascript:void(0);" rel="5" class="subnavButton subnavButton_built tooltip js_hideTipOnMobile" title="Military points built">
+                                {{-- Commented out as per requirements --}}
+                                {{-- <a href="javascript:void(0);" rel="5" class="subnavButton subnavButton_built tooltip js_hideTipOnMobile" title="Military points built">
                                     <span class="small-marker"></span>
                                 </a>
 
@@ -82,7 +83,7 @@
 
                                 <a href="javascript:void(0);" rel="7" class="subnavButton subnavButton_honor tooltip js_hideTipOnMobile" title="Honour points">
                                     <span class="small-marker"></span>
-                                </a>
+                                </a> --}}
                             </div>
                         </div>
 

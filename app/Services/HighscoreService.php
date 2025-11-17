@@ -258,7 +258,7 @@ class HighscoreService
 
             $highscores = Highscore::query()
                 ->whereHas('player.tech')
-                ->with('player')
+                ->with(['player', 'player.allianceMembership.alliance'])
                 ->validRanks()
                 ->orderBy($this->highscoreType->name.'_rank')
                 ->paginate(perPage: $perPage, page: $pageOn);
@@ -274,13 +274,23 @@ class HighscoreService
                 $score = $playerScore->{$this->highscoreType->name} ?? 0;
                 $score_formatted = AppUtil::formatNumber($score);
 
+                // Get alliance information if player is in an alliance
+                $allianceTag = null;
+                $allianceId = null;
+                if ($playerScore->player->allianceMembership && $playerScore->player->allianceMembership->alliance) {
+                    $allianceTag = $playerScore->player->allianceMembership->alliance->tag;
+                    $allianceId = $playerScore->player->allianceMembership->alliance->id;
+                }
+
                 $parsedHighscores[] = [
                     'id' => $playerScore->player_id,
                     'name' => $playerScore->player->username,
                     'points' => $score,
                     'points_formatted' => $score_formatted,
                     'planet_coords' => $mainPlanet->getPlanetCoordinates(),
-                    'rank' => $playerScore->{$this->highscoreType->name.'_rank'}
+                    'rank' => $playerScore->{$this->highscoreType->name.'_rank'},
+                    'alliance_tag' => $allianceTag,
+                    'alliance_id' => $allianceId,
                 ];
             }
             return $parsedHighscores;
