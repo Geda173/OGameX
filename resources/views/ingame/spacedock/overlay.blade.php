@@ -278,12 +278,32 @@ $(document).ready(function() {
     updateCountdowns();
     countdownInterval = setInterval(updateCountdowns, 1000);
 
+    // Unbind old event handlers to prevent duplicates when overlay reloads
+    $(document).off('click', '.btn-start-all-repairs');
+    $(document).off('click', '.btn-cancel-repair');
+    $(document).off('click', '.btn-claim-repair');
+    $(document).off('click', '.btn-dismiss-wreckage');
+
     // Start all repairs button - batch ALL wreckage into one repair
     $(document).on('click', '.btn-start-all-repairs', function(e) {
         e.preventDefault();
         e.stopPropagation();
 
+        var $btn = $(this);
+
+        // Prevent multiple clicks - disable button immediately
+        if ($btn.prop('disabled')) {
+            console.log('Button already processing, ignoring click');
+            return;
+        }
+
         console.log('Start repairs button clicked');
+
+        // Disable button and show processing state
+        $btn.prop('disabled', true);
+        var originalText = $btn.text();
+        $btn.text('@lang("Processing...")');
+        $btn.css('opacity', '0.5');
 
         // Collect all wreckage data and batch by ship type
         var wreckageByShip = {};
@@ -312,6 +332,10 @@ $(document).ready(function() {
 
         if (Object.keys(wreckageByShip).length === 0) {
             console.log('No wreckage to repair');
+            // Re-enable button
+            $btn.prop('disabled', false);
+            $btn.text(originalText);
+            $btn.css('opacity', '1');
             return;
         }
 
@@ -334,19 +358,40 @@ $(document).ready(function() {
                 } else {
                     console.log('Batch repair failed:', response.error);
                     alert(response.error || 'Error starting batch repair');
+                    // Re-enable button on error
+                    $btn.prop('disabled', false);
+                    $btn.text(originalText);
+                    $btn.css('opacity', '1');
                 }
             },
             error: function(xhr) {
                 console.log('AJAX error:', xhr.status, xhr.responseText);
                 var errorMsg = xhr.responseJSON?.error || 'Unknown error';
                 alert('Error starting repairs: ' + errorMsg);
+                // Re-enable button on error
+                $btn.prop('disabled', false);
+                $btn.text(originalText);
+                $btn.css('opacity', '1');
             }
         });
     });
 
     // Cancel repair
     $(document).on('click', '.btn-cancel-repair', function() {
-        var repairId = $(this).data('repair-id');
+        var $btn = $(this);
+        var repairId = $btn.data('repair-id');
+
+        // Prevent multiple clicks
+        if ($btn.prop('disabled')) {
+            console.log('Cancel button already processing, ignoring click');
+            return;
+        }
+
+        // Disable button immediately
+        $btn.prop('disabled', true);
+        var originalText = $btn.text();
+        $btn.text('@lang("Canceling...")');
+        $btn.css('opacity', '0.5');
 
         $.ajax({
             url: '{{ route('spacedock.cancelrepair') }}',
@@ -360,10 +405,18 @@ $(document).ready(function() {
                     reloadOverlay();
                 } else {
                     alert(response.message || 'Error canceling repair');
+                    // Re-enable button on error
+                    $btn.prop('disabled', false);
+                    $btn.text(originalText);
+                    $btn.css('opacity', '1');
                 }
             },
             error: function(xhr) {
-                alert('Error: ' + (xhr.responseJSON?.message || 'Unknown error'));
+                alert('Error: ' + (xhr.responseJSON?.error || 'Unknown error'));
+                // Re-enable button on error
+                $btn.prop('disabled', false);
+                $btn.text(originalText);
+                $btn.css('opacity', '1');
             }
         });
     });

@@ -357,79 +357,98 @@ class SpaceDockService
             throw new Exception('Space Dock is not built on this planet.');
         }
 
-        // Process each ship type
-        foreach ($wreckageByShip as $shipMachineName => $data) {
-            $totalAmount = $data['total_amount'];
-            $battleReports = $data['battle_reports'];
+        // Wrap entire operation in a database transaction to prevent race conditions
+        \DB::transaction(function () use ($planet, $wreckageByShip, $battleReportIds) {
+            // Process each ship type
+            foreach ($wreckageByShip as $shipMachineName => $data) {
+                $this->processBatchRepairForShipType($planet, $shipMachineName, $data, $battleReportIds);
+            }
+        });
+    }
 
-            // Get ship object
-            $shipObject = ObjectService::getUnitObjectByMachineName($shipMachineName);
-            if (!$shipObject || $shipObject->type !== GameObjectType::Ship) {
-                continue; // Skip invalid ship types
+    /**
+     * Process batch repair for a single ship type (internal method called from transaction).
+     *
+     * @param PlanetService $planet
+     * @param string $shipMachineName
+     * @param array $data
+     * @param array $battleReportIds
+     * @throws Exception
+     */
+    private function processBatchRepairForShipType(PlanetService $planet, string $shipMachineName, array $data, array $battleReportIds): void
+    {
+        $totalAmount = $data['total_amount'];
+        $battleReports = $data['battle_reports'];
+
+        // Get ship object
+        $shipObject = ObjectService::getUnitObjectByMachineName($shipMachineName);
+        if (!$shipObject || $shipObject->type !== GameObjectType::Ship) {
+            return; // Skip invalid ship types
+        }
+
+        // Check if there's already a repair for this ship type in progress
+        // Use lockForUpdate to prevent race conditions when multiple simultaneous requests
+        // try to create/extend the same repair
+        $existingRepair = RepairQueue::where([
+            ['planet_id', $planet->getPlanetId()],
+            ['ship_object_id', $shipObject->id],
+            ['canceled', 0],
+            ['claimed', 0], // Not fully claimed
+        ])->lockForUpdate()->first();
+
+        // Track consumed wreckage from all involved battle reports
+        foreach ($battleReports as $battleData) {
+            $battleReport = BattleReport::find($battleData['battle_report_id']);
+            if (!$battleReport) {
+                continue;
             }
 
-            // Check if there's already a repair for this ship type in progress
-            $existingRepair = RepairQueue::where([
-                ['planet_id', $planet->getPlanetId()],
-                ['ship_object_id', $shipObject->id],
-                ['canceled', 0],
-                ['claimed', 0], // Not fully claimed
-            ])->first();
+            // Add to consumed wreckage (wreckage field now stores raw losses, never changes)
+            $consumed = $battleReport->wreckage_consumed ?? [];
+            $consumed[$shipMachineName] = ($consumed[$shipMachineName] ?? 0) + $battleData['amount'];
 
-            // Track consumed wreckage from all involved battle reports
-            foreach ($battleReports as $battleData) {
-                $battleReport = BattleReport::find($battleData['battle_report_id']);
-                if (!$battleReport) {
-                    continue;
-                }
+            // Use raw DB update to ensure the JSON is saved correctly
+            // Laravel's Eloquent can have issues with JSON dirty detection
+            \DB::table('battle_reports')
+                ->where('id', $battleReport->id)
+                ->update([
+                    'wreckage_consumed' => json_encode($consumed),
+                    'updated_at' => now(),
+                ]);
+        }
 
-                // Add to consumed wreckage (wreckage field now stores raw losses, never changes)
-                $consumed = $battleReport->wreckage_consumed ?? [];
-                $consumed[$shipMachineName] = ($consumed[$shipMachineName] ?? 0) + $battleData['amount'];
+        if ($existingRepair) {
+            // Extend existing repair by adding new ships
+            $currentTime = Carbon::now()->timestamp;
 
-                // Use raw DB update to ensure the JSON is saved correctly
-                // Laravel's Eloquent can have issues with JSON dirty detection
-                \DB::table('battle_reports')
-                    ->where('id', $battleReport->id)
-                    ->update([
-                        'wreckage_consumed' => json_encode($consumed),
-                        'updated_at' => now(),
-                    ]);
-            }
+            // Calculate repair time for the new ships being added
+            $additionalRepairTime = $this->calculateRepairTime($planet, $shipMachineName, $totalAmount);
 
-            if ($existingRepair) {
-                // Extend existing repair by adding new ships
-                $currentTime = Carbon::now()->timestamp;
+            // Extend the repair: add ships and extend timeline
+            $existingRepair->ship_amount += $totalAmount;
+            $existingRepair->time_duration += $additionalRepairTime;
+            $existingRepair->time_end += $additionalRepairTime;
 
-                // Calculate repair time for the new ships being added
-                $additionalRepairTime = $this->calculateRepairTime($planet, $shipMachineName, $totalAmount);
+            $existingRepair->save();
+        } else {
+            // Create new repair queue entry for this ship type
+            $repairTime = $this->calculateRepairTime($planet, $shipMachineName, $totalAmount);
 
-                // Extend the repair: add ships and extend timeline
-                $existingRepair->ship_amount += $totalAmount;
-                $existingRepair->time_duration += $additionalRepairTime;
-                $existingRepair->time_end += $additionalRepairTime;
-
-                $existingRepair->save();
-            } else {
-                // Create new repair queue entry for this ship type
-                $repairTime = $this->calculateRepairTime($planet, $shipMachineName, $totalAmount);
-
-                $repairQueue = new RepairQueue();
-                $repairQueue->planet_id = $planet->getPlanetId();
-                $repairQueue->battle_report_id = $battleReportIds[0]; // Use first battle report ID for reference
-                $repairQueue->ship_object_id = $shipObject->id;
-                $repairQueue->ship_amount = $totalAmount;
-                $repairQueue->ship_amount_claimed = 0;
-                $repairQueue->metal_cost = 0;
-                $repairQueue->crystal_cost = 0;
-                $repairQueue->deuterium_cost = 0;
-                $repairQueue->time_duration = $repairTime;
-                $repairQueue->time_start = Carbon::now()->timestamp;
-                $repairQueue->time_end = $repairQueue->time_start + $repairTime;
-                $repairQueue->processed = 0;
-                $repairQueue->canceled = 0;
-                $repairQueue->save();
-            }
+            $repairQueue = new RepairQueue();
+            $repairQueue->planet_id = $planet->getPlanetId();
+            $repairQueue->battle_report_id = $battleReportIds[0]; // Use first battle report ID for reference
+            $repairQueue->ship_object_id = $shipObject->id;
+            $repairQueue->ship_amount = $totalAmount;
+            $repairQueue->ship_amount_claimed = 0;
+            $repairQueue->metal_cost = 0;
+            $repairQueue->crystal_cost = 0;
+            $repairQueue->deuterium_cost = 0;
+            $repairQueue->time_duration = $repairTime;
+            $repairQueue->time_start = Carbon::now()->timestamp;
+            $repairQueue->time_end = $repairQueue->time_start + $repairTime;
+            $repairQueue->processed = 0;
+            $repairQueue->canceled = 0;
+            $repairQueue->save();
         }
     }
 
