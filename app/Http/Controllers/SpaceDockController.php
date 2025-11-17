@@ -64,6 +64,8 @@ class SpaceDockController extends OGameController
             // Get consumed amounts (ships already taken for repairs)
             $consumed = $report->wreckage_consumed ?? [];
 
+            $tempShips = []; // Temporary array to collect ships for this battle
+
             foreach ($recoverableWreckage as $machineName => $recoverableAmount) {
                 if ($recoverableAmount <= 0) {
                     continue;
@@ -81,15 +83,7 @@ class SpaceDockController extends OGameController
                         continue;
                     }
 
-                    if (!isset($wreckageData[$report->id])) {
-                        $wreckageData[$report->id] = [
-                            'battle_report_id' => $report->id,
-                            'created_at' => $report->created_at,
-                            'ships' => [],
-                        ];
-                    }
-
-                    $wreckageData[$report->id]['ships'][] = [
+                    $tempShips[] = [
                         'machine_name' => $machineName,
                         'name' => $shipObject->title,
                         'amount' => $availableAmount,
@@ -98,6 +92,15 @@ class SpaceDockController extends OGameController
                     // Skip invalid ship types
                     continue;
                 }
+            }
+
+            // Only add this battle report if it has available ships
+            if (!empty($tempShips)) {
+                $wreckageData[$report->id] = [
+                    'battle_report_id' => $report->id,
+                    'created_at' => $report->created_at,
+                    'ships' => $tempShips,
+                ];
             }
         }
 
