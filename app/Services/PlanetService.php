@@ -174,7 +174,8 @@ class PlanetService
     }
 
     /**
-     * Abandon (delete) the current planet. Careful: this action is irreversible!
+     * Abandon (mark as destroyed) the current planet. The planet will be unusable for 24-48 hours.
+     * Moons are permanently deleted instead of being marked as destroyed.
      *
      * @return void
      */
@@ -218,10 +219,22 @@ class PlanetService
             $this->getPlayer()->setCurrentPlanetId(0);
         }
 
-        // TODO: add feature test to check that abandoning a planet works correctly in various scenarios.
+        // Moons are permanently deleted, planets are marked as destroyed
+        if ($this->isMoon()) {
+            // Delete the moon from the database permanently
+            $this->planet->delete();
+        } else {
+            // Mark the planet as destroyed instead of deleting it
+            // Set destroyed flag to 1 and record the destruction timestamp
+            // Destruction time is random between 24-48 hours (86400-172800 seconds)
+            $destructionDuration = rand(86400, 172800);
+            $this->planet->destroyed = 1;
+            $this->planet->destroyed_at = Carbon::now()->timestamp + $destructionDuration;
+            $this->planet->user_id = 0; // Remove ownership
+            $this->save();
+        }
 
-        // Delete the planet from the database
-        $this->planet->delete();
+        // TODO: add feature test to check that abandoning a planet works correctly in various scenarios.
     }
 
     /**
@@ -316,6 +329,50 @@ class PlanetService
     public function isPlanet(): bool
     {
         return $this->getPlanetType() === PlanetType::Planet;
+    }
+
+    /**
+     * Returns true if the current planet is destroyed/abandoned.
+     *
+     * @return bool
+     */
+    public function isDestroyed(): bool
+    {
+        return $this->planet->destroyed == 1;
+    }
+
+    /**
+     * Returns true if the destroyed planet is ready for recolonization.
+     * This checks if the destruction timer has expired.
+     *
+     * @return bool
+     */
+    public function canBeRecolonized(): bool
+    {
+        if (!$this->isDestroyed()) {
+            return false;
+        }
+
+        // If destroyed_at is null or in the past, the planet can be recolonized
+        if ($this->planet->destroyed_at === null || $this->planet->destroyed_at <= Carbon::now()->timestamp) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Get the timestamp when the destroyed planet can be recolonized.
+     *
+     * @return int|null
+     */
+    public function getDestroyedUntil(): int|null
+    {
+        if (!$this->isDestroyed()) {
+            return null;
+        }
+
+        return $this->planet->destroyed_at;
     }
 
     /**

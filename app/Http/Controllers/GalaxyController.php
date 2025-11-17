@@ -156,19 +156,26 @@ class GalaxyController extends OGameController
      */
     private function createPlanetsArray(PlanetService $planet, array $availableMissions): array
     {
-        $planets_array = [
-            [
-                'activity' => $this->getPlanetActivityStatus($planet),
-                'availableMissions' => $availableMissions,
-                'fleet' => [],
-                'imageInformation' => $planet->getPlanetBiomeType() . '_' . $planet->getPlanetImageType(),
-                'isDestroyed' => false,
-                'planetId' => $planet->getPlanetId(),
-                'planetName' => $planet->getPlanetName(),
-                'playerId' => $planet->getPlayer()?->getId(),
-                'planetType' => 1,
-            ]
+        $isDestroyed = $planet->isDestroyed();
+        $planetData = [
+            'activity' => $isDestroyed ? [] : $this->getPlanetActivityStatus($planet),
+            'availableMissions' => $availableMissions,
+            'fleet' => [],
+            'imageInformation' => $planet->getPlanetBiomeType() . '_' . $planet->getPlanetImageType(),
+            'isDestroyed' => $isDestroyed,
+            'planetId' => $planet->getPlanetId(),
+            'planetName' => $isDestroyed ? __('Destroyed Planet') : $planet->getPlanetName(),
+            'playerId' => $isDestroyed ? null : $planet->getPlayer()?->getId(),
+            'planetType' => 1,
         ];
+
+        // Add destruction timer info if planet is destroyed
+        if ($isDestroyed) {
+            $planetData['destroyedUntil'] = $planet->getDestroyedUntil();
+            $planetData['canBeRecolonized'] = $planet->canBeRecolonized();
+        }
+
+        $planets_array = [$planetData];
 
         $debrisField = app(DebrisFieldService::class);
         $debrisFieldExists = $debrisField->loadForCoordinates($planet->getPlanetCoordinates());
@@ -176,7 +183,7 @@ class GalaxyController extends OGameController
             $planets_array[] = $this->createDebrisFieldArray($debrisField);
         }
 
-        if ($planet->hasMoon()) {
+        if (!$isDestroyed && $planet->hasMoon()) {
             $planets_array[] = $this->createMoonArray($planet->moon());
         }
 

@@ -372,6 +372,94 @@ class PlanetServiceFactory
     }
 
     /**
+     * Resets a destroyed planet for recolonization by a new player.
+     * Resources on the planet are retained (as per OGame wiki).
+     *
+     * @param PlanetService $destroyedPlanet The destroyed planet to reset.
+     * @param PlayerService $newPlayer The player colonizing the planet.
+     * @return PlanetService The reset planet.
+     */
+    public function resetPlanetForRecolonization(PlanetService $destroyedPlanet, PlayerService $newPlayer): PlanetService
+    {
+        // Get the planet model from the database using the planet ID
+        $planetModel = Planet::where('id', $destroyedPlanet->getPlanetId())->first();
+
+        // Reset destroyed status
+        $planetModel->destroyed = 0;
+        $planetModel->destroyed_at = null;
+
+        // Assign to new player
+        $planetModel->user_id = $newPlayer->getId();
+        $planetModel->name = 'Colony';
+
+        // Clear all buildings, ships, and defenses
+        // Buildings
+        $planetModel->metal_mine = 0;
+        $planetModel->crystal_mine = 0;
+        $planetModel->deuterium_synthesizer = 0;
+        $planetModel->solar_plant = 0;
+        $planetModel->fusion_plant = 0;
+        $planetModel->robot_factory = 0;
+        $planetModel->nano_factory = 0;
+        $planetModel->shipyard = 0;
+        $planetModel->metal_store = 0;
+        $planetModel->crystal_store = 0;
+        $planetModel->deuterium_store = 0;
+        $planetModel->research_lab = 0;
+        $planetModel->terraformer = 0;
+        $planetModel->alliance_depot = 0;
+        $planetModel->missile_silo = 0;
+        $planetModel->space_dock = 0;
+
+        // Ships
+        $planetModel->light_fighter = 0;
+        $planetModel->heavy_fighter = 0;
+        $planetModel->cruiser = 0;
+        $planetModel->battle_ship = 0;
+        $planetModel->battlecruiser = 0;
+        $planetModel->bomber = 0;
+        $planetModel->destroyer = 0;
+        $planetModel->deathstar = 0;
+        $planetModel->small_cargo = 0;
+        $planetModel->large_cargo = 0;
+        $planetModel->colony_ship = 0;
+        $planetModel->recycler = 0;
+        $planetModel->espionage_probe = 0;
+        $planetModel->solar_satellite = 0;
+
+        // Defense
+        $planetModel->rocket_launcher = 0;
+        $planetModel->light_laser = 0;
+        $planetModel->heavy_laser = 0;
+        $planetModel->gauss_cannon = 0;
+        $planetModel->ion_cannon = 0;
+        $planetModel->plasma_turret = 0;
+        $planetModel->small_shield_dome = 0;
+        $planetModel->large_shield_dome = 0;
+        $planetModel->anti_ballistic_missile = 0;
+        $planetModel->interplanetary_missile = 0;
+
+        // Resources are retained (as per OGame wiki)
+        // Keep metal, crystal, deuterium values as they are
+
+        // Reset production percentages
+        $planetModel->metal_mine_percent = 10;
+        $planetModel->crystal_mine_percent = 10;
+        $planetModel->deuterium_synthesizer_percent = 10;
+        $planetModel->solar_plant_percent = 10;
+        $planetModel->fusion_plant_percent = 10;
+        $planetModel->solar_satellite_percent = 10;
+
+        // Update timestamp
+        $planetModel->time_last_update = (int)Carbon::now()->timestamp;
+
+        $planetModel->save();
+
+        // Clear cache and return fresh planet service
+        return $this->makeForPlayer($newPlayer, $planetModel->id, false);
+    }
+
+    /**
      * Creates a new planet/moon for a player at the given coordinate.
      * @param PlayerService $player
      * @param Coordinate $new_position

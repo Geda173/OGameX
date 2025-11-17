@@ -30,10 +30,16 @@ class ColonisationMission extends GameMission
             return new MissionPossibleStatus(false);
         }
 
-        // If target planet already exists, the mission is not possible.
+        // If target planet already exists, check if it's destroyed and can be recolonized.
         $targetPlanet = $this->planetServiceFactory->makeForCoordinate($targetCoordinate, true, $targetType);
         if ($targetPlanet !== null) {
-            return new MissionPossibleStatus(false);
+            // If planet is destroyed and can be recolonized, allow colonization
+            if ($targetPlanet->isDestroyed() && $targetPlanet->canBeRecolonized()) {
+                // Colonization is possible, planet will be reset during processArrival
+            } else {
+                // Planet exists and is not ready for colonization
+                return new MissionPossibleStatus(false);
+            }
         }
 
         // Only possible for slots 1-15.
@@ -66,18 +72,23 @@ class ColonisationMission extends GameMission
      */
     protected function processArrival(FleetMission $mission): void
     {
-        // Sanity check: make sure the target coordinates are valid and the planet is (still) empty.
+        // Sanity check: make sure the target coordinates are valid and the planet is (still) empty or destroyed.
         $target_coordinates = new Coordinate($mission->galaxy_to, $mission->system_to, $mission->position_to);
         $target_planet = $this->planetServiceFactory->makeForCoordinate($target_coordinates);
 
         // Load the mission owner user
         $player = $this->playerServiceFactory->make($mission->user_id, true);
 
+        // Check if target planet exists and is not ready for colonization
         if ($target_planet != null) {
-            // TODO: add unittest for this behavior.
-            // Cancel the current mission.
-            $this->cancel($mission);
-            return;
+            // If the planet is destroyed and can be recolonized, proceed with colonization
+            if (!($target_planet->isDestroyed() && $target_planet->canBeRecolonized())) {
+                // Planet exists and is not ready for colonization
+                // TODO: add unittest for this behavior.
+                // Cancel the current mission.
+                $this->cancel($mission);
+                return;
+            }
         }
 
         // Sanity check: colonisation mission without a colony ship is not possible.
@@ -110,8 +121,14 @@ class ColonisationMission extends GameMission
             return;
         }
 
-        // Create a new planet at the target coordinates.
-        $target_planet = $this->planetServiceFactory->createAdditionalPlanetForPlayer($player, new Coordinate($mission->galaxy_to, $mission->system_to, $mission->position_to));
+        // If planet is destroyed, reset it for the new owner
+        if ($target_planet !== null && $target_planet->isDestroyed()) {
+            // Reset the destroyed planet for recolonization
+            $target_planet = $this->planetServiceFactory->resetPlanetForRecolonization($target_planet, $player);
+        } else {
+            // Create a new planet at the target coordinates.
+            $target_planet = $this->planetServiceFactory->createAdditionalPlanetForPlayer($player, new Coordinate($mission->galaxy_to, $mission->system_to, $mission->position_to));
+        }
 
         // Send success message
         $this->messageService->sendSystemMessageToPlayer($player, ColonyEstablished::class, [
