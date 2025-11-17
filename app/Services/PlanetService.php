@@ -41,10 +41,11 @@ class PlanetService
 
     /**
      * The player object who owns this planet.
+     * Null for destroyed/abandoned planets.
      *
-     * @var PlayerService
+     * @var PlayerService|null
      */
-    private PlayerService $player;
+    private PlayerService|null $player;
 
     /**
      * @var SettingsService $settingsService
@@ -77,8 +78,14 @@ class PlanetService
 
         if ($player === null) {
             // If no player has been provided, we load it ourselves here.
-            $playerService = $playerServiceFactory->make($this->planet->user_id);
-            $this->player = $playerService;
+            // However, destroyed planets have null user_id and no owner.
+            if ($this->planet->user_id !== null) {
+                $playerService = $playerServiceFactory->make($this->planet->user_id);
+                $this->player = $playerService;
+            } else {
+                // Destroyed planet with no owner
+                $this->player = null;
+            }
         } else {
             $this->player = $player;
         }
@@ -230,7 +237,7 @@ class PlanetService
             $destructionDuration = rand(86400, 172800);
             $this->planet->destroyed = 1;
             $this->planet->destroyed_at = Carbon::now()->timestamp + $destructionDuration;
-            $this->planet->user_id = 0; // Remove ownership
+            $this->planet->user_id = null; // Remove ownership (NULL instead of 0 for FK constraint)
             $this->save();
         }
 
