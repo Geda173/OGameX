@@ -104,7 +104,7 @@ Route::middleware(['auth', 'globalgame', 'locale'])->group(function () {
     Route::get('/fleet', [FleetController::class, 'index'])->name('fleet.index');
     Route::get('/fleet/movement', [FleetController::class, 'movement'])->name('fleet.movement');
 
-    Route::post('/ajax/fleet/dispatch/check-target', [FleetController::class, 'dispatchCheckTarget'])->name('fleet.dispatch.checktarget');
+    Route::match(['get', 'post'], '/ajax/fleet/dispatch/check-target', [FleetController::class, 'dispatchCheckTarget'])->name('fleet.dispatch.checktarget');
     Route::post('/ajax/fleet/dispatch/send-fleet', [FleetController::class, 'dispatchSendFleet'])->name('fleet.dispatch.sendfleet');
     Route::post('/ajax/fleet/dispatch/send-mini-fleet', [FleetController::class, 'dispatchSendMiniFleet'])->name('fleet.dispatch.sendminifleet');
     Route::post('/ajax/fleet/dispatch/recall-fleet', [FleetController::class, 'dispatchRecallFleet'])->name('fleet.dispatch.recallfleet');
