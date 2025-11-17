@@ -182,10 +182,14 @@ class NPCFleetGeneratorService
     }
 
     /**
-     * Generate a fleet of cargo ships (and for aliens, some combat ships) based on allocated value.
+     * Generate a fleet of cargo ships and combat ships based on allocated value.
      *
-     * Pirates: Fleet value spent entirely on cargo ships
-     * Aliens: Fleet value mostly on cargo, but can include some combat ships (bombers, battlecruisers)
+     * Pirates: Mostly cargo (85%), with occasional weak combat ships (15%)
+     * - Can spawn light_fighter (10%) or heavy_fighter (5%)
+     *
+     * Aliens: Balanced mix of cargo (45%) and strong combat ships (45%)
+     * - Can spawn battlecruiser (25%) or bomber (20%)
+     * - Can also spawn espionage_probe (10%)
      *
      * @param int $allocatedValue Total value to spend on ships
      * @param string $npcType 'pirate' or 'alien'
@@ -197,19 +201,22 @@ class NPCFleetGeneratorService
         $npcFleet = new UnitCollection();
 
         if ($npcType === 'pirate') {
-            // Pirates: Only cargo ships
+            // Pirates: Mostly cargo, with occasional light combat ships
             $possibleShips = [
-                'small_cargo' => 60,     // Common
-                'large_cargo' => 40,     // Less common
+                'small_cargo' => 50,     // Very common
+                'large_cargo' => 35,     // Common
+                'light_fighter' => 10,   // Uncommon - weak extra combat
+                'heavy_fighter' => 5,    // Rare - slightly stronger
             ];
         } else {
-            // Aliens: Mostly cargo, but can have some combat ships too
+            // Aliens: Balanced mix of cargo and combat ships
+            // Live OGame shows aliens frequently have additional combat ships
             $possibleShips = [
-                'small_cargo' => 50,     // Common
-                'large_cargo' => 35,     // Common
+                'small_cargo' => 25,     // Common
+                'large_cargo' => 20,     // Common
                 'espionage_probe' => 10, // Uncommon
-                'battlecruiser' => 3,    // Rare
-                'bomber' => 2,           // Rare
+                'battlecruiser' => 25,   // Common - aliens are advanced
+                'bomber' => 20,          // Common - aliens use bombers
             ];
         }
 
