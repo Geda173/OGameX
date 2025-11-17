@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property array<string, mixed>|null $debris
  * @property array<string, mixed>|null $repaired_defenses
  * @property array<string, mixed>|null $wreckage
+ * @property array<string, mixed>|null $wreckage_consumed
  * @property array<string, mixed>|null $acs_participants
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
@@ -58,6 +59,7 @@ class BattleReport extends Model
         'debris' => 'array',
         'repaired_defenses' => 'array',
         'wreckage' => 'array',
+        'wreckage_consumed' => 'array',
         'acs_participants' => 'array',
     ];
 

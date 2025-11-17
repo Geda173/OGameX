@@ -24,12 +24,16 @@ class SpaceDockService
     /**
      * Calculate wreckage from a battle based on Space Dock mechanics.
      *
-     * Returns an array of ship machine names and amounts that can be repaired,
+     * Now stores RAW defender ship losses (not filtered by Space Dock level).
+     * Recovery percentage is applied dynamically based on current Space Dock level
+     * when accessing wreckage, allowing retroactive benefits from building/upgrading.
+     *
+     * Returns an array of ship machine names and amounts (raw losses),
      * or an empty array if no wreckage is available (conditions not met).
      *
      * @param PlanetService $defenderPlanet
      * @param BattleResult $battleResult
-     * @return array<string, int> Array of ship machine_name => amount
+     * @return array<string, int> Array of ship machine_name => raw amount lost
      */
     public function calculateWreckage(PlanetService $defenderPlanet, BattleResult $battleResult): array
     {
@@ -48,21 +52,8 @@ class SpaceDockService
             return [];
         }
 
-        // Get debris field percentage from game settings
-        $debrisFieldPercentage = app(SettingsService::class)->debrisFieldFromShips();
-
-        // Get Space Dock level for the defender's planet (or moon if applicable)
-        $spaceDockLevel = $defenderPlanet->getObjectLevel('space_dock');
-
-        // Calculate recovery percentage based on Space Dock level and debris field settings
-        $recoveryPercentage = $this->calculateRecoveryPercentage($spaceDockLevel, $debrisFieldPercentage);
-
-        // If no space dock or 0% recovery, no wreckage available
-        if ($recoveryPercentage <= 0) {
-            return [];
-        }
-
-        // Calculate wreckage for each ship type
+        // Store RAW defender ship losses (100% of ships lost)
+        // Recovery percentage will be applied later based on current Space Dock level
         $wreckage = [];
 
         // Process defender's lost ships (only ships, not defenses)
@@ -74,13 +65,44 @@ class SpaceDockService
                 continue;
             }
 
-            $recoverableAmount = (int)floor($unit->amount * ($recoveryPercentage / 100));
-            if ($recoverableAmount > 0) {
-                $wreckage[$unit->unitObject->machine_name] = $recoverableAmount;
+            // Store full amount (raw losses)
+            if ($unit->amount > 0) {
+                $wreckage[$unit->unitObject->machine_name] = $unit->amount;
             }
         }
 
         return $wreckage;
+    }
+
+    /**
+     * Calculate recoverable wreckage from raw wreckage based on current Space Dock level.
+     * This applies the recovery percentage to raw defender losses.
+     *
+     * @param array<string, int> $rawWreckage Raw defender ship losses
+     * @param int $spaceDockLevel Current Space Dock level
+     * @param int $debrisFieldPercentage Debris field setting
+     * @return array<string, int> Recoverable amounts
+     */
+    public function calculateRecoverableFromRaw(array $rawWreckage, int $spaceDockLevel, int $debrisFieldPercentage): array
+    {
+        // Calculate recovery percentage based on current Space Dock level
+        $recoveryPercentage = $this->calculateRecoveryPercentage($spaceDockLevel, $debrisFieldPercentage);
+
+        // If no space dock or 0% recovery, nothing can be recovered
+        if ($recoveryPercentage <= 0) {
+            return [];
+        }
+
+        // Apply recovery percentage to raw wreckage
+        $recoverable = [];
+        foreach ($rawWreckage as $shipMachineName => $rawAmount) {
+            $recoverableAmount = (int)floor($rawAmount * ($recoveryPercentage / 100));
+            if ($recoverableAmount > 0) {
+                $recoverable[$shipMachineName] = $recoverableAmount;
+            }
+        }
+
+        return $recoverable;
     }
 
     /**
@@ -273,9 +295,30 @@ class SpaceDockService
             throw new Exception('Battle report not found.');
         }
 
-        // Verify wreckage is available for this ship type
-        if (empty($battleReport->wreckage[$shipMachineName]) || $battleReport->wreckage[$shipMachineName] < $amount) {
-            throw new Exception('Not enough wreckage available for repair.');
+        // Calculate available wreckage (recoverable - consumed)
+        $rawAmount = $battleReport->wreckage[$shipMachineName] ?? 0;
+        if ($rawAmount <= 0) {
+            throw new Exception('No wreckage available for this ship type.');
+        }
+
+        // Get current Space Dock level and debris field settings
+        $spaceDockLevel = $planet->getObjectLevel('space_dock');
+        $debrisFieldPercentage = app(SettingsService::class)->debrisFieldFromShips();
+
+        // Calculate recoverable amount
+        $rawWreckage = [$shipMachineName => $rawAmount];
+        $recoverableWreckage = $this->calculateRecoverableFromRaw($rawWreckage, $spaceDockLevel, $debrisFieldPercentage);
+        $recoverableAmount = $recoverableWreckage[$shipMachineName] ?? 0;
+
+        // Get consumed amount
+        $consumed = $battleReport->wreckage_consumed ?? [];
+        $consumedAmount = $consumed[$shipMachineName] ?? 0;
+
+        // Calculate available
+        $availableAmount = $recoverableAmount - $consumedAmount;
+
+        if ($availableAmount < $amount) {
+            throw new Exception('Not enough wreckage available for repair. Available: ' . $availableAmount);
         }
 
         // Verify wreckage is not too old (3 days)
@@ -310,21 +353,16 @@ class SpaceDockService
         // Calculate repair time
         $repairTime = $this->calculateRepairTime($planet, $shipMachineName, $amount);
 
-        // Deduct wreckage from battle report
-        $wreckage = $battleReport->wreckage;
-        $wreckage[$shipMachineName] -= $amount;
-
-        // If wreckage is now 0, remove the key entirely
-        if ($wreckage[$shipMachineName] <= 0) {
-            unset($wreckage[$shipMachineName]);
-        }
+        // Track consumed wreckage (wreckage field now stores raw losses, never changes)
+        $consumed = $battleReport->wreckage_consumed ?? [];
+        $consumed[$shipMachineName] = ($consumed[$shipMachineName] ?? 0) + $amount;
 
         // Important: Reassign the entire array to trigger Laravel's dirty detection
-        $battleReport->wreckage = $wreckage;
+        $battleReport->wreckage_consumed = $consumed;
 
         // Force Laravel to recognize the change for JSON columns
         $battleReport->syncOriginal();
-        $battleReport->wreckage = $wreckage;
+        $battleReport->wreckage_consumed = $consumed;
 
         $battleReport->save();
 
@@ -380,26 +418,21 @@ class SpaceDockService
                 ['claimed', 0], // Not fully claimed
             ])->first();
 
-            // Deduct wreckage from all involved battle reports
+            // Track consumed wreckage from all involved battle reports
             foreach ($battleReports as $battleData) {
                 $battleReport = BattleReport::find($battleData['battle_report_id']);
                 if (!$battleReport) {
                     continue;
                 }
 
-                $wreckage = $battleReport->wreckage ?? [];
-                if (isset($wreckage[$shipMachineName])) {
-                    $wreckage[$shipMachineName] -= $battleData['amount'];
+                // Add to consumed wreckage (wreckage field now stores raw losses, never changes)
+                $consumed = $battleReport->wreckage_consumed ?? [];
+                $consumed[$shipMachineName] = ($consumed[$shipMachineName] ?? 0) + $battleData['amount'];
 
-                    if ($wreckage[$shipMachineName] <= 0) {
-                        unset($wreckage[$shipMachineName]);
-                    }
-
-                    $battleReport->wreckage = $wreckage;
-                    $battleReport->syncOriginal();
-                    $battleReport->wreckage = $wreckage;
-                    $battleReport->save();
-                }
+                $battleReport->wreckage_consumed = $consumed;
+                $battleReport->syncOriginal();
+                $battleReport->wreckage_consumed = $consumed;
+                $battleReport->save();
             }
 
             if ($existingRepair) {
@@ -719,15 +752,21 @@ class SpaceDockService
             );
             $planet->addResources($refund);
 
-            // Restore unclaimed wreckage to battle report
+            // Restore unclaimed wreckage by subtracting from consumed
             $battleReport = BattleReport::find($repair->battle_report_id);
             if ($battleReport) {
                 $shipObject = ObjectService::getUnitObjectById($repair->ship_object_id);
-                $wreckage = $battleReport->wreckage ?? [];
-                $wreckage[$shipObject->machine_name] = ($wreckage[$shipObject->machine_name] ?? 0) + $unclaimedShips;
-                $battleReport->wreckage = $wreckage;
+                $consumed = $battleReport->wreckage_consumed ?? [];
+                $consumed[$shipObject->machine_name] = max(0, ($consumed[$shipObject->machine_name] ?? 0) - $unclaimedShips);
+
+                // Remove from consumed array if 0
+                if ($consumed[$shipObject->machine_name] <= 0) {
+                    unset($consumed[$shipObject->machine_name]);
+                }
+
+                $battleReport->wreckage_consumed = $consumed;
                 $battleReport->syncOriginal();
-                $battleReport->wreckage = $wreckage;
+                $battleReport->wreckage_consumed = $consumed;
                 $battleReport->save();
             }
         }

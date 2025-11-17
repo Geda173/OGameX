@@ -42,42 +42,41 @@ class SpaceDockController extends OGameController
         // Get ready for pickup repairs
         $readyForPickup = $spaceDockService->retrieveReadyForPickup($planet);
 
-        // Calculate wreckage amounts that are already in queue (in progress or ready for pickup)
-        $wreckageInQueue = [];
-        foreach (array_merge($repairQueue->toArray(), $readyForPickup->toArray()) as $repair) {
-            $battleId = $repair['battle_report_id'];
-            $shipObjectId = $repair['ship_object_id'];
-            $amount = $repair['ship_amount'];
+        // Get debris field percentage for recovery calculation
+        $debrisFieldPercentage = app(\OGame\Services\SettingsService::class)->debrisFieldFromShips();
 
-            if (!isset($wreckageInQueue[$battleId])) {
-                $wreckageInQueue[$battleId] = [];
-            }
-            if (!isset($wreckageInQueue[$battleId][$shipObjectId])) {
-                $wreckageInQueue[$battleId][$shipObjectId] = 0;
-            }
-            $wreckageInQueue[$battleId][$shipObjectId] += $amount;
-        }
-
-        // Prepare wreckage data for display (subtract amounts already in queue)
+        // Prepare wreckage data for display
+        // Now we calculate recoverable amounts based on CURRENT Space Dock level
         $wreckageData = [];
         foreach ($availableWreckage as $report) {
             if (empty($report->wreckage)) {
                 continue;
             }
 
-            foreach ($report->wreckage as $machineName => $amount) {
-                if ($amount <= 0) {
+            // Calculate recoverable amount based on CURRENT Space Dock level
+            $rawWreckage = $report->wreckage; // Now stores raw defender losses
+            $recoverableWreckage = $spaceDockService->calculateRecoverableFromRaw(
+                $rawWreckage,
+                $spaceDockLevel,
+                $debrisFieldPercentage
+            );
+
+            // Get consumed amounts (ships already taken for repairs)
+            $consumed = $report->wreckage_consumed ?? [];
+
+            foreach ($recoverableWreckage as $machineName => $recoverableAmount) {
+                if ($recoverableAmount <= 0) {
                     continue;
                 }
 
                 try {
                     $shipObject = ObjectService::getUnitObjectByMachineName($machineName);
 
-                    // Subtract amount already in queue for this battle/ship combination
-                    $amountInQueue = $wreckageInQueue[$report->id][$shipObject->id] ?? 0;
-                    $availableAmount = $amount - $amountInQueue;
+                    // Subtract consumed amount
+                    $consumedAmount = $consumed[$machineName] ?? 0;
+                    $availableAmount = $recoverableAmount - $consumedAmount;
 
-                    // Skip if no wreckage available after subtracting queue
+                    // Skip if no wreckage available after subtracting consumed
                     if ($availableAmount <= 0) {
                         continue;
                     }
