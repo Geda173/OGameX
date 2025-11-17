@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Console\Command;
 use OGame\Models\User;
 use OGame\Services\ExpeditionStatisticsService;
+use OGame\Services\ObjectService;
 
 class ExpeditionStatistics extends Command
 {
@@ -168,8 +169,16 @@ class ExpeditionStatistics extends Command
             $this->newLine();
             $this->line("<fg=cyan>═══ Ships Gained ═══</>");
             $shipRows = [];
-            foreach ($stats['ships_gained'] as $shipType => $count) {
-                $shipRows[] = [ucwords(str_replace('_', ' ', $shipType)), number_format($count)];
+            foreach ($stats['ships_gained'] as $shipMachineName => $count) {
+                // Try to get the ship object to display the proper title
+                try {
+                    $shipObject = ObjectService::getUnitObjectByMachineName($shipMachineName);
+                    $shipName = $shipObject->title;
+                } catch (\Exception $e) {
+                    // Fallback to formatted machine name if object not found
+                    $shipName = ucwords(str_replace('_', ' ', $shipMachineName));
+                }
+                $shipRows[] = [$shipName, number_format($count)];
             }
             $this->table(['Ship Type', 'Count'], $shipRows);
         }

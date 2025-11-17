@@ -293,17 +293,38 @@ class ExpeditionStatisticsService
                         }
                     }
                 } else {
-                    // Fallback to old format: direct key-value pairs
+                    // Process params to convert unit_X to ship names
                     foreach ($params as $key => $value) {
                         // Skip non-ship parameters
                         if (in_array($key, ['metal', 'crystal', 'deuterium', 'dark_matter', 'subject', 'variation', 'message_variation_id'])) {
                             continue;
                         }
 
-                        if (!isset($ships[$key])) {
-                            $ships[$key] = 0;
+                        // Check if key is in format "unit_X" where X is the unit ID
+                        if (preg_match('/^unit_(\d+)$/', $key, $matches)) {
+                            $unitId = (int)$matches[1];
+                            try {
+                                $unitObject = ObjectService::getUnitObjectById($unitId);
+                                $shipMachineName = $unitObject->machine_name; // Use machine_name for internal tracking
+
+                                if (!isset($ships[$shipMachineName])) {
+                                    $ships[$shipMachineName] = 0;
+                                }
+                                $ships[$shipMachineName] += (int)$value;
+                            } catch (\Exception $e) {
+                                // Unit not found, use original key
+                                if (!isset($ships[$key])) {
+                                    $ships[$key] = 0;
+                                }
+                                $ships[$key] += (int)$value;
+                            }
+                        } else {
+                            // Direct ship name format
+                            if (!isset($ships[$key])) {
+                                $ships[$key] = 0;
+                            }
+                            $ships[$key] += (int)$value;
                         }
-                        $ships[$key] += (int)$value;
                     }
                 }
             }
