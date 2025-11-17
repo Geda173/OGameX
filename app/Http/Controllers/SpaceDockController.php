@@ -107,9 +107,15 @@ class SpaceDockController extends OGameController
         // Prepare repair queue data (includes partial completion info)
         $queueData = [];
         $shipTypesInRepair = []; // Track ship types currently being repaired
+        $battleReportsWithRepairs = []; // Track which battle reports have active repairs
         foreach ($repairQueue as $repair) {
             $shipObject = ObjectService::getUnitObjectById($repair->ship_object_id);
             $shipTypesInRepair[] = $shipObject->machine_name; // Add to list
+
+            // Track battle reports with active repairs (for dismiss button logic)
+            if (!in_array($repair->battle_report_id, $battleReportsWithRepairs)) {
+                $battleReportsWithRepairs[] = $repair->battle_report_id;
+            }
 
             // Calculate partial completion progress
             $completedShips = $spaceDockService->calculateCompletedShips($repair);
@@ -163,6 +169,7 @@ class SpaceDockController extends OGameController
             'total_repairable_ships' => $totalRepairableShips,
             'total_repair_time' => $totalRepairTime,
             'ship_types_in_repair' => $shipTypesInRepair,
+            'battle_reports_with_repairs' => $battleReportsWithRepairs,
         ]);
     }
 

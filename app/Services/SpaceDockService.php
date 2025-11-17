@@ -315,14 +315,14 @@ class SpaceDockService
         $consumed = $battleReport->wreckage_consumed ?? [];
         $consumed[$shipMachineName] = ($consumed[$shipMachineName] ?? 0) + $amount;
 
-        // Important: Reassign the entire array to trigger Laravel's dirty detection
-        $battleReport->wreckage_consumed = $consumed;
-
-        // Force Laravel to recognize the change for JSON columns
-        $battleReport->syncOriginal();
-        $battleReport->wreckage_consumed = $consumed;
-
-        $battleReport->save();
+        // Use raw DB update to ensure the JSON is saved correctly
+        // Laravel's Eloquent can have issues with JSON dirty detection
+        \DB::table('battle_reports')
+            ->where('id', $battleReport->id)
+            ->update([
+                'wreckage_consumed' => json_encode($consumed),
+                'updated_at' => now(),
+            ]);
 
         // Create repair queue entry
         $repairQueue = new RepairQueue();
@@ -387,10 +387,14 @@ class SpaceDockService
                 $consumed = $battleReport->wreckage_consumed ?? [];
                 $consumed[$shipMachineName] = ($consumed[$shipMachineName] ?? 0) + $battleData['amount'];
 
-                $battleReport->wreckage_consumed = $consumed;
-                $battleReport->syncOriginal();
-                $battleReport->wreckage_consumed = $consumed;
-                $battleReport->save();
+                // Use raw DB update to ensure the JSON is saved correctly
+                // Laravel's Eloquent can have issues with JSON dirty detection
+                \DB::table('battle_reports')
+                    ->where('id', $battleReport->id)
+                    ->update([
+                        'wreckage_consumed' => json_encode($consumed),
+                        'updated_at' => now(),
+                    ]);
             }
 
             if ($existingRepair) {
@@ -779,10 +783,13 @@ class SpaceDockService
                     unset($consumed[$shipObject->machine_name]);
                 }
 
-                $battleReport->wreckage_consumed = $consumed;
-                $battleReport->syncOriginal();
-                $battleReport->wreckage_consumed = $consumed;
-                $battleReport->save();
+                // Use raw DB update to ensure the JSON is saved correctly
+                \DB::table('battle_reports')
+                    ->where('id', $battleReport->id)
+                    ->update([
+                        'wreckage_consumed' => json_encode($consumed),
+                        'updated_at' => now(),
+                    ]);
             }
         }
 

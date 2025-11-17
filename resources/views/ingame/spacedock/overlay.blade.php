@@ -201,11 +201,17 @@
                                 </div>
                             </div>
                         @endforeach
-                        <button class="btn-dismiss-wreckage"
-                                data-battle-id="{{ $wreckage['battle_report_id'] }}"
-                                style="margin-top: 5px; padding: 6px 12px; background: #4a3a3a; color: #e74c3c; border: 1px solid #e74c3c; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: bold;">
-                            @lang('Dismiss All Wreckage from this Battle')
-                        </button>
+                        @if (!in_array($wreckage['battle_report_id'], $battle_reports_with_repairs))
+                            <button class="btn-dismiss-wreckage"
+                                    data-battle-id="{{ $wreckage['battle_report_id'] }}"
+                                    style="margin-top: 5px; padding: 6px 12px; background: #4a3a3a; color: #e74c3c; border: 1px solid #e74c3c; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: bold;">
+                                @lang('Dismiss All Wreckage from this Battle')
+                            </button>
+                        @else
+                            <div style="margin-top: 5px; padding: 6px 12px; color: #999; font-size: 11px; font-style: italic;">
+                                @lang('Cannot dismiss while repairs are in progress')
+                            </div>
+                        @endif
                     </div>
                 @endforeach
             </div>
