@@ -87,11 +87,15 @@
                  playername">
                     {{ $highscorePlayer['name'] }}
             </span>
-
+</a>
+                            @if($highscorePlayer['alliance_tag'])
+                                <a href="{{ route('alliance.show', $highscorePlayer['alliance_id']) }}" class="allianceTag tooltip" title="Alliance: {{ $highscorePlayer['alliance_tag'] }}" style="margin-left: 5px; color: #6f9fc8;">
+                                    [{{ $highscorePlayer['alliance_tag'] }}]
+                                </a>
+                            @endif
                             <span class="honorScore">
 (<span class="undermark tooltip js_hideTipOnMobile" title="Honour points">0</span>)
 </span>
-                        </a>
                     </td>
 
                     <td class="sendmsg">
