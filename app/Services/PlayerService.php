@@ -140,6 +140,16 @@ class PlayerService
     }
 
     /**
+     * Get the user model instance.
+     *
+     * @return User
+     */
+    public function getUser(): User
+    {
+        return $this->user;
+    }
+
+    /**
      * Saves current player object to DB.
      */
     public function save(): void
@@ -497,7 +507,11 @@ class PlayerService
         $object = ObjectService::getResearchObjectByMachineName('astrophysics');
         $expedition_slots_from_research = $object->performCalculation(CalculationType::MAX_EXPEDITION_SLOTS, $this->getResearchLevel('astrophysics'));
 
-        return $expedition_slots_from_research;
+        // Add bonus expedition slots from settings (for timed events)
+        $settingsService = app(SettingsService::class);
+        $bonus_slots = $settingsService->bonusExpeditionSlots();
+
+        return $expedition_slots_from_research + $bonus_slots;
     }
 
     /**
@@ -728,6 +742,57 @@ class PlayerService
     }
 
     /**
+     * Check if a planet position can be colonized based on astrophysics level.
+     *
+     * Certain positions require minimum astrophysics levels:
+     * - Positions 1 and 15 require level 8
+     * - Positions 2 and 14 require level 6
+     * - Positions 3 and 13 require level 4
+     * - Positions 4-12 have no special requirements
+     *
+     * @param int $position The planet position (1-15)
+     * @return bool True if the position can be colonized, false otherwise
+     */
+    public function canColonizePosition(int $position): bool
+    {
+        $astrophysicsLevel = $this->getResearchLevel('astrophysics');
+
+        // Check position-based requirements
+        if (($position === 1 || $position === 15) && $astrophysicsLevel < 8) {
+            return false;
+        }
+
+        if (($position === 2 || $position === 14) && $astrophysicsLevel < 6) {
+            return false;
+        }
+
+        if (($position === 3 || $position === 13) && $astrophysicsLevel < 4) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Get the missile range in systems based on Impulse Drive level.
+     * Formula: (Impulse Drive Level - 1) × 5 + 5 systems
+     *
+     * @return int
+     */
+    public function getMissileRange(): int
+    {
+        $impulseDriveLevel = $this->getResearchLevel('impulse_drive');
+
+        // If no Impulse Drive research, return 0
+        if ($impulseDriveLevel === 0) {
+            return 0;
+        }
+
+        // Calculate range: (level - 1) × 5 + 5
+        return ($impulseDriveLevel - 1) * 5 + 5;
+    }
+
+    /**
      * Delete the player and all associated records from the database.
      *
      * @return void
@@ -755,6 +820,10 @@ class PlayerService
 
         // Delete all messages.
         \OGame\Models\Message::where('user_id', $this->getId())->delete();
+
+        // Delete all battle reports where this player is the defender (planet owner).
+        // Note: We don't delete reports where they're the attacker to preserve history for defenders.
+        \OGame\Models\BattleReport::where('planet_user_id', $this->getId())->delete();
 
         // Delete tech record.
         $this->user_tech->delete();
@@ -819,5 +888,101 @@ class PlayerService
             && $this->hasEngineer()
             && $this->hasGeologist()
             && $this->hasTechnocrat();
+    }
+
+    /**
+     * Check if the player has any moon with a sensor phalanx.
+     *
+     * @return bool
+     */
+    public function hasMoonWithPhalanx(): bool
+    {
+        foreach ($this->planets->allMoons() as $moon) {
+            if ($moon->getObjectLevel('sensor_phalanx') > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Get the highest sensor phalanx level among all player's moons.
+     *
+     * @return int
+     */
+    public function getHighestPhalanxLevel(): int
+    {
+        $highestLevel = 0;
+        foreach ($this->planets->allMoons() as $moon) {
+            $level = $moon->getObjectLevel('sensor_phalanx');
+            if ($level > $highestLevel) {
+                $highestLevel = $level;
+            }
+        }
+        return $highestLevel;
+    }
+
+    /**
+     * Get the moon with the highest sensor phalanx level that can scan the target coordinates.
+     *
+     * @param int $targetGalaxy
+     * @param int $targetSystem
+     * @param int $targetPosition
+     * @return PlanetService|null
+     */
+    public function getMoonWithPhalanxInRange(int $targetGalaxy, int $targetSystem, int $targetPosition): ?PlanetService
+    {
+        $bestMoon = null;
+        $highestLevel = 0;
+
+        foreach ($this->planets->allMoons() as $moon) {
+            $phalanxLevel = $moon->getObjectLevel('sensor_phalanx');
+            if ($phalanxLevel > 0) {
+                // Calculate range
+                $moonCoords = $moon->getPlanetCoordinates();
+                $range = $this->calculatePhalanxRange($phalanxLevel);
+
+                // Check if target is in range (must be same galaxy)
+                if ($moonCoords->galaxy === $targetGalaxy) {
+                    $systemDistance = abs($moonCoords->system - $targetSystem);
+                    if ($systemDistance <= $range) {
+                        // Use the moon with highest phalanx level in range
+                        if ($phalanxLevel > $highestLevel) {
+                            $bestMoon = $moon;
+                            $highestLevel = $phalanxLevel;
+                        }
+                    }
+                }
+            }
+        }
+
+        return $bestMoon;
+    }
+
+    /**
+     * Calculate the range of a sensor phalanx based on its level.
+     * Formula: range = (level ^ 2) - 1
+     *
+     * @param int $level
+     * @return int
+     */
+    public function calculatePhalanxRange(int $level): int
+    {
+        return ($level * $level) - 1;
+    }
+
+    /**
+     * Calculate deuterium cost for a phalanx scan.
+     *
+     * @param int $fromGalaxy
+     * @param int $fromSystem
+     * @param int $toGalaxy
+     * @param int $toSystem
+     * @return int
+     */
+    public function calculatePhalanxCost(int $fromGalaxy, int $fromSystem, int $toGalaxy, int $toSystem): int
+    {
+        // Flat cost of 5000 deuterium per scan, regardless of distance
+        return 5000;
     }
 }

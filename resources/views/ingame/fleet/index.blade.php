@@ -224,6 +224,7 @@
             };
 
             var currentPlanet = {
+                "id": {{ $planet->getPlanetId() }},
                 "galaxy": {{ $planet->getPlanetCoordinates()->galaxy }},
                 "system": {{ $planet->getPlanetCoordinates()->system }},
                 "position": {{ $planet->getPlanetCoordinates()->position }},
@@ -255,7 +256,23 @@
                 "name": "{{ $planet->getPlanetName() }}"
             }];
             var standardFleets = [];
-            var unions = [];
+            var unions = @json($acsGroups ?? []);
+
+            // Debug: Log target coordinates and ACS query info
+            console.log('=== ACS Groups Debug ===');
+            console.log('Target coordinates from URL:', {
+                galaxy: {{ $galaxy ?? 'null' }},
+                system: {{ $system ?? 'null' }},
+                position: {{ $position ?? 'null' }},
+                type: {{ $type ?? 'null' }}
+            });
+            console.log('ACS groups loaded:', unions.length);
+            if (unions.length > 0) {
+                console.log('Available ACS groups:', unions);
+            } else {
+                console.log('No ACS groups found for this target');
+            }
+            console.log('======================');
 
             var mission = {{ $mission ?? 0}};
             var unionID = 0;
@@ -827,7 +844,7 @@ Civil ships only count 25%, solar satellites and espionage probes are not consid
 <br />
 Select the option *never* if you would like to deactivate the automatic retreat.<br />
 <br />
-Held fleets are in principle not able to retreat. Death Stars, Espionage Probes and Solar Satellites are also unable to retreat.<br />
+Held fleets are in principle not able to retreat. Deathstars, Espionage Probes and Solar Satellites are also unable to retreat.<br />
 <br />
 Use the Admiral to enable your fleets to retreat from forces three times bigger than your own.<br />
 <br />
@@ -840,7 +857,7 @@ Civil ships only count 25%, solar satellites and espionage probes are not consid
 <br />
 Select the option *never* if you would like to deactivate the automatic retreat.<br />
 <br />
-Held fleets are in principle not able to retreat. Death Stars, Espionage Probes and Solar Satellites are also unable to retreat.<br />
+Held fleets are in principle not able to retreat. Deathstars, Espionage Probes and Solar Satellites are also unable to retreat.<br />
 <br />
 Use the Admiral to enable your fleets to retreat from forces three times bigger than your own.<br />
 <br />
@@ -1165,61 +1182,61 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                             </div>
                             <ul id="missions">
                                 <li id="button15" class="off ipiHintable" data-ipi-hint="ipiFleetMission15">
-                                    <a id="missionButton15" href="" data-mission="15"
+                                    <a id="missionButton15" href="javascript:void(0);" data-mission="15"
                                        data-ipi-highlight-step="ipiFleetMission15">
                                         <span class="textlabel">@lang('Expedition')</span>
                                     </a>
                                 </li>
                                 <li id="button7" class="off ipiHintable" data-ipi-hint="ipiFleetMission7">
-                                    <a id="missionButton7" href="" data-mission="7"
+                                    <a id="missionButton7" href="javascript:void(0);" data-mission="7"
                                        data-ipi-highlight-step="ipiFleetMission7">
                                         <span class="textlabel">@lang('Colonisation')</span>
                                     </a>
                                 </li>
                                 <li id="button8" class="off ipiHintable" data-ipi-hint="ipiFleetMission8">
-                                    <a id="missionButton8" href="" data-mission="8"
+                                    <a id="missionButton8" href="javascript:void(0);" data-mission="8"
                                        data-ipi-highlight-step="ipiFleetMission8">
                                         <span class="textlabel">@lang('Recycle Debris Field')</span>
                                     </a>
                                 </li>
                                 <li id="button3" class="off ipiHintable" data-ipi-hint="ipiFleetMission3">
-                                    <a id="missionButton3" href="" data-mission="3"
+                                    <a id="missionButton3" href="javascript:void(0);" data-mission="3"
                                        data-ipi-highlight-step="ipiFleetMission3">
                                         <span class="textlabel">@lang('Transport')</span>
                                     </a>
                                 </li>
                                 <li id="button4" class="off ipiHintable" data-ipi-hint="ipiFleetMission4">
-                                    <a id="missionButton4" href="" data-mission="4"
+                                    <a id="missionButton4" href="javascript:void(0);" data-mission="4"
                                        data-ipi-highlight-step="ipiFleetMission4">
                                         <span class="textlabel">@lang('Deployment')</span>
                                     </a>
                                 </li>
                                 <li id="button6" class="off ipiHintable" data-ipi-hint="ipiFleetMission6">
-                                    <a id="missionButton6" href="" data-mission="6"
+                                    <a id="missionButton6" href="javascript:void(0);" data-mission="6"
                                        data-ipi-highlight-step="ipiFleetMission6">
                                         <span class="textlabel">@lang('Espionage')</span>
                                     </a>
                                 </li>
                                 <li id="button5" class="off ipiHintable" data-ipi-hint="ipiFleetMission5">
-                                    <a id="missionButton5" href="" data-mission="5"
+                                    <a id="missionButton5" href="javascript:void(0);" data-mission="5"
                                        data-ipi-highlight-step="ipiFleetMission5">
                                         <span class="textlabel">@lang('ACS Defend')</span>
                                     </a>
                                 </li>
                                 <li id="button1" class="off ipiHintable" data-ipi-hint="ipiFleetMission1">
-                                    <a id="missionButton1" href="" data-mission="1"
+                                    <a id="missionButton1" href="javascript:void(0);" data-mission="1"
                                        data-ipi-highlight-step="ipiFleetMission1">
                                         <span class="textlabel">@lang('Attack')</span>
                                     </a>
                                 </li>
                                 <li id="button2" class="off ipiHintable" data-ipi-hint="ipiFleetMission2">
-                                    <a id="missionButton2" href="" data-mission="2"
+                                    <a id="missionButton2" href="javascript:void(0);" data-mission="2"
                                        data-ipi-highlight-step="ipiFleetMission2">
                                         <span class="textlabel">@lang('ACS Attack')</span>
                                     </a>
                                 </li>
                                 <li id="button9" class="off ipiHintable" data-ipi-hint="ipiFleetMission9">
-                                    <a id="missionButton9" href="" data-mission="9"
+                                    <a id="missionButton9" href="javascript:void(0);" data-mission="9"
                                        data-ipi-highlight-step="ipiFleetMission9">
                                         <span class="textlabel">@lang('Moon Destruction')</span>
                                     </a>
@@ -1317,10 +1334,7 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                                                     <option value="8">8</option>
                                                     <option value="16">16</option>
                                                     <option value="32">32</option>
-                                                </select><span class="dropdown currentlySelected undefined"
-                                                               rel="dropdown284" style="width: 45px;"><a
-                                                            class="undefined" data-value="1" rel="dropdown284"
-                                                            href="javascript:void(0);">1</a></span>
+                                                </select>
                                             </li>
                                             <li id="expeditiontimeline">
                                                 @lang('Duration of expedition:')
@@ -1333,6 +1347,13 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                                                     <option value="6" >6</option>
                                                 </select>
                                                 <span class="value">h</span>
+                                            </li>
+                                            <li id="acsGroupSelection" style="display: none;">
+                                                @lang('ACS Group:')
+                                                <select name="union" id="acsGroupSelect" style="display: inline-block; width: auto; min-width: 200px; padding: 2px 5px; font-size: 11px;">
+                                                    <option value="0">@lang('Create new ACS group')</option>
+                                                </select>
+                                                <div id="acsGroupInfo" style="margin-top: 5px; font-size: 11px; color: #6f9fc8;"></div>
                                             </li>
                                             <li>
                                                 <input type="hidden" name="speed" id="speed" value="10">
@@ -1460,11 +1481,11 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                                 </div>
                                 <br class="clearfloat">
                                 <div id="naviActions">
-                                    <a id="sendFleet" class="start ipiHintable off" href=""
+                                    <a id="sendFleet" class="start ipiHintable off" href="javascript:void(0);"
                                        data-ipi-hint="ipiFleetSend">
                                         <span style="padding-top:9px;">@lang('Send fleet')</span>
                                     </a>
-                                    <a id="backToFleet1" class="back" href="">
+                                    <a id="backToFleet1" class="back" href="javascript:void(0);">
                                         <span style="font-size:12px; text-transform:uppercase;">@lang('Back')</span>
                                     </a>
                                     <br class="clearfloat">
@@ -1480,5 +1501,572 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
             </div>
         </div>
     </div>
+
+<script>
+    (function() {
+        'use strict';
+
+        console.log('ACS UI Script loaded');
+
+        // Populate ACS groups dropdown (dynamically fetches from server)
+        function populateACSGroups() {
+            const select = document.getElementById('acsGroupSelect');
+            if (!select) {
+                console.log('ACS select not found');
+                return;
+            }
+
+            // Get target coordinates from form inputs
+            const galaxy = document.getElementById('galaxy')?.value;
+            const system = document.getElementById('system')?.value;
+            const position = document.getElementById('position')?.value;
+            const type = document.getElementById('type')?.value || 1;
+
+            console.log('Fetching ACS groups for coordinates:', {galaxy, system, position, type});
+
+            if (!galaxy || !system || !position) {
+                console.log('Missing target coordinates - cannot load ACS groups');
+                select.innerHTML = '<option value="0">Select target coordinates first</option>';
+                return;
+            }
+
+            // Show loading state
+            select.innerHTML = '<option value="0">Loading ACS groups...</option>';
+
+            // Fetch ACS groups via AJAX
+            fetch('{{ route('fleet.acs.groups') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    galaxy: galaxy,
+                    system: system,
+                    position: position,
+                    type: type
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('ACS groups response:', data);
+
+                // Update global unions variable for other functions
+                unions = data.groups || [];
+
+                // Clear and repopulate options
+                select.innerHTML = '<option value="0">Create new ACS group</option>';
+
+                if (data.success && data.groups && data.groups.length > 0) {
+                    data.groups.forEach(function(group) {
+                        const option = document.createElement('option');
+                        option.value = group.id;
+                        option.textContent = group.name + ' (Arrival: ' + group.arrival_time_formatted + ', Fleets: ' + group.fleet_count + ')';
+                        select.appendChild(option);
+                    });
+                    console.log('✓ Added', data.groups.length, 'ACS groups to dropdown');
+                } else {
+                    console.log('No ACS groups available for this target');
+                }
+
+                console.log('Select now has', select.options.length, 'options');
+
+                // Always default to "Create new ACS group" (value 0)
+                select.value = '0';
+                console.log('Reset select value to 0 (Create new group)');
+
+                // Ensure select is visible (force it in case game CSS tries to hide it)
+                select.style.display = 'inline-block';
+                select.style.visibility = 'visible';
+                select.style.opacity = '1';
+                select.style.position = 'relative';
+                select.style.zIndex = '100';
+
+                // Check if a custom dropdown widget exists
+                const nextSibling = select.nextElementSibling;
+                console.log('Next sibling after select:', nextSibling);
+                if (nextSibling && nextSibling.classList && nextSibling.classList.contains('dropdown')) {
+                    console.log('⚠️ Custom dropdown widget found! Removing it...');
+                    nextSibling.remove();
+                }
+
+                // Log visibility for debugging
+                const computedStyle = window.getComputedStyle(select);
+                console.log('Select visibility:', {
+                    display: computedStyle.display,
+                    visibility: computedStyle.visibility,
+                    opacity: computedStyle.opacity,
+                    width: computedStyle.width,
+                    height: computedStyle.height
+                });
+
+                // Get the position on screen
+                const rect = select.getBoundingClientRect();
+                console.log('Select position on screen:', {
+                    top: rect.top,
+                    left: rect.left,
+                    width: rect.width,
+                    height: rect.height
+                });
+
+                // Scroll into view
+                select.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                // Initialize FleetDispatcher union to current selection (default 0)
+                if (typeof fleetDispatcher !== 'undefined') {
+                    fleetDispatcher.union = parseInt(select.value);
+                    console.log('Initialized fleetDispatcher.union to:', fleetDispatcher.union);
+                }
+
+                // Update the info text
+                updateACSGroupInfo();
+            })
+            .catch(error => {
+                console.error('Error fetching ACS groups:', error);
+                select.innerHTML = '<option value="0">Create new ACS group</option>';
+            });
+        }
+
+        // Show/hide ACS group selection based on mission type
+        function updateACSGroupVisibility() {
+            const missionInput = document.querySelector('input[name="mission"]');
+            const acsGroupSelection = document.getElementById('acsGroupSelection');
+
+            if (!missionInput || !acsGroupSelection) {
+                console.log('Mission input or ACS selection not found');
+                return;
+            }
+
+            const selectedMission = parseInt(missionInput.value);
+            console.log('Mission selected:', selectedMission);
+
+            if (selectedMission === 2) {
+                // Show ACS group selection for ACS Attack mission
+                console.log('Showing ACS group selection');
+                acsGroupSelection.style.display = '';
+                populateACSGroups();
+            } else {
+                // Hide for other missions
+                console.log('Hiding ACS group selection');
+                acsGroupSelection.style.display = 'none';
+            }
+        }
+
+        // Cache ships with specific key to prevent cross-contamination
+        // Key format: "planetId_acsGroupId"
+        window.acsShipCache = window.acsShipCache || {};
+
+        // Update ACS group info when selection changes
+        function updateACSGroupInfo() {
+            const select = document.getElementById('acsGroupSelect');
+            const info = document.getElementById('acsGroupInfo');
+
+            if (!select || !info) return;
+
+            const selectedValue = parseInt(select.value);
+
+            if (selectedValue === 0) {
+                info.innerHTML = '✓ You will create a new ACS group. Other players can join your attack.';
+                // Clear ALL cache when creating new group
+                window.acsShipCache = {};
+                window.lastACSMessage = null;
+            } else {
+                if (typeof unions !== 'undefined' && unions) {
+                    const group = unions.find(g => g.id === selectedValue);
+                    if (group) {
+                        // Create cache key: planetId_acsGroupId
+                        const cacheKey = currentPlanet.id + '_' + selectedValue;
+                        console.log('Cache key:', cacheKey);
+
+                        // Collect ships from the form OR use fleetDispatcher OR use cache
+                        let ships = {};
+
+                        // Try to use cached ships first (for speed changes on page 3)
+                        if (window.acsShipCache[cacheKey] && Object.keys(window.acsShipCache[cacheKey]).length > 0) {
+                            console.log('Using cached ships for key:', cacheKey);
+                            ships = window.acsShipCache[cacheKey];
+                        } else {
+
+                        // Debug: Log what properties fleetDispatcher actually has
+                        if (typeof fleetDispatcher !== 'undefined') {
+                            console.log('🔍 Debugging FleetDispatcher object:');
+                            console.log('  shipsToSend:', fleetDispatcher.shipsToSend);
+                            if (fleetDispatcher.shipsToSend && fleetDispatcher.shipsToSend.length > 0) {
+                                console.log('  shipsToSend[0]:', fleetDispatcher.shipsToSend[0]);
+                                console.log('  shipsToSend[0] keys:', Object.keys(fleetDispatcher.shipsToSend[0]));
+                            }
+                        }
+
+                        // Try to get ships from FleetDispatcher - handle array properly
+                        if (typeof fleetDispatcher !== 'undefined' && fleetDispatcher.shipsToSend) {
+                            console.log('Extracting ships from shipsToSend array...');
+
+                            // shipsToSend is an array of ship objects
+                            if (Array.isArray(fleetDispatcher.shipsToSend)) {
+                                fleetDispatcher.shipsToSend.forEach(function(shipObj) {
+                                    console.log('Ship object:', shipObj);
+
+                                    // Extract ship ID and number from the object
+                                    const shipId = shipObj.id || shipObj.shipId || shipObj.ship_id;
+                                    const amount = shipObj.number || shipObj.amount || shipObj.count || 0;
+
+                                    console.log('  Ship ID:', shipId, 'Amount:', amount);
+
+                                    if (shipId && amount > 0) {
+                                        const shipIdToName = {
+                                            '202': 'small_cargo',
+                                            '203': 'large_cargo',
+                                            '204': 'light_fighter',
+                                            '205': 'heavy_fighter',
+                                            '206': 'cruiser',
+                                            '207': 'battle_ship',
+                                            '208': 'colony_ship',
+                                            '209': 'recycler',
+                                            '210': 'espionage_probe',
+                                            '211': 'bomber',
+                                            '213': 'destroyer',
+                                            '214': 'deathstar',
+                                            '215': 'battlecruiser'
+                                        };
+                                        const machineName = shipIdToName[shipId];
+                                        if (machineName) {
+                                            ships[machineName] = amount;
+                                            console.log('  ✓ Added:', machineName, '=', amount);
+                                        }
+                                    }
+                                });
+                                console.log('✓ Ships extracted from shipsToSend:', ships);
+                            }
+                        }
+
+                        // Fallback: collect from form inputs
+                        if (Object.keys(ships).length === 0) {
+                            console.log('No ships in FleetDispatcher, trying form inputs');
+                            const shipInputs = document.querySelectorAll('input[name^="ship["]');
+                            console.log('Found', shipInputs.length, 'ship inputs');
+                            shipInputs.forEach(input => {
+                                const match = input.name.match(/ship\[(\d+)\]/);
+                                if (match) {
+                                    const shipId = match[1];
+                                    const amount = parseInt(input.value) || 0;
+                                    console.log('Ship', shipId, 'has value:', amount);
+                                    if (amount > 0) {
+                                        // Convert ship ID to machine name
+                                        const shipIdToName = {
+                                            '202': 'small_cargo',
+                                            '203': 'large_cargo',
+                                            '204': 'light_fighter',
+                                            '205': 'heavy_fighter',
+                                            '206': 'cruiser',
+                                            '207': 'battle_ship',
+                                            '208': 'colony_ship',
+                                            '209': 'recycler',
+                                            '210': 'espionage_probe',
+                                            '211': 'bomber',
+                                            '213': 'destroyer',
+                                            '214': 'deathstar',
+                                            '215': 'battlecruiser'
+                                        };
+                                        const machineName = shipIdToName[shipId];
+                                        if (machineName) {
+                                            ships[machineName] = amount;
+                                        }
+                                    }
+                                }
+                            });
+                            console.log('Ships from form inputs:', ships);
+                        }
+                        } // End of cache check else
+
+                        // If no ships selected, show static message
+                        if (Object.keys(ships).length === 0) {
+                            console.log('⚠️ NO SHIPS FOUND - Using static message');
+                            info.innerHTML = '✓ Joining ACS group. Your fleet will automatically synchronize to arrive at <strong>' +
+                                group.arrival_time_formatted + '</strong> with ' + group.fleet_count + ' other fleet(s).';
+                            window.lastACSMessage = info.innerHTML;
+                            return;
+                        }
+
+                        console.log('✓ Found ships:', Object.keys(ships).length, 'types');
+
+                        // Cache ships for future speed changes (keyed by planet + ACS group)
+                        if (!window.acsShipCache[cacheKey]) {
+                            console.log('Caching ships for key:', cacheKey);
+                            window.acsShipCache[cacheKey] = ships;
+
+                            // Limit cache size to prevent memory leaks (keep max 5 entries)
+                            const cacheKeys = Object.keys(window.acsShipCache);
+                            if (cacheKeys.length > 5) {
+                                console.log('Cache size limit reached, removing oldest entry');
+                                const oldestKey = cacheKeys[0];
+                                delete window.acsShipCache[oldestKey];
+                            }
+                        }
+
+                        // Get speed from FleetDispatcher object if available, otherwise from input
+                        let speed = 10;
+                        if (typeof fleetDispatcher !== 'undefined' && fleetDispatcher.speedPercent) {
+                            speed = fleetDispatcher.speedPercent;
+                        } else {
+                            // Fallback: try to get from input
+                            let speedInput = document.querySelector('input[name="speed"]');
+                            if (!speedInput) {
+                                speedInput = document.getElementById('speed');
+                            }
+                            speed = speedInput ? parseInt(speedInput.value) : 10;
+                        }
+
+                        console.log('Calling API: ACS group', selectedValue, 'with speed:', speed, 'ships:', ships);
+
+                        // Call the backend to calculate the actual arrival time
+                        fetch('{{ route('fleet.acs.calculate.arrival') }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            },
+                            body: JSON.stringify({
+                                acs_group_id: selectedValue,
+                                ships: ships,
+                                speed: speed,
+                                planet_id: currentPlanet.id
+                            })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            console.log('========== API RESPONSE RECEIVED ==========');
+                            console.log('Success:', data.success);
+                            console.log('Arrival time:', data.arrival_time_formatted);
+                            console.log('Is delayed:', data.is_delayed);
+
+                            // Get fresh reference to the element
+                            const infoElement = document.getElementById('acsGroupInfo');
+                            if (!infoElement) {
+                                console.error('❌ acsGroupInfo element NOT FOUND!');
+                                return;
+                            }
+
+                            console.log('✓ Element found:', infoElement);
+
+                            if (data.success) {
+                                // Build new message
+                                const newArrivalTime = data.arrival_time_formatted;
+                                let message = '✓ Joining ACS group. Your fleet will automatically synchronize to arrive at <strong>' +
+                                    newArrivalTime + '</strong> with ' + group.fleet_count + ' other fleet(s).';
+
+                                if (data.is_delayed) {
+                                    message += ' <span style="color: #ff9900;">(Group will be delayed by ' + Math.round(data.delay_seconds / 60) + ' minutes)</span>';
+                                }
+
+                                console.log('Current element HTML:', infoElement.innerHTML);
+                                console.log('New message to set:', message);
+
+                                // Store message globally for continuous enforcement
+                                window.lastACSMessage = message;
+
+                                // Method 3: Remove and recreate (most aggressive)
+                                console.log('Replacing element completely');
+                                const parent = infoElement.parentNode;
+                                const newElement = document.createElement('div');
+                                newElement.id = 'acsGroupInfo';
+                                newElement.style.marginTop = '5px';
+                                newElement.style.fontSize = '11px';
+                                newElement.style.color = '#6f9fc8';
+                                newElement.innerHTML = message;
+                                parent.replaceChild(newElement, infoElement);
+
+                                console.log('After replacement:', document.getElementById('acsGroupInfo').innerHTML);
+                                console.log('Stored in window.lastACSMessage for enforcement');
+                                console.log('========== UPDATE COMPLETE ==========');
+                            } else {
+                                // Show error message
+                                const errorMsg = '<span style="color: #ff0000;">✗ ' + (data.message || 'Error calculating arrival time') + '</span>';
+                                console.log('Showing error:', errorMsg);
+                                window.lastACSMessage = errorMsg;
+                                infoElement.innerHTML = errorMsg;
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error calculating ACS arrival time:', error);
+                            // Fallback to static message
+                            info.innerHTML = '✓ Joining ACS group. Your fleet will automatically synchronize to arrive at <strong>' +
+                                group.arrival_time_formatted + '</strong> with ' + group.fleet_count + ' other fleet(s).';
+                        });
+                    }
+                }
+            }
+        }
+
+        // Initialize on DOM ready
+        function init() {
+            console.log('Initializing ACS UI');
+
+            populateACSGroups();
+            updateACSGroupVisibility();
+            updateACSGroupInfo();
+
+            // Listen for mission button clicks directly
+            document.addEventListener('click', function(e) {
+                const missionButton = e.target.closest('[data-mission]');
+                if (missionButton) {
+                    const missionType = parseInt(missionButton.getAttribute('data-mission'));
+                    console.log('Mission button clicked:', missionType);
+
+                    const acsGroupSelection = document.getElementById('acsGroupSelection');
+
+                    // Show/hide ACS group selection for ACS Attack (mission 2)
+                    if (acsGroupSelection) {
+                        if (missionType === 2) {
+                            console.log('Showing ACS group selection for ACS Attack');
+                            acsGroupSelection.style.display = 'list-item';
+                            acsGroupSelection.style.visibility = 'visible';
+                            acsGroupSelection.style.opacity = '1';
+
+                            populateACSGroups();
+                            updateACSGroupInfo();
+
+                            console.log('ACS UI shown and populated');
+                        } else {
+                            console.log('Hiding ACS group selection for mission type', missionType);
+                            acsGroupSelection.style.display = 'none';
+                        }
+                    }
+                    // Note: Hold time and expedition time selectors are controlled by external ingame.js (FleetDispatcher)
+                }
+            });
+
+            // Also watch for changes to the mission input
+            const missionInput = document.querySelector('input[name="mission"]');
+            if (missionInput) {
+                // Use MutationObserver to detect value changes
+                const observer = new MutationObserver(function(mutations) {
+                    console.log('Mission input changed via mutation');
+                    updateACSGroupVisibility();
+
+                    // Clear ship cache when mission type changes away from ACS Attack
+                    const currentMission = parseInt(missionInput.value);
+                    if (currentMission !== 2) { // 2 = ACS Attack
+                        console.log('Mission changed away from ACS Attack, clearing ship cache');
+                        window.acsShipCache = {};
+                    }
+                });
+
+                observer.observe(missionInput, {
+                    attributes: true,
+                    attributeFilter: ['value']
+                });
+
+                // Also listen for direct value changes
+                Object.defineProperty(missionInput, 'value', {
+                    set: function(val) {
+                        this.setAttribute('value', val);
+                        console.log('Mission value set to:', val);
+                        setTimeout(updateACSGroupVisibility, 50);
+                    },
+                    get: function() {
+                        return this.getAttribute('value');
+                    }
+                });
+            }
+
+            // Listen for ACS group selection changes
+            const acsGroupSelect = document.getElementById('acsGroupSelect');
+            if (acsGroupSelect) {
+                acsGroupSelect.addEventListener('change', function() {
+                    const selectedValue = parseInt(this.value);
+                    console.log('ACS group changed to:', selectedValue);
+
+                    // Update the FleetDispatcher union property so it gets sent with the form
+                    if (typeof fleetDispatcher !== 'undefined') {
+                        fleetDispatcher.union = selectedValue;
+                        console.log('Updated fleetDispatcher.union to:', selectedValue);
+                    } else {
+                        console.warn('fleetDispatcher not found - union value may not be sent');
+                    }
+
+                    updateACSGroupInfo();
+                });
+            }
+
+            // Listen for ship quantity changes to recalculate ACS arrival time
+            const shipInputs = document.querySelectorAll('input[name^="ship["]');
+            shipInputs.forEach(input => {
+                input.addEventListener('change', function() {
+                    // Only update if an ACS group is selected
+                    const select = document.getElementById('acsGroupSelect');
+                    if (select && parseInt(select.value) > 0) {
+                        console.log('Ship quantity changed, recalculating ACS arrival time');
+                        updateACSGroupInfo();
+                    }
+                });
+            });
+
+            // Add MutationObserver to detect external changes to acsGroupInfo
+            const watchElement = document.getElementById('acsGroupInfo');
+            if (watchElement) {
+                const watcher = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        console.log('⚠️ acsGroupInfo was modified externally!');
+                        console.log('  Type:', mutation.type);
+                        console.log('  Old value:', mutation.oldValue);
+                        console.log('  New value:', document.getElementById('acsGroupInfo').innerHTML);
+                        console.log('  Stack trace:', new Error().stack);
+                    });
+                });
+
+                watcher.observe(watchElement, {
+                    childList: true,
+                    characterData: true,
+                    subtree: true,
+                    characterDataOldValue: true
+                });
+                console.log('✓ Watching acsGroupInfo for external changes');
+            }
+
+            // Store the last message we set globally
+            window.lastACSMessage = null;
+
+            // Poll for speed changes and continuously enforce the message
+            let lastKnownSpeed = null;
+
+            setInterval(function() {
+                const select = document.getElementById('acsGroupSelect');
+                if (select && parseInt(select.value) > 0) {
+                    // Get current speed
+                    let currentSpeed = 10;
+                    if (typeof fleetDispatcher !== 'undefined' && fleetDispatcher.speedPercent) {
+                        currentSpeed = fleetDispatcher.speedPercent;
+                    }
+
+                    // Check if speed has changed
+                    if (currentSpeed !== lastKnownSpeed) {
+                        console.log('Speed changed from', lastKnownSpeed, 'to', currentSpeed);
+                        lastKnownSpeed = currentSpeed;
+                        updateACSGroupInfo();
+                    }
+
+                    // CONTINUOUSLY enforce the last message (in case something overwrites it)
+                    if (window.lastACSMessage) {
+                        const infoEl = document.getElementById('acsGroupInfo');
+                        if (infoEl && infoEl.innerHTML !== window.lastACSMessage) {
+                            console.log('🔄 Restoring ACS message (was overwritten)');
+                            infoEl.innerHTML = window.lastACSMessage;
+                        }
+                    }
+                }
+            }, 500); // Check twice per second
+
+            console.log('✓ Polling for speed changes and enforcing message');
+            console.log('ACS UI initialization complete');
+        }
+
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    })();
+</script>
 
 @endsection

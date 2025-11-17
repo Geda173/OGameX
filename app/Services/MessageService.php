@@ -142,16 +142,24 @@ class MessageService
         }
 
         try {
-            /** @var GameMessage $gameMessage */
-            $gameMessage = resolve($gameMessageClass);
+            // Create a temporary message to instantiate the GameMessage class and get metadata
+            $tempMessage = new Message();
+            $tempMessage->user_id = $player->getId();
+            $tempMessage->params = $params;
 
+            /** @var GameMessage $gameMessage */
+            $gameMessage = app($gameMessageClass, ['message' => $tempMessage]);
+
+            // Now create the actual message with all the metadata
             $message = new Message();
             $message->user_id = $player->getId();
             $message->key = $gameMessage->getKey();
+            $message->tab = $gameMessage->getTab();
+            $message->subtab = $gameMessage->getSubtab();
             $message->params = $params;
             $message->save();
-        } catch (Exception) {
-            throw new RuntimeException('Could not create GameMessage instance while trying to send message.');
+        } catch (Exception $e) {
+            throw new RuntimeException('Could not create GameMessage instance while trying to send message: ' . $e->getMessage(), 0, $e);
         }
     }
 
@@ -189,7 +197,12 @@ class MessageService
     public function sendBattleReportMessageToPlayer(PlayerService $player, int $battleReportId): Message
     {
         try {
-            $gameMessage = resolve(BattleReport::class);
+            // Create a temporary message to instantiate the GameMessage class and get metadata
+            $tempMessage = new Message();
+            $tempMessage->user_id = $player->getId();
+            $tempMessage->battle_report_id = $battleReportId;
+
+            $gameMessage = resolve(BattleReport::class, ['message' => $tempMessage]);
         } catch (Exception) {
             throw new RuntimeException('Could not create battle report message.');
         }
@@ -197,6 +210,8 @@ class MessageService
         $message = new Message();
         $message->user_id = $player->getId();
         $message->key = $gameMessage->getKey();
+        $message->tab = $gameMessage->getTab();
+        $message->subtab = $gameMessage->getSubtab();
         $message->battle_report_id = $battleReportId;
         $message->save();
 
@@ -325,6 +340,39 @@ class MessageService
     {
         Message::where('id', $messageId)
             ->where('user_id', $this->player->getId())
+            ->delete();
+    }
+
+    /**
+     * Deletes all messages for the current player in a specific tab/subtab.
+     *
+     * @param string $tab
+     * @param string $subtab
+     * @return int Number of messages deleted
+     */
+    public function deleteAllMessagesForTab(string $tab, string $subtab = ''): int
+    {
+        // Validate that the tab exists
+        if (!isset($this->tabs[$tab])) {
+            throw new \InvalidArgumentException('Invalid tab: ' . $tab);
+        }
+
+        // If subtab is empty, we use the first subtab of the tab.
+        if (empty($subtab)) {
+            $subtab = $this->tabs[$tab][0];
+        }
+
+        // Get all message keys for this tab/subtab.
+        $messageKeys = GameMessageFactory::GetGameMessageKeysByTab($tab, $subtab);
+
+        // If no message keys found, return 0
+        if (empty($messageKeys)) {
+            return 0;
+        }
+
+        // Delete all messages for this user in this tab/subtab.
+        return Message::where('user_id', $this->player->getId())
+            ->whereIn('key', $messageKeys)
             ->delete();
     }
 }

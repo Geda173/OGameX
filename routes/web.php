@@ -11,6 +11,7 @@ use OGame\Http\Controllers\FacilitiesController;
 use OGame\Http\Controllers\FleetController;
 use OGame\Http\Controllers\FleetEventsController;
 use OGame\Http\Controllers\GalaxyController;
+use OGame\Http\Controllers\JumpGateController;
 use OGame\Http\Controllers\HighscoreController;
 use OGame\Http\Controllers\LanguageController;
 use OGame\Http\Controllers\MerchantController;
@@ -57,6 +58,8 @@ Route::middleware(['auth', 'globalgame', 'locale'])->group(function () {
     Route::get('/resources/add-buildrequest', [ResourcesController::class, 'addBuildRequest'])->name('resources.addbuildrequest');
     Route::post('/resources/add-buildrequest', [ResourcesController::class, 'addBuildRequest'])->name('resources.addbuildrequest.post');
     Route::post('/resources/cancel-buildrequest', [ResourcesController::class, 'cancelBuildRequest'])->name('resources.cancelbuildrequest');
+    Route::get('/resources/add-teardownrequest', [ResourcesController::class, 'addTeardownRequest'])->name('resources.addteardownrequest');
+    Route::post('/resources/add-teardownrequest', [ResourcesController::class, 'addTeardownRequest'])->name('resources.addteardownrequest.post');
 
     // Facilities
     Route::get('/facilities', [FacilitiesController::class, 'index'])->name('facilities.index');
@@ -64,6 +67,8 @@ Route::middleware(['auth', 'globalgame', 'locale'])->group(function () {
     Route::get('/facilities/add-buildrequest', [FacilitiesController::class, 'addBuildRequest'])->name('facilities.addbuildrequest');
     Route::post('/facilities/add-buildrequest', [FacilitiesController::class, 'addBuildRequest'])->name('facilities.addbuildrequest.get');
     Route::post('/facilities/cancel-buildrequest', [FacilitiesController::class, 'cancelBuildRequest'])->name('facilities.cancelbuildrequest');
+    Route::get('/facilities/add-teardownrequest', [FacilitiesController::class, 'addTeardownRequest'])->name('facilities.addteardownrequest');
+    Route::post('/facilities/add-teardownrequest', [FacilitiesController::class, 'addTeardownRequest'])->name('facilities.addteardownrequest.post');
 
     // Research
     Route::get('/research', [ResearchController::class, 'index'])->name('research.index');
@@ -93,18 +98,33 @@ Route::middleware(['auth', 'globalgame', 'locale'])->group(function () {
     Route::post('/ajax/fleet/dispatch/send-fleet', [FleetController::class, 'dispatchSendFleet'])->name('fleet.dispatch.sendfleet');
     Route::post('/ajax/fleet/dispatch/send-mini-fleet', [FleetController::class, 'dispatchSendMiniFleet'])->name('fleet.dispatch.sendminifleet');
     Route::post('/ajax/fleet/dispatch/recall-fleet', [FleetController::class, 'dispatchRecallFleet'])->name('fleet.dispatch.recallfleet');
+    Route::post('/ajax/fleet/acs-groups', [FleetController::class, 'getACSGroups'])->name('fleet.acs.groups');
+    Route::get('/ajax/fleet/acs-eligible-players', [FleetController::class, 'getEligiblePlayers'])->name('fleet.acs.eligible');
+    Route::post('/ajax/fleet/acs-invite', [FleetController::class, 'invitePlayerToACS'])->name('fleet.acs.invite');
+    Route::post('/ajax/fleet/acs-convert', [FleetController::class, 'convertAttackToACS'])->name('fleet.acs.convert');
+    Route::post('/ajax/fleet/acs-calculate-arrival', [FleetController::class, 'calculateACSArrivalTime'])->name('fleet.acs.calculate.arrival');
 
     Route::get('/ajax/fleet/eventbox/fetch', [FleetEventsController::class, 'fetchEventBox'])->name('fleet.eventbox.fetch');
     Route::get('/ajax/fleet/eventlist/fetch', [FleetEventsController::class, 'fetchEventList'])->name('fleet.eventlist.fetch');
 
+    // Jump Gate
+    Route::get('/jumpgate', [JumpGateController::class, 'index'])->name('jumpgate.index');
+    Route::get('/jumpgate/overlay', [JumpGateController::class, 'overlay'])->name('jumpgate.overlay');
+    Route::post('/jumpgate/execute', [JumpGateController::class, 'execute'])->name('jumpgate.execute');
+
     // Galaxy
     Route::get('/galaxy', [GalaxyController::class, 'index'])->name('galaxy.index');
     Route::post('/ajax/galaxy', [GalaxyController::class, 'ajax'])->name('galaxy.ajax');
+    Route::get('/galaxy/missile-attack', [GalaxyController::class, 'missileAttackOverlay'])->name('galaxy.missile-attack');
+    Route::post('/galaxy/missile-attack', [GalaxyController::class, 'missileAttack'])->name('galaxy.missile-attack.post');
+    Route::post('/ajax/galaxy/phalanx-scan', [GalaxyController::class, 'ajaxPhalanxScan'])->name('galaxy.phalanx-scan');
 
     // Messages
     Route::get('/messages', [MessagesController::class, 'index'])->name('messages.index');
     // For handling message delete requests
     Route::post('/messages', [MessagesController::class, 'post'])->name('messages.post');
+    // For deleting all messages in a tab/subtab
+    Route::post('/messages/delete-all', [MessagesController::class, 'deleteAll'])->name('messages.deleteall');
     // For handling tab change AJAX requests
     Route::get('/ajax/messages', [MessagesController::class, 'ajaxGetTabContents'])->name('messages.ajax.gettabcontents');
     // For handling individual message AJAX requests by ID
@@ -113,7 +133,20 @@ Route::middleware(['auth', 'globalgame', 'locale'])->group(function () {
     // Misc
     Route::get('/merchant', [MerchantController::class, 'index'])->name('merchant.index');
 
+    // Alliance routes
     Route::get('/alliance', [AllianceController::class, 'index'])->name('alliance.index');
+    Route::get('/alliance/create', [AllianceController::class, 'create'])->name('alliance.create');
+    Route::post('/alliance/create', [AllianceController::class, 'store'])->name('alliance.store');
+    Route::get('/alliance/search', [AllianceController::class, 'search'])->name('alliance.search');
+    Route::get('/alliance/manage', [AllianceController::class, 'manage'])->name('alliance.manage');
+    Route::post('/alliance/update', [AllianceController::class, 'update'])->name('alliance.update');
+    Route::get('/alliance/{id}', [AllianceController::class, 'show'])->name('alliance.show');
+    Route::post('/alliance/{id}/apply', [AllianceController::class, 'apply'])->name('alliance.apply');
+    Route::post('/alliance/application/{applicationId}/accept', [AllianceController::class, 'acceptApplication'])->name('alliance.application.accept');
+    Route::post('/alliance/application/{applicationId}/reject', [AllianceController::class, 'rejectApplication'])->name('alliance.application.reject');
+    Route::post('/alliance/member/{memberId}/kick', [AllianceController::class, 'kickMember'])->name('alliance.member.kick');
+    Route::post('/alliance/leave', [AllianceController::class, 'leave'])->name('alliance.leave');
+    Route::post('/alliance/disband', [AllianceController::class, 'disband'])->name('alliance.disband');
     Route::get('/ajax/alliance/create', [AllianceController::class, 'ajaxCreate'])->name('alliance.ajax.create');
 
     Route::get('/premium', [PremiumController::class, 'index'])->name('premium.index');
@@ -126,10 +159,16 @@ Route::middleware(['auth', 'globalgame', 'locale'])->group(function () {
     Route::post('/ajax/highscore', [HighscoreController::class, 'ajax'])->name('highscore.ajax');
 
     Route::get('/buddies', [BuddiesController::class, 'index'])->name('buddies.index');
+    Route::post('/buddies/send-request', [BuddiesController::class, 'sendRequest'])->name('buddies.sendRequest');
+    Route::post('/buddies/accept/{requestId}', [BuddiesController::class, 'acceptRequest'])->name('buddies.acceptRequest');
+    Route::post('/buddies/reject/{requestId}', [BuddiesController::class, 'rejectRequest'])->name('buddies.rejectRequest');
+    Route::post('/buddies/cancel/{requestId}', [BuddiesController::class, 'cancelRequest'])->name('buddies.cancelRequest');
+    Route::post('/buddies/remove/{buddyId}', [BuddiesController::class, 'removeBuddy'])->name('buddies.removeBuddy');
     Route::get('/rewards', [RewardsController::class, 'index'])->name('rewards.index');
     Route::get('/planet-move', [PlanetMoveController::class, 'index'])->name('planetMove.index');
 
     Route::get('/overlay/search', [SearchController::class, 'overlay'])->name('search.overlay');
+    Route::get('/overlay/buddies', [BuddiesController::class, 'overlay'])->name('buddies.overlay');
 
     Route::match(['get', 'post'], '/overlay/notes', [NotesController::class, 'overlay'])->name('notes.overlay');
     Route::get('/overlay/notes/view', [NotesController::class, 'view'])->name('notes.view');

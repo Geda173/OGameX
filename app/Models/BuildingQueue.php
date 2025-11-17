@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property float $crystal
  * @property float $deuterium
  * @property int $building
+ * @property int $teardown
  * @property int $processed
  * @property int $canceled
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -44,5 +45,24 @@ use Illuminate\Database\Eloquent\Model;
  */
 class BuildingQueue extends Model
 {
-    //
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        'planet_id',
+        'object_id',
+        'object_level_target',
+        'time_duration',
+        'time_start',
+        'time_end',
+        'metal',
+        'crystal',
+        'deuterium',
+        'building',
+        'teardown',
+        'processed',
+        'canceled',
+    ];
 }

@@ -39176,7 +39176,7 @@ function reloadEventbox(data) {
   }
 
   var type = typeof evalData["eventText"];
-  var actionSum = parseInt(evalData["friendly"]) + parseInt(evalData["neutral"]) + parseInt(evalData["hostile"]);
+  var actionSum = parseInt(evalData["own"]) + parseInt(evalData["friendly"]) + parseInt(evalData["neutral"]) + parseInt(evalData["hostile"]);
 
   if (actionSum > 0) {
     var $eventList;
@@ -39189,12 +39189,19 @@ function reloadEventbox(data) {
       var missions = actionSum === 1 ? eventboxLoca.mission : eventboxLoca.missions;
       $eventList = $('<p class="event_list">' + actionSum + ' ' + missions + ': </p>');
 
+      if (evalData["own"]) {
+        $eventList.append('<span class="ownmark">' + evalData["own"] + ' ' + eventboxLoca.own + '</span>');
+      }
+
       if (evalData["friendly"]) {
+        if (evalData["own"]) {
+          $eventList.append(', ');
+        }
         $eventList.append('<span class="undermark">' + evalData["friendly"] + ' ' + eventboxLoca.friendly + '</span>');
       }
 
       if (evalData["neutral"]) {
-        if (evalData["friendly"]) {
+        if (evalData["own"] || evalData["friendly"]) {
           $eventList.append(', ');
         }
 
@@ -39202,7 +39209,7 @@ function reloadEventbox(data) {
       }
 
       if (evalData["hostile"]) {
-        if (evalData["friendly"] || evalData["neutral"]) {
+        if (evalData["own"] || evalData["friendly"] || evalData["neutral"]) {
           $eventList.append(', ');
         }
 
@@ -39231,7 +39238,7 @@ function reloadEventbox(data) {
         timerHandler.removeCallback(reloadEventBoxTimer.timer);
       }
 
-      reloadEventBoxTimer = new simpleCountdown(getElementByIdWithCache("tempcounter"), evalData["eventTime"], function () {
+      reloadEventBoxTimer = new simpleCountdown(document.getElementById("tempcounter"), evalData["eventTime"], function () {
         setTimeout(getAjaxEventbox, 3000);
       });
     } else {
@@ -45946,9 +45953,14 @@ FleetDispatcher.prototype.init = function () {
 
 FleetDispatcher.prototype.displayErrors = function (errors) {
   // only display the first error
-  let error = errors[0] || undefined;
+  // Check if errors exists and is an array before accessing
+  if (!errors || !Array.isArray(errors) || errors.length === 0) {
+    return;
+  }
 
-  if (error) {
+  let error = errors[0];
+
+  if (error && error.message) {
     fadeBox(error.message, true);
   }
 };
@@ -48661,7 +48673,7 @@ function getEspionageMission(galaxyContentObject, planet, systemData) {
   let espionageMission = planet.availableMissions.find(availMission => availMission.missionType === constants.espionage);
   let holdMissionAvailable = planet.availableMissions.find(availMission => availMission.missionType === 5);
 
-  if (espionageMission && espionageMission.canSpy && !player.isAdmin && galaxy && system && position && settingsProbeCount) {
+  if (espionageMission && espionageMission.canSpy && galaxy && system && position && settingsProbeCount) {
     if (systemData.showOutlawWarning && !systemData.isOutlaw && player.isStrong && !holdMissionAvailable) {
       return `outlawWarning(${espionageMission.missionType}, ${galaxy}, ${system}, ${position}, ${planet.planetType}, ${settingsProbeCount});return false;`;
     } else {
@@ -48754,8 +48766,9 @@ function getPlayerTooltip(galaxyContentObject) {
                 <li>
                     <a style="margin-top: 4px;"
                     href="${actions.buddies.link}"
-                    target="_blank" title="${actions.buddies.title}"
-                    class="js_hideTipOnMobile no_decoration">
+                    title="${actions.buddies.title}"
+                    class="js_hideTipOnMobile no_decoration overlay"
+                    data-overlay-title="${actions.buddies.title}">
                         <span class="support_icon icon icon_mail" style="margin-top: 5px;"></span> &nbsp;
                         <div style="position:absolute; top: 32px;left:30px">${actions.buddies.title}</div>
                     </a>
@@ -49034,8 +49047,9 @@ function getActions(galaxyContentObject, systemData) {
     if (player.isAdmin) {
       messageLink = `
                 <a href="${actions.buddies.link}"
-                    target="_blank" title="${actions.buddies.title}"
-                    class="tooltip js_hideTipOnMobile icon">
+                    title="${actions.buddies.title}"
+                    class="tooltip js_hideTipOnMobile icon overlay"
+                    data-overlay-title="${actions.buddies.title}">
                         <span class="support_icon icon icon_mail"></span>
                 </a>
             `;

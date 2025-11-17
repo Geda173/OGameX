@@ -58,6 +58,16 @@ enum ExpeditionOutcomeType: string
     case Battle = 'expedition_battle';
 
     /**
+     * The expedition mission encountered pirates and a battle ensued.
+     */
+    case BattlePirates = 'expedition_battle_pirates';
+
+    /**
+     * The expedition mission encountered aliens and a battle ensued.
+     */
+    case BattleAliens = 'expedition_battle_aliens';
+
+    /**
      * Get the setting key for the expedition outcome type.
      *
      * @return string

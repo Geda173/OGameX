@@ -9,6 +9,11 @@
             <li class="curPage" data-tab="20">1/1</li>
             <li class="paginator" data-tab="20" data-page="1">&gt;</li>
             <li class="paginator" data-tab="20" data-page="1">&gt;&gt;|</li>
+            @if (count($messages) > 0)
+            <li class="fright">
+                <a href="javascript:void(0);" class="delete-all-messages txt_link" style="color: #f66;">Delete All</a>
+            </li>
+            @endif
         </ul>
         <input type="hidden" name="token"
                value="d99f68937305e0b2c3ff3f059259fcec">
@@ -64,6 +69,11 @@
             <li class="curPage" data-tab="20">1/1</li>
             <li class="paginator" data-tab="20" data-page="1">&gt;</li>
             <li class="paginator" data-tab="20" data-page="1">&gt;&gt;|</li>
+            @if (count($messages) > 0)
+            <li class="fright">
+                <a href="javascript:void(0);" class="delete-all-messages txt_link" style="color: #f66;">Delete All</a>
+            </li>
+            @endif
         </ul>
     </ul>
     @include('ingame.messages.tabs.subtab-init-js')

@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Cache;
 use OGame\Facades\AppUtil;
+use OGame\Services\BuddyService;
 use OGame\Services\FleetMissionService;
 use OGame\Services\HighscoreService;
 use OGame\Services\MessageService;
@@ -111,9 +112,21 @@ class IngameMainComposer
             return $this->highscoreService->getHighscorePlayerRank($this->player);
         });
 
+        // Get buddy-related counts
+        try {
+            $newBuddyRequestCount = BuddyService::getNewRequestCount($this->player->getId());
+            $onlineBuddiesCount = BuddyService::getOnlineBuddiesCount($this->player->getId());
+        } catch (\Exception $e) {
+            // If buddy tables don't exist yet, default to 0
+            $newBuddyRequestCount = 0;
+            $onlineBuddiesCount = 0;
+        }
+
         $view->with([
             'underAttack' => $this->fleetMissionService->currentPlayerUnderAttack(),
             'unreadMessagesCount' => $this->messageService->getUnreadMessagesCount(),
+            'newBuddyRequestCount' => $newBuddyRequestCount,
+            'onlineBuddiesCount' => $onlineBuddiesCount,
             'resources' => $resources,
             'currentPlayer' => $this->player,
             'currentPlanet' => $this->player->planets->current(),

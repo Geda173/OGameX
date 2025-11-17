@@ -12,4 +12,5 @@ abstract class QueueViewModel
     public int $count;
     public bool $enough_resources;
     public bool $currently_building;
+    public bool $currently_tearing_down = false;
 }

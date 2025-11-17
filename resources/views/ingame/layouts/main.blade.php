@@ -48,7 +48,7 @@
     <title>{{ config('app.name', 'Laravel') }}</title>
 
     <link rel="stylesheet" href="{{ mix('css/ingame.css') }}">
-    <script src="{{ mix('js/ingame.min.js') }}"></script>
+    <script src="{{ mix('js/ingame.min.js') }}?v={{ filemtime(public_path('js/ingame.min.js')) }}"></script>
 
     <script type="text/javascript">
         window.token = "{{ csrf_token() }}";
@@ -62,6 +62,7 @@
             }
         }, 1);
     </script>
+<script defer src="https://umami.mierau-kiss.de/script.js" data-website-id="78f0acb4-da82-4de8-b6bd-bcad6a566d17"></script>
 </head>
 <body id="{{ !empty($body_id) ? $body_id : 'ingamepage' }}" class="ogame lang-en default no-touch">
 <div id="initial_welcome_dialog" title="Welcome to OGame!" style="display: none;">
@@ -116,7 +117,7 @@
                            accesskey=""
                            href="{{ route('buddies.index') }}"
                         >
-                            @lang('Buddies')</a>
+                            @lang('Buddies')@if($newBuddyRequestCount > 0) <span class="textlime"> ({{ $newBuddyRequestCount }})</span>@endif</a>
                     </li>
                     <li><a class="overlay"
                            href="{{ route('search.overlay') }}"
@@ -193,6 +194,8 @@
                     </span>
                     </div>
                 </div>
+                {{-- Population resource commented out --}}
+                {{--
                 <div class="resource_tile population">
                     <div id="population_box" class="population tooltipHTML resource ipiHintable tpd-hideOnClickOutside"
                          title="Population|<table class=&quot;resourceTooltip&quot;><tr><th>Available:</th><td><span class=&quot;overmark&quot;>100</span></td></tr><tr><th>Living Space
@@ -204,6 +207,9 @@
                     </span>
                     </div>
                 </div>
+                --}}
+                {{-- Food resource commented out --}}
+                {{--
                 <div class="resource_tile food">
                     <div id="food_box" class="food tooltipHTML resource ipiHintable tpd-hideOnClickOutside"
                          title="Food|<table class=&quot;resourceTooltip&quot;><tr><th>Available:</th><td><span class=&quot;overmark&quot;>0</span></td></tr><tr><th>Storage capacity</th><td><span class=&quot;overmark&quot;>0</span></td></tr><tr><th>Overproduction</th><td><span class=&quot;undermark&quot;>0</span></td></tr><tr><th>Consumption</th><td><span class=&quot;overmark&quot;>0</span></td></tr><tr><th>Consumed in</th><td><span class=&quot;overmark timeTillFoodRunsOut&quot;>~</span></td></tr></table>"
@@ -214,6 +220,9 @@
                     </span>
                     </div>
                 </div>
+                --}}
+                {{-- Dark Matter resource commented out --}}
+                {{--
                 <div class="resource_tile darkmatter">
                     <div id="darkmatter_box" class="darkmatter tooltipHTML resource ipiHintable tpd-hideOnClickOutside"
                          title="@lang('Dark Matter')|<table class=&quot;resourceTooltip&quot;><tr><th>Available:</th><td><span class=&quot;&quot;>19,890</span></td></tr><tr><th>Purchased</th><td><span class=&quot;&quot;>225</span></td></tr><tr><th>Found</th><td><span class=&quot;&quot;>19,665</span></td></tr></table>"
@@ -227,6 +236,7 @@
                     </span>
                     </div>
                 </div>
+                --}}
             </div>
         </div>
         <div id="commandercomponent" class="">
@@ -319,12 +329,16 @@ Combat simulation save slots +20">
     </div>
     <div id="left">
         <div id="ipimenucomponent" class="">
-            <div id="ipiMenuWrapper" class="ipiMenuTrackedAction ipiHintable " title="" data-ipi-hint="ipiMenu">
-                <div id="ipimenucontent"><a
-                            href="#TODO_page=ajax&amp;component=ipioverview&amp;action=overviewLayer&amp;ajax=1"
-                            class="overlay textBeefy" data-overlay-title="" id="ipiInnerMenuContentHolder">
-                        <div class="ipiMenuHead">
-                            Directives
+            <div id="ipiMenuWrapper" class="ipiMenuTrackedAction ipiHintable" title="" data-ipi-hint="ipiMenu">
+                <div id="ipimenucontent">
+                    <a href="https://discord.gg/n9uCcjQ7Xj"
+                       class="textBeefy"
+                       target="_blank"
+                       rel="noopener"
+                       id="ipiInnerMenuContentHolder"
+                       style="line-height: 1.1; display: block;">
+                        <div class="ipiMenuHead" style="line-height: 1.1;">
+                            Galaktischer Senat (Discord)
                         </div>
 
                         <div class="ipiMenuBody hidden"></div>
@@ -386,6 +400,8 @@ Combat simulation save slots +20">
                         </a>
                     </li>
 
+                    {{-- Merchant button commented out --}}
+                    {{--
                     <li>
                         <span class="menu_icon">
                             <a href="{{ route('merchant.index') }}#page=traderResources&amp;animation=false"
@@ -404,6 +420,7 @@ Combat simulation save slots +20">
                             <span class="textlabel">@lang('Merchant')</span>
                         </a>
                     </li>
+                    --}}
 
                     <li>
                         <span class="menu_icon">
@@ -495,6 +512,8 @@ Combat simulation save slots +20">
                         </a>
                     </li>
 
+                    {{-- Recruit Officers button commented out --}}
+                    {{--
                     <li>
                         <span class="menu_icon">
                             <div class="menuImage premium {{(Request::is('premium') ? 'highlighted' : '') }}"></div>
@@ -507,6 +526,9 @@ Combat simulation save slots +20">
                             <span class="textlabel">@lang('Recruit Officers')</span>
                         </a>
                     </li>
+                    --}}
+                    {{-- Shop button commented out --}}
+                    {{--
                     <li>
                         <span class="menu_icon">
                             <a href="{{ route('shop.index') }}#page=inventory"
@@ -525,6 +547,7 @@ Combat simulation save slots +20">
                             <span class="textlabel">@lang('Shop')</span>
                         </a>
                     </li>
+                    --}}
                 </ul>
 
                 <div id="toolLinksWrapper">
@@ -686,8 +709,9 @@ Combat simulation save slots +20">
                     "missions": "Missions",
                     "next misson": "DUMMY_KEY_N\u00e4chster_fertig",
                     "type": "DUMMY_KEY_Art",
-                    "friendly": "own",
-                    "neutral": "friendly",
+                    "own": "own",
+                    "friendly": "friendly",
+                    "neutral": "neutral",
                     "hostile": "hostile",
                     "nextEvent": "Next",
                     "nextEventText": "Type"
@@ -1183,6 +1207,8 @@ Combat simulation save slots +20">
                 </div>
             </div>
         </div>
+        {{-- Shop banner commented out --}}
+        {{--
         <div id="bannerSkyscrapercomponent" class="">
             <div id="banner_skyscraper" class="desktop" name="banner_skyscraper">
                 <div style="position: relative;">
@@ -1192,21 +1218,136 @@ Combat simulation save slots +20">
                 </div>
             </div>
         </div>
+        --}}
     </div>
 </div>
 
 <!-- Chat Bar -->
 <div id="chatBar">
     <ul class="chat_bar_list">
-        <li id="chatBarPlayerList" class="chat_bar_pl_list_item">
-            <div class="cb_playerlist_box"
-                 style="display:none;">
+        <li id="chatBarPlayerList" class="chat_bar_pl_list_item" style="position: relative;">
+            <div class="cb_playerlist_box online_buddies_dropdown" style="display:none;">
+                @if($onlineBuddiesCount > 0)
+                    @php
+                        try {
+                            $onlineBuddies = \OGame\Services\BuddyService::getOnlineBuddies($currentPlayer->getId());
+                        } catch (\Exception $e) {
+                            $onlineBuddies = collect([]);
+                        }
+                    @endphp
+                    <div class="online_buddies_header">
+                        <h3>Online Buddies</h3>
+                    </div>
+                    <ul class="online_buddy_list">
+                        @foreach($onlineBuddies as $buddy)
+                            <li class="buddy_online_item">
+                                <a href="{{ route('buddies.index') }}" class="buddy_link">
+                                    <span class="status_icon_online" style="display: inline-block; width: 8px; height: 8px; background-color: #6f9; border-radius: 50%; margin-right: 8px;"></span>
+                                    <span class="buddy_name">{{ $buddy->buddyUser->username }}</span>
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                @else
+                    <div class="online_buddies_header">
+                        <h3>Online Buddies</h3>
+                    </div>
+                    <div class="no_buddies_online" style="padding: 10px; text-align: center; color: #999;">
+                        No buddies currently online
+                    </div>
+                @endif
             </div>
-            <span class="onlineCount">@lang(':count Contact(s) online', ['count' => 0])</span>
+            <span class="onlineCount" onclick="toggleOnlineBuddies(event)" style="cursor: pointer;">
+                @lang(':count Contact(s) online', ['count' => $onlineBuddiesCount])
+            </span>
         </li>
     </ul><!-- END Chat Bar List -->
 </div>
 <!-- END Chat Bar -->
+
+<style>
+.online_buddies_dropdown {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    margin-bottom: 5px;
+    min-width: 250px;
+    background: #0d1014;
+    border: 1px solid #405064;
+    border-radius: 4px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+}
+
+.online_buddies_header {
+    background: linear-gradient(to bottom, #1b2024 0%, #0d1014 100%);
+    border-bottom: 1px solid #405064;
+    padding: 10px 15px;
+}
+
+.online_buddies_header h3 {
+    margin: 0;
+    font-size: 14px;
+    color: #6f9fc0;
+    font-weight: bold;
+}
+
+.online_buddy_list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.buddy_online_item {
+    border-bottom: 1px solid #1a1f24;
+}
+
+.buddy_online_item:last-child {
+    border-bottom: none;
+}
+
+.buddy_online_item .buddy_link {
+    display: block;
+    padding: 10px 15px;
+    color: #6f9fc0;
+    text-decoration: none;
+    transition: background-color 0.2s;
+}
+
+.buddy_online_item .buddy_link:hover {
+    background-color: #1a2329;
+}
+
+.buddy_name {
+    font-size: 13px;
+}
+</style>
+
+<script type="text/javascript">
+function toggleOnlineBuddies(event) {
+    event.stopPropagation();
+    var playerListBox = document.querySelector('#chatBarPlayerList .cb_playerlist_box');
+    if (playerListBox) {
+        if (playerListBox.style.display === 'none') {
+            playerListBox.style.display = 'block';
+        } else {
+            playerListBox.style.display = 'none';
+        }
+    }
+}
+
+// Close the buddy list when clicking outside
+document.addEventListener('click', function(event) {
+    var chatBar = document.getElementById('chatBarPlayerList');
+    var playerListBox = document.querySelector('#chatBarPlayerList .cb_playerlist_box');
+
+    if (chatBar && playerListBox && !chatBar.contains(event.target)) {
+        playerListBox.style.display = 'none';
+    }
+});
+</script>
 
 <button class="scroll_to_top">
     <span class="arrow"></span>@lang('Back to top')

@@ -108,6 +108,7 @@ abstract class AbstractBuildingsController extends OGameController
                 $view_model->valid_planet_type = $valid_planet_type;
                 $view_model->enough_resources = $enough_resources;
                 $view_model->currently_building = ($build_active !== null && $build_active->object->machine_name === $object->machine_name);
+                $view_model->currently_tearing_down = ($build_active !== null && $build_active->object->machine_name === $object->machine_name && $build_active->teardown);
                 $view_model->research_in_progress = $research_in_progress;
                 $view_model->ship_or_defense_in_progress = $ship_or_defense_in_progress;
 
@@ -180,6 +181,25 @@ abstract class AbstractBuildingsController extends OGameController
      */
     public function addBuildRequest(Request $request, PlayerService $player): JsonResponse
     {
+        // Explicitly verify CSRF token because this request supports both POST and GET.
+        // Check for token in both request input and headers (X-CSRF-TOKEN, X-XSRF-TOKEN)
+        $token = $request->input('_token')
+            ?? $request->header('X-CSRF-TOKEN')
+            ?? $request->header('X-XSRF-TOKEN')
+            ?? '';
+
+        if (!hash_equals($request->session()->token(), (string)$token)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid token.',
+            ]);
+        }
+
+        // Check if this is a teardown/demolish request (mode=3)
+        if ($request->input('mode') == 3) {
+            return $this->addTeardownRequest($request, $player);
+        }
+
         // If the technology is a shipyard, it shouldn't be able to upgrade while ships are built.
         if ($request->input('technologyId') === '21' && $player->isBuildingShipsOrDefense()) {
             return response()->json([
@@ -187,17 +207,16 @@ abstract class AbstractBuildingsController extends OGameController
                 'errors' => [['message' => __('The Shipyard is still busy.')]],
             ]);
         }
+        // If the technology is a nanite factory, it shouldn't be able to upgrade while ships or defense are built.
+        if ($request->input('technologyId') === '15' && $player->isBuildingShipsOrDefense()) {
+            return response()->json([
+                'success' => false,
+                'errors' => [['message' => __('The Nanite Factory is still busy.')]],
+            ]);
+        }
         // If the technology is a solar satellite, execute the addBuildRequest method in ShipyardController.
         if ($request->input('technologyId') === '212') {
             return resolve(ShipyardController::class)->addBuildRequest($request, $player);
-        }
-
-        // Explicitly verify CSRF token because this request supports both POST and GET.
-        if (!hash_equals($request->session()->token(), $request->input('_token'))) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid token.',
-            ]);
         }
 
         $building_id = $request->input('technologyId');
@@ -228,5 +247,48 @@ abstract class AbstractBuildingsController extends OGameController
             'status' => 'success',
             'message' => 'Building construction canceled.',
         ]);
+    }
+
+    /**
+     * Handles an incoming add teardown request.
+     *
+     * @param Request $request
+     * @param PlayerService $player
+     * @return JsonResponse
+     * @throws Exception
+     */
+    public function addTeardownRequest(Request $request, PlayerService $player): JsonResponse
+    {
+        // Token is validated in addBuildRequest before this method is called via mode=3
+        // Only validate token if called directly (not via addBuildRequest)
+        if ($request->input('mode') !== '3') {
+            $token = $request->input('_token')
+                ?? $request->header('X-CSRF-TOKEN')
+                ?? $request->header('X-XSRF-TOKEN')
+                ?? '';
+
+            if (!hash_equals($request->session()->token(), (string)$token)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid token.',
+                ]);
+            }
+        }
+
+        $building_id = $request->input('technologyId');
+
+        try {
+            $this->queue->addTeardown($player->planets->current(), $building_id);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Building teardown started.',
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ]);
+        }
     }
 }

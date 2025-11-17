@@ -72,12 +72,14 @@ trait ObjectAjaxTrait
                 $production_datetime = AppUtil::formatDateTimeDuration($planet->getUnitConstructionTime($object->machine_name));
 
                 $shipyard_upgrading = $player->planets->current()->isBuildingObject('shipyard');
+                $nanite_factory_upgrading = $player->planets->current()->isBuildingObject('nano_factory');
                 break;
             case GameObjectType::Defense:
                 $production_time = AppUtil::formatTimeDuration($planet->getUnitConstructionTime($object->machine_name));
                 $production_datetime = AppUtil::formatDateTimeDuration($planet->getUnitConstructionTime($object->machine_name));
 
                 $shipyard_upgrading = $player->planets->current()->isBuildingObject('shipyard');
+                $nanite_factory_upgrading = $player->planets->current()->isBuildingObject('nano_factory');
                 break;
             case GameObjectType::Research:
                 $production_time = AppUtil::formatTimeDuration($planet->getTechnologyResearchTime($object->machine_name));
@@ -147,6 +149,22 @@ trait ObjectAjaxTrait
             $build_queue_max = true;
         }
 
+        // Teardown data for buildings and stations
+        $can_teardown = false;
+        $teardown_price = null;
+        $teardown_time = '';
+        $teardown_datetime = '';
+        $ion_tech_level = 0;
+        if ($object->type == GameObjectType::Building || $object->type == GameObjectType::Station) {
+            $can_teardown = ObjectService::canTeardown($object->machine_name, $planet);
+            if ($can_teardown) {
+                $teardown_price = ObjectService::getObjectTeardownPrice($object->machine_name, $planet);
+                $teardown_time = AppUtil::formatTimeDuration($planet->getBuildingTeardownTime($object->machine_name));
+                $teardown_datetime = AppUtil::formatDateTimeDuration($planet->getBuildingTeardownTime($object->machine_name));
+                $ion_tech_level = $player->getResearchLevel('ion_technology');
+            }
+        }
+
         $view_html = view('ingame.ajax.object')->with([
             'object' => $object,
             'object_type' => $object->type,
@@ -176,7 +194,13 @@ trait ObjectAjaxTrait
             'research_lab_upgrading' => $research_lab_upgrading ?? false,
             'research_in_progress' => $research_in_progress ?? false,
             'shipyard_upgrading' => $shipyard_upgrading ?? false,
+            'nanite_factory_upgrading' => $nanite_factory_upgrading ?? false,
             'ship_or_defense_in_progress' => $ship_or_defense_in_progress ?? false,
+            'can_teardown' => $can_teardown,
+            'teardown_price' => $teardown_price,
+            'teardown_time' => $teardown_time,
+            'teardown_datetime' => $teardown_datetime,
+            'ion_tech_level' => $ion_tech_level,
         ]);
 
         return response()->json([
@@ -222,6 +246,15 @@ trait ObjectAjaxTrait
 
             // Append the specific energy value to the description
             $description .= " A solar satellite produces {$energyPerUnit} energy on this planet.";
+        }
+
+        // Special handling for Interplanetary Missiles to show range
+        if ($object->machine_name === 'interplanetary_missile') {
+            $player = $planet->getPlayer();
+            $missileRange = $player->getMissileRange();
+
+            // Replace ?? with the calculated range
+            $description = str_replace('??', $missileRange, $description);
         }
 
         return $description;

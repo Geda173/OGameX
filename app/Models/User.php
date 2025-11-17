@@ -4,6 +4,7 @@ namespace OGame\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
@@ -29,6 +30,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property-read \Illuminate\Notifications\DatabaseNotificationCollection<int, \Illuminate\Notifications\DatabaseNotification> $notifications
  * @property-read int|null $notifications_count
  * @property-read \OGame\Models\UserTech|null $tech
+ * @property-read \OGame\Models\AllianceMember|null $allianceMembership
  * @method static \Database\Factories\UserFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder|User newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder|User newQuery()
@@ -57,7 +59,9 @@ use Spatie\Permission\Traits\HasRoles;
  * @method static \Illuminate\Database\Eloquent\Builder|User withoutPermission($permissions)
  * @method static \Illuminate\Database\Eloquent\Builder|User withoutRole($roles, $guard = null)
  * @property string|null $username_updated_at
+ * @property int $espionage_probes_amount
  * @method static \Illuminate\Database\Eloquent\Builder|User whereUsernameUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder|User whereEspionageProbesAmount($value)
  * @mixin \Eloquent
  */
 class User extends Authenticatable
@@ -78,7 +82,7 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'username', 'email', 'password', 'lang',
+        'username', 'email', 'password', 'lang', 'espionage_probes_amount',
     ];
 
     /**
@@ -91,6 +95,15 @@ class User extends Authenticatable
     ];
 
     /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'last_login_at' => 'datetime',
+    ];
+
+    /**
      * Get the user tech record associated with the user.
      *
      * @return HasOne
@@ -98,5 +111,45 @@ class User extends Authenticatable
     public function tech(): HasOne
     {
         return $this->hasOne(UserTech::class);
+    }
+
+    /**
+     * Get the user's alliance membership.
+     *
+     * @return HasOne
+     */
+    public function allianceMembership(): HasOne
+    {
+        return $this->hasOne(AllianceMember::class);
+    }
+
+    /**
+     * Get all buddy relationships where this user is the owner.
+     *
+     * @return HasMany
+     */
+    public function buddies(): HasMany
+    {
+        return $this->hasMany(Buddy::class, 'user_id');
+    }
+
+    /**
+     * Get all buddy requests sent by this user.
+     *
+     * @return HasMany
+     */
+    public function sentBuddyRequests(): HasMany
+    {
+        return $this->hasMany(BuddyRequest::class, 'sender_id');
+    }
+
+    /**
+     * Get all buddy requests received by this user.
+     *
+     * @return HasMany
+     */
+    public function receivedBuddyRequests(): HasMany
+    {
+        return $this->hasMany(BuddyRequest::class, 'receiver_id');
     }
 }

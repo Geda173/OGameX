@@ -26,6 +26,9 @@
     @elseif ($shipyard_upgrading ?? false)
         data-status="disabled"
     title="{{ $building->object->title }}<br/>@lang('Shipyard is being upgraded.')"
+    @elseif ($nanite_factory_upgrading ?? false)
+        data-status="disabled"
+    title="{{ $building->object->title }}<br/>@lang('Nanite Factory is being upgraded.')"
     @else
         data-status="on"
     title="{{ $building->object->title }}"

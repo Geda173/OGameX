@@ -94,6 +94,21 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class FleetMission extends Model
 {
     /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'mission_type' => 'integer',
+        'parent_id' => 'integer',
+        'user_id' => 'integer',
+        'planet_id_from' => 'integer',
+        'planet_id_to' => 'integer',
+        'processed' => 'integer',
+        'canceled' => 'integer',
+    ];
+
+    /**
      * Get the planet that this fleet mission is going from.
      */
     public function planetFrom(): BelongsTo

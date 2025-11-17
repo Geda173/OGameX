@@ -177,4 +177,50 @@ class MessagesController extends OGameController
             $messageId => true,
         ]);
     }
+
+    /**
+     * Delete all messages for a specific tab/subtab.
+     *
+     * @param Request $request
+     * @param MessageService $messageService
+     * @return JsonResponse
+     */
+    public function deleteAll(Request $request, MessageService $messageService): JsonResponse
+    {
+        try {
+            $tab = $request->get('tab');
+            $subtab = $request->get('subtab', '');
+
+            // Ensure subtab is a string, not null
+            if ($subtab === null) {
+                $subtab = '';
+            }
+
+            // Validate that tab is provided
+            if (empty($tab)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Tab parameter is required',
+                ], 400);
+            }
+
+            $deletedCount = $messageService->deleteAllMessagesForTab($tab, $subtab);
+
+            return response()->json([
+                'success' => true,
+                'deleted' => $deletedCount,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error deleting all messages: ' . $e->getMessage(), [
+                'tab' => $request->get('tab'),
+                'subtab' => $request->get('subtab'),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to delete messages: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }

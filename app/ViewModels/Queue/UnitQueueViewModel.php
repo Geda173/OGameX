@@ -11,6 +11,7 @@ class UnitQueueViewModel extends QueueViewModel
     public int $object_amount_remaining;
     public int $time_countdown_object_next;
     public int $time_countdown_per_object;
+    public bool $teardown = false; // Units (ships/defense) cannot be torn down
 
     /**
      * Constructor.
@@ -38,6 +39,7 @@ class UnitQueueViewModel extends QueueViewModel
         $this->object_amount_remaining = $object_amount_remaining;
         $this->time_countdown_object_next = $time_countdown_object_next;
         $this->time_countdown_per_object = $time_countdown_per_object;
+        $this->teardown = false; // Units (ships/defense) cannot be torn down
 
         parent::__construct($id, $object, $time_countdown, $time_total);
     }
