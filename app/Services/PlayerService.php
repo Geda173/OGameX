@@ -91,6 +91,12 @@ class PlayerService
     {
         // Fetch user from model
         $user = User::where('id', $id)->first();
+
+        // Handle case where user doesn't exist (e.g., deleted account)
+        if ($user === null) {
+            throw new RuntimeException('User not found with ID: ' . $id);
+        }
+
         $this->user = $user;
 
         // Fetch user tech from model
