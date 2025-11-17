@@ -193,6 +193,17 @@
                     </span>
                     </div>
                 </div>
+                <div class="resource_tile darkmatter">
+                    <div id="darkmatter_box" class="darkmatter tooltipHTML resource ipiHintable tpd-hideOnClickOutside"
+                         title="@lang('Dark Matter')|<table class=&quot;resourceTooltip&quot;><tr><th>@lang('Available'):</th><td><span class=&quot;&quot;>{!! $resources['darkmatter']['amount_formatted'] !!}</span></td></tr></table>"
+                         data-ipi-hint="ipiResourcedarkmatter">
+                        <div class="resourceIcon darkmatter"></div>
+                        <span class="value">
+                        <span id="resources_darkmatter"
+                              data-raw="{!! $resources['darkmatter']['amount'] !!}">{!! $resources['darkmatter']['amount_formatted'] !!}</span>
+                    </span>
+                    </div>
+                </div>
                 <div class="resource_tile population">
                     <div id="population_box" class="population tooltipHTML resource ipiHintable tpd-hideOnClickOutside"
                          title="Population|<table class=&quot;resourceTooltip&quot;><tr><th>Available:</th><td><span class=&quot;overmark&quot;>100</span></td></tr><tr><th>Living Space

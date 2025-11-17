@@ -23,6 +23,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property string|null $time
  * @property string|null $register_ip
  * @property string|null $register_time
+ * @property float $dark_matter
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property int|null $planet_current
@@ -78,7 +79,7 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'username', 'email', 'password', 'lang',
+        'username', 'email', 'password', 'lang', 'dark_matter',
     ];
 
     /**
