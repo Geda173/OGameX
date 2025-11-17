@@ -57,6 +57,7 @@ Route::middleware(['auth', 'globalgame', 'locale'])->group(function () {
     Route::get('/resources/add-buildrequest', [ResourcesController::class, 'addBuildRequest'])->name('resources.addbuildrequest');
     Route::post('/resources/add-buildrequest', [ResourcesController::class, 'addBuildRequest'])->name('resources.addbuildrequest.post');
     Route::post('/resources/cancel-buildrequest', [ResourcesController::class, 'cancelBuildRequest'])->name('resources.cancelbuildrequest');
+    Route::post('/resources/halve-time', [ResourcesController::class, 'halveTime'])->name('resources.halvetime');
 
     // Facilities
     Route::get('/facilities', [FacilitiesController::class, 'index'])->name('facilities.index');
@@ -64,6 +65,7 @@ Route::middleware(['auth', 'globalgame', 'locale'])->group(function () {
     Route::get('/facilities/add-buildrequest', [FacilitiesController::class, 'addBuildRequest'])->name('facilities.addbuildrequest');
     Route::post('/facilities/add-buildrequest', [FacilitiesController::class, 'addBuildRequest'])->name('facilities.addbuildrequest.get');
     Route::post('/facilities/cancel-buildrequest', [FacilitiesController::class, 'cancelBuildRequest'])->name('facilities.cancelbuildrequest');
+    Route::post('/facilities/halve-time', [FacilitiesController::class, 'halveTime'])->name('facilities.halvetime');
 
     // Research
     Route::get('/research', [ResearchController::class, 'index'])->name('research.index');
@@ -71,6 +73,7 @@ Route::middleware(['auth', 'globalgame', 'locale'])->group(function () {
     Route::get('/research/add-buildrequest', [ResearchController::class, 'addBuildRequest'])->name('research.addbuildrequest');
     Route::post('/research/add-buildrequest', [ResearchController::class, 'addBuildRequest'])->name('research.addbuildrequest.post');
     Route::post('/research/cancel-buildrequest', [ResearchController::class, 'cancelBuildRequest'])->name('research.cancelbuildrequest');
+    Route::post('/research/halve-time', [ResearchController::class, 'halveTime'])->name('research.halvetime');
 
     // Shipyard
     Route::get('/shipyard', [ShipyardController::class, 'index'])->name('shipyard.index');

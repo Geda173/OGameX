@@ -361,4 +361,76 @@ class BuildingQueueService
             }
         }
     }
+
+    /**
+     * Calculate the Dark Matter cost to halve the time of a building construction.
+     *
+     * @param int $build_time_seconds The total build time in seconds
+     * @return int The cost in Dark Matter
+     */
+    public function calculateHalveTimeCost(int $build_time_seconds): int
+    {
+        // Formula: 1 DM per 2 minutes of total construction time, minimum 100 DM
+        $base_cost = max(100, (int)ceil($build_time_seconds / 120));
+
+        return $base_cost;
+    }
+
+    /**
+     * Halve the time of the currently building item using Dark Matter.
+     *
+     * @param PlanetService $planet
+     * @param PlayerService $player
+     * @throws Exception
+     */
+    public function halveTime(PlanetService $planet, PlayerService $player): void
+    {
+        $build_queue = $this->retrieveQueue($planet);
+        $currently_building = $build_queue->getCurrentlyBuildingFromQueue();
+
+        if (empty($currently_building)) {
+            throw new Exception('No building is currently under construction.');
+        }
+
+        // Get the queue item from database
+        $queue_item = BuildingQueue::where([
+            ['id', $currently_building->id],
+            ['planet_id', $planet->getPlanetId()],
+            ['building', 1],
+            ['processed', 0],
+            ['canceled', 0],
+        ])->first();
+
+        if (!$queue_item) {
+            throw new Exception('Building queue item not found.');
+        }
+
+        // Calculate Dark Matter cost
+        $dm_cost = $this->calculateHalveTimeCost($queue_item->time_duration);
+
+        // Check if player has enough Dark Matter
+        if ($player->getDarkMatter() < $dm_cost) {
+            throw new Exception('Insufficient Dark Matter.');
+        }
+
+        // Calculate new end time (halve the remaining time)
+        $current_time = (int)Carbon::now()->timestamp;
+        $time_elapsed = $current_time - $queue_item->time_start;
+        $time_remaining = $queue_item->time_end - $current_time;
+
+        // Reduce remaining time by half
+        $new_time_remaining = (int)ceil($time_remaining / 2);
+        $queue_item->time_end = $current_time + $new_time_remaining;
+
+        // Deduct Dark Matter
+        $player->deductDarkMatter($dm_cost);
+
+        // Save the updated queue item
+        $queue_item->save();
+
+        // If the new end time is in the past, update immediately
+        if ($queue_item->time_end < Carbon::now()->timestamp) {
+            $planet->updateBuildingQueue();
+        }
+    }
 }
