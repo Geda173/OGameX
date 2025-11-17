@@ -232,9 +232,27 @@ class ExpeditionStatisticsService
         foreach ($messages as $message) {
             if ($message->key === ExpeditionOutcomeType::GainResources->value) {
                 $params = $message->params ?? [];
-                $metal += (int)($params['metal'] ?? 0);
-                $crystal += (int)($params['crystal'] ?? 0);
-                $deuterium += (int)($params['deuterium'] ?? 0);
+
+                // Check for new format: resource_type and resource_amount
+                if (isset($params['resource_type']) && isset($params['resource_amount'])) {
+                    $amount = (int)$params['resource_amount'];
+                    switch ($params['resource_type']) {
+                        case 'metal':
+                            $metal += $amount;
+                            break;
+                        case 'crystal':
+                            $crystal += $amount;
+                            break;
+                        case 'deuterium':
+                            $deuterium += $amount;
+                            break;
+                    }
+                } else {
+                    // Fallback to old format: separate keys
+                    $metal += (int)($params['metal'] ?? 0);
+                    $crystal += (int)($params['crystal'] ?? 0);
+                    $deuterium += (int)($params['deuterium'] ?? 0);
+                }
             } elseif ($message->key === ExpeditionOutcomeType::GainDarkMatter->value) {
                 $params = $message->params ?? [];
                 $darkMatter += (int)($params['dark_matter'] ?? 0);
@@ -263,16 +281,30 @@ class ExpeditionStatisticsService
             if ($message->key === ExpeditionOutcomeType::GainShips->value) {
                 $params = $message->params ?? [];
 
-                foreach ($params as $key => $value) {
-                    // Skip non-ship parameters
-                    if (in_array($key, ['metal', 'crystal', 'deuterium', 'dark_matter', 'subject', 'variation'])) {
-                        continue;
+                // Check for format with ship details array
+                if (isset($params['ships']) && is_array($params['ships'])) {
+                    foreach ($params['ships'] as $shipData) {
+                        if (isset($shipData['ship_type']) && isset($shipData['amount'])) {
+                            $shipType = $shipData['ship_type'];
+                            if (!isset($ships[$shipType])) {
+                                $ships[$shipType] = 0;
+                            }
+                            $ships[$shipType] += (int)$shipData['amount'];
+                        }
                     }
+                } else {
+                    // Fallback to old format: direct key-value pairs
+                    foreach ($params as $key => $value) {
+                        // Skip non-ship parameters
+                        if (in_array($key, ['metal', 'crystal', 'deuterium', 'dark_matter', 'subject', 'variation', 'message_variation_id'])) {
+                            continue;
+                        }
 
-                    if (!isset($ships[$key])) {
-                        $ships[$key] = 0;
+                        if (!isset($ships[$key])) {
+                            $ships[$key] = 0;
+                        }
+                        $ships[$key] += (int)$value;
                     }
-                    $ships[$key] += (int)$value;
                 }
             }
         }

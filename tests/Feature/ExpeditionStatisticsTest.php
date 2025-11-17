@@ -114,32 +114,58 @@ class ExpeditionStatisticsTest extends AccountTestCase
     {
         $expeditionStatisticsService = resolve(ExpeditionStatisticsService::class);
 
-        // Create expedition gain resources messages
-        for ($i = 0; $i < 3; $i++) {
-            Message::create([
-                'user_id' => $this->currentUserId,
-                'key' => ExpeditionOutcomeType::GainResources->value,
-                'tab' => 'fleets',
-                'subtab' => 'expeditions',
-                'params' => [
-                    'metal' => 10000,
-                    'crystal' => 5000,
-                    'deuterium' => 2500,
-                ],
-                'viewed' => 0,
-                'created_at' => now(),
-            ]);
-        }
+        // Create expedition gain resources messages using actual format
+        Message::create([
+            'user_id' => $this->currentUserId,
+            'key' => ExpeditionOutcomeType::GainResources->value,
+            'tab' => 'fleets',
+            'subtab' => 'expeditions',
+            'params' => [
+                'message_variation_id' => 1,
+                'resource_type' => 'metal',
+                'resource_amount' => 10000,
+            ],
+            'viewed' => 0,
+            'created_at' => now(),
+        ]);
+
+        Message::create([
+            'user_id' => $this->currentUserId,
+            'key' => ExpeditionOutcomeType::GainResources->value,
+            'tab' => 'fleets',
+            'subtab' => 'expeditions',
+            'params' => [
+                'message_variation_id' => 2,
+                'resource_type' => 'crystal',
+                'resource_amount' => 5000,
+            ],
+            'viewed' => 0,
+            'created_at' => now(),
+        ]);
+
+        Message::create([
+            'user_id' => $this->currentUserId,
+            'key' => ExpeditionOutcomeType::GainResources->value,
+            'tab' => 'fleets',
+            'subtab' => 'expeditions',
+            'params' => [
+                'message_variation_id' => 3,
+                'resource_type' => 'deuterium',
+                'resource_amount' => 2500,
+            ],
+            'viewed' => 0,
+            'created_at' => now(),
+        ]);
 
         $stats = $expeditionStatisticsService->getPlayerStatistics($this->currentUserId);
 
         // Verify resource totals
-        $this->assertEquals(30000, $stats['resources_gained']['metal']);
-        $this->assertEquals(15000, $stats['resources_gained']['crystal']);
-        $this->assertEquals(7500, $stats['resources_gained']['deuterium']);
+        $this->assertEquals(10000, $stats['resources_gained']['metal']);
+        $this->assertEquals(5000, $stats['resources_gained']['crystal']);
+        $this->assertEquals(2500, $stats['resources_gained']['deuterium']);
 
         // Verify profit includes resources
-        $this->assertEquals(52500, $stats['total_profit']);
+        $this->assertEquals(17500, $stats['total_profit']);
     }
 
     /**
@@ -149,13 +175,14 @@ class ExpeditionStatisticsTest extends AccountTestCase
     {
         $expeditionStatisticsService = resolve(ExpeditionStatisticsService::class);
 
-        // Create expedition gain ships messages
+        // Create expedition gain ships messages using fallback format
         Message::create([
             'user_id' => $this->currentUserId,
             'key' => ExpeditionOutcomeType::GainShips->value,
             'tab' => 'fleets',
             'subtab' => 'expeditions',
             'params' => [
+                'message_variation_id' => 1,
                 'light_fighter' => 10,
                 'heavy_fighter' => 5,
             ],
@@ -169,6 +196,7 @@ class ExpeditionStatisticsTest extends AccountTestCase
             'tab' => 'fleets',
             'subtab' => 'expeditions',
             'params' => [
+                'message_variation_id' => 2,
                 'light_fighter' => 8,
                 'battleship' => 3,
             ],
