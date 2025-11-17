@@ -27,7 +27,7 @@ class PlanetMoveController extends OGameController
             'current_system' => $planet->system,
             'current_position' => $planet->planet,
             'dark_matter' => $player->getDarkMatter(),
-            'relocation_cost' => 50000, // Fixed cost for now
+            'relocation_cost' => 240000,
         ]);
     }
 
@@ -63,6 +63,11 @@ class PlanetMoveController extends OGameController
                 throw new Exception('Planet is already at this location.');
             }
 
+            // IMPORTANT: Planet can only move to the same position number in a different solar system
+            if ($planet->planet !== $position) {
+                throw new Exception('Planet can only be relocated to position ' . $planet->planet . ' in a different solar system.');
+            }
+
             // Check if target position is free
             $existing_planet = Planet::where([
                 ['galaxy', $galaxy],
@@ -75,8 +80,8 @@ class PlanetMoveController extends OGameController
                 throw new Exception('Target position is already occupied.');
             }
 
-            // Calculate Dark Matter cost (fixed at 50,000 DM for now)
-            $dm_cost = 50000;
+            // Calculate Dark Matter cost
+            $dm_cost = 240000;
 
             // Check if player has enough Dark Matter
             if ($player->getDarkMatter() < $dm_cost) {

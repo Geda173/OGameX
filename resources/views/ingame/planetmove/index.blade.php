@@ -10,7 +10,7 @@
                     <p>
                         @lang('Relocate your planet to a new position in the universe using Dark Matter.')
                         <br>
-                        @lang('Current position:'<) <strong>{{ $current_galaxy }}:{{ $current_system }}:{{ $current_position }}</strong>
+                        @lang('Current position:') <strong>{{ $current_galaxy }}:{{ $current_system }}:{{ $current_position }}</strong>
                     </p>
 
                     <div style="margin: 20px 0; padding: 15px; background: #1a1a2e; border: 1px solid #333;">
@@ -19,6 +19,17 @@
                         </p>
                         <p>
                             @lang('Available Dark Matter:') <span id="available-dm">{{ number_format($dark_matter) }}</span>
+                        </p>
+                    </div>
+
+                    <div style="margin: 20px 0; padding: 15px; background: #2a2a3e; border: 1px solid #555;">
+                        <p style="color: #ff9800; font-weight: bold;">
+                            ⚠️ @lang('Restriction:')
+                        </p>
+                        <p>
+                            @lang('Your planet can only be relocated to position') <strong>{{ $current_position }}</strong> @lang('in a different solar system.')
+                            <br>
+                            @lang('You cannot change the position number during relocation.')
                         </p>
                     </div>
 
@@ -36,8 +47,10 @@
                         </div>
                         <div style="margin-bottom: 15px;">
                             <label for="position" style="display: inline-block; width: 100px;">@lang('Position'):</label>
-                            <input type="number" id="position" name="position" min="1" max="15" value="{{ $current_position }}" required
-                                   style="width: 100px; padding: 5px;">
+                            <input type="number" id="position" name="position" value="{{ $current_position }}" readonly
+                                   style="width: 100px; padding: 5px; background: #333; color: #999; cursor: not-allowed;"
+                                   title="@lang('Position cannot be changed - planets can only relocate to the same position in a different system')">
+                            <span style="margin-left: 10px; color: #999;">(@lang('Fixed'))</span>
                         </div>
 
                         <div style="margin-top: 20px;">
