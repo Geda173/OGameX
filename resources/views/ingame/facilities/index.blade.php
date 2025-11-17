@@ -66,12 +66,14 @@
                             @if ($building->currently_building)
                             @elseif (!$building->requirements_met)
                             @elseif (!$building->valid_planet_type)
+                            @elseif ($building->object->machine_name == 'space_dock' && $building->current_level >= 1)
+                                <button class="upgrade openSpaceDock" onclick="openSpaceDockOverlay(); return false;"></button>
+                            @elseif ($building->object->machine_name == 'jump_gate' && $building->current_level >= 1)
+                                <button class="upgrade openJumpGate" onclick="openJumpGateOverlay(); return false;"></button>
                             @elseif (!$building->enough_resources)
                             @elseif ($build_queue_max)
                             @elseif ($building->research_in_progress && $building->object->machine_name == 'research_lab')
                             @elseif ($building->ship_or_defense_in_progress  && $building->object->machine_name == 'shipyard')
-                            @elseif ($building->object->machine_name == 'jump_gate' && $building->current_level >= 1)
-                                {{-- Jump Gate is operational, clicking opens the jump gate page --}}
                             @else
                                 <button
                                         class="upgrade tooltip hideOthers js_hideTipOnMobile"
@@ -123,6 +125,51 @@
         <script type="text/javascript">
             var planetMoveInProgress = false;
             var jumpGateOverlayUrl = "{{ route('jumpgate.overlay') }}";
+            var spaceDockOverlayUrl = "{{ route('spacedock.overlay') }}";
+
+            function openSpaceDockOverlay() {
+                // Create dialog container
+                var dialogId = 'spaceDockDialog_' + Date.now();
+                var $dialog = $('<div id="' + dialogId + '" class="overlayDiv"></div>');
+                $dialog.html('<div style="text-align: center; padding: 20px;"><img src="/img/icons/4161a64a933a5345d00cb9fdaa25c7.gif" alt="Loading..."></div>');
+                $('body').append($dialog);
+
+                // Load content via AJAX first
+                $.get(spaceDockOverlayUrl, function(data) {
+                    $dialog.html(data);
+
+                    // Initialize dialog AFTER content is loaded
+                    $dialog.dialog({
+                        title: 'Space Dock',
+                        modal: true,
+                        width: 700,
+                        height: 'auto',
+                        maxHeight: 650,
+                        closeText: '',
+                        position: { my: "center", at: "center" },
+                        close: function() {
+                            $(this).dialog('destroy');
+                            $(this).remove();
+                        }
+                    });
+                }).fail(function() {
+                    $dialog.html('<div style="padding: 20px; text-align: center; color: #ff6666;">Failed to load Space Dock.</div>');
+
+                    // Initialize dialog even on failure
+                    $dialog.dialog({
+                        title: 'Space Dock - Error',
+                        modal: true,
+                        width: 400,
+                        height: 'auto',
+                        closeText: '',
+                        position: { my: "center", at: "center" },
+                        close: function() {
+                            $(this).dialog('destroy');
+                            $(this).remove();
+                        }
+                    });
+                });
+            }
 
             function openJumpGateOverlay() {
                 // Create dialog container

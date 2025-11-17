@@ -64,6 +64,50 @@
             type();
         }
 
+        function openSpaceDockOverlayFromOverview() {
+            // Create dialog container
+            var dialogId = 'spaceDockDialog_' + Date.now();
+            var $dialog = $('<div id="' + dialogId + '" class="overlayDiv"></div>');
+            $dialog.html('<div style="text-align: center; padding: 20px;"><img src="/img/icons/4161a64a933a5345d00cb9fdaa25c7.gif" alt="Loading..."></div>');
+            $('body').append($dialog);
+
+            // Load content via AJAX first
+            $.get("{{ route('spacedock.overlay') }}", function(data) {
+                $dialog.html(data);
+
+                // Initialize dialog AFTER content is loaded
+                $dialog.dialog({
+                    title: 'Space Dock',
+                    modal: true,
+                    width: 700,
+                    height: 'auto',
+                    maxHeight: 650,
+                    closeText: '',
+                    position: { my: "center", at: "center" },
+                    close: function() {
+                        $(this).dialog('destroy');
+                        $(this).remove();
+                    }
+                });
+            }).fail(function() {
+                $dialog.html('<div style="padding: 20px; text-align: center; color: #ff6666;">Failed to load Space Dock.</div>');
+
+                // Initialize dialog even on failure
+                $dialog.dialog({
+                    title: 'Space Dock - Error',
+                    modal: true,
+                    width: 400,
+                    height: 'auto',
+                    closeText: '',
+                    position: { my: "center", at: "center" },
+                    close: function() {
+                        $(this).dialog('destroy');
+                        $(this).remove();
+                    }
+                });
+            });
+        }
+
         $(document).ready(function () {
             gfSlider = new GFSlider(getElementByIdWithCache('detailWrapper'));
             initType();
@@ -99,6 +143,58 @@
                             <img alt="{{ $other_planet->getPlanetName() }}" src="{!! asset('img/planets/' . $other_planet->getPlanetBiomeType() . '_moon_view.jpg') !!}">
                         </a>
                     </div>
+                @endif
+
+                @if ($has_wreckage || $has_ready_repairs || $has_repairs_in_progress)
+                    <div id="space_dock_alert" class="space-dock-notification" style="position: absolute; top: 10px; right: 10px; cursor: pointer; z-index: 100;" onclick="openSpaceDockOverlayFromOverview();">
+                        <div class="space-dock-icon" style="position: relative; width: 48px; height: 48px; background: radial-gradient(circle, rgba(255,100,0,0.3) 0%, rgba(255,100,0,0.7) 100%); border-radius: 50%; border: 2px solid #ff6600; display: flex; align-items: center; justify-content: center; animation: pulse-orange 2s infinite; box-shadow: 0 2px 8px rgba(0,0,0,0.5);">
+                            <img src="/img/objects/buildings/space_dock_micro.jpg" style="width: 32px; height: 32px; border-radius: 50%;" title="Space Dock" alt="Space Dock">
+                            @if ($has_wreckage)
+                                <div class="wreckage-badge" style="position: absolute; top: -5px; right: -5px; background: #ff3333; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border: 2px solid #fff; box-shadow: 0 0 8px rgba(255,51,51,0.8);">
+                                    {{ $wreckage_count }}
+                                </div>
+                            @endif
+                            @if ($has_ready_repairs)
+                                <div class="ready-badge" style="position: absolute; bottom: -5px; right: -5px; background: #4CAF50; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; border: 2px solid #fff; box-shadow: 0 0 8px rgba(76,175,80,0.8);">
+                                    ✓
+                                </div>
+                            @elseif ($has_repairs_in_progress)
+                                <div class="progress-badge" style="position: absolute; bottom: -5px; right: -5px; background: #2196F3; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; border: 2px solid #fff; box-shadow: 0 0 8px rgba(33,150,243,0.8);">
+                                    {{ $repairs_in_progress_count }}
+                                </div>
+                            @endif
+                        </div>
+                        <div class="tooltip-content" style="position: absolute; right: 55px; top: 0; background: rgba(0,0,0,0.95); padding: 8px 12px; border-radius: 4px; border: 1px solid #6f9fc8; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.3s; min-width: 200px;">
+                            @if ($has_wreckage)
+                                <div style="color: #ff9800; margin-bottom: 5px; font-weight: bold; font-size: 12px;">
+                                    ⚠ {{ $wreckage_count }} @lang('Wreckage field(s) available')
+                                </div>
+                            @endif
+                            @if ($has_ready_repairs)
+                                <div style="color: #4CAF50; font-weight: bold; font-size: 12px;">
+                                    ✓ {{ $ready_repairs_count }} @lang('Repair(s) ready for pickup')
+                                </div>
+                            @endif
+                            @if ($has_repairs_in_progress)
+                                <div style="color: #2196F3; font-weight: bold; font-size: 12px;">
+                                    ⏳ {{ $repairs_in_progress_count }} @lang('Repair(s) in progress')
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                    <style>
+                        @keyframes pulse-orange {
+                            0%, 100% {
+                                box-shadow: 0 2px 8px rgba(0,0,0,0.5), 0 0 0 0 rgba(255, 102, 0, 0.7);
+                            }
+                            50% {
+                                box-shadow: 0 2px 8px rgba(0,0,0,0.5), 0 0 15px 5px rgba(255, 102, 0, 0);
+                            }
+                        }
+                        #space_dock_alert:hover .tooltip-content {
+                            opacity: 1;
+                        }
+                    </style>
                 @endif
 
                 <div id="header_text">

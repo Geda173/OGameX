@@ -12,6 +12,7 @@ use OGame\Services\BuildingQueueService;
 use OGame\Services\HighscoreService;
 use OGame\Services\PlayerService;
 use OGame\Services\ResearchQueueService;
+use OGame\Services\SpaceDockService;
 use OGame\Services\UnitQueueService;
 
 class OverviewController extends OGameController
@@ -23,10 +24,11 @@ class OverviewController extends OGameController
      * @param BuildingQueueService $building_queue
      * @param ResearchQueueService $research_queue
      * @param UnitQueueService $unit_queue
+     * @param SpaceDockService $space_dock
      * @return View
      * @throws Exception
      */
-    public function index(PlayerService $player, BuildingQueueService $building_queue, ResearchQueueService $research_queue, UnitQueueService $unit_queue): View
+    public function index(PlayerService $player, BuildingQueueService $building_queue, ResearchQueueService $research_queue, UnitQueueService $unit_queue, SpaceDockService $space_dock): View
     {
         $this->setBodyId('overview');
 
@@ -81,6 +83,75 @@ class OverviewController extends OGameController
             return AppUtil::formatNumber(Highscore::where('player_id', $player->getId())->first()->general ?? 0);
         });
 
+        // Check for available wreckage (Space Dock notification)
+        $has_wreckage = false;
+        $wreckage_count = 0;
+        if ($planet->getObjectLevel('space_dock') > 0) {
+            $spaceDockLevel = $planet->getObjectLevel('space_dock');
+            $availableWreckage = $space_dock->getAvailableWreckage($planet);
+
+            // Get debris field percentage for recovery calculation
+            $debrisFieldPercentage = app(\OGame\Services\SettingsService::class)->debrisFieldFromShips();
+
+            // Count only battle reports with truly available wreckage (accounting for consumed amounts)
+            foreach ($availableWreckage as $report) {
+                if (empty($report->wreckage)) {
+                    continue;
+                }
+
+                // Calculate recoverable amount based on CURRENT Space Dock level
+                $rawWreckage = $report->wreckage; // Stores raw defender losses
+                $recoverableWreckage = $space_dock->calculateRecoverableFromRaw(
+                    $rawWreckage,
+                    $spaceDockLevel,
+                    $debrisFieldPercentage
+                );
+
+                // Get consumed amounts (ships already taken for repairs)
+                $consumed = $report->wreckage_consumed ?? [];
+
+                $hasAvailableWreckage = false;
+                foreach ($recoverableWreckage as $machineName => $recoverableAmount) {
+                    if ($recoverableAmount <= 0) {
+                        continue;
+                    }
+
+                    // Subtract consumed amount
+                    $consumedAmount = $consumed[$machineName] ?? 0;
+                    $availableAmount = $recoverableAmount - $consumedAmount;
+
+                    if ($availableAmount > 0) {
+                        $hasAvailableWreckage = true;
+                        break;
+                    }
+                }
+
+                if ($hasAvailableWreckage) {
+                    $wreckage_count++;
+                }
+            }
+
+            $has_wreckage = $wreckage_count > 0;
+        }
+
+        // Check for ready to pickup ships
+        $has_ready_repairs = false;
+        $ready_repairs_count = 0;
+        if ($planet->getObjectLevel('space_dock') > 0) {
+            $readyRepairs = $space_dock->retrieveReadyForPickup($planet);
+            $has_ready_repairs = $readyRepairs->isNotEmpty();
+            $ready_repairs_count = $readyRepairs->count();
+        }
+
+        // Check for repairs in progress
+        $has_repairs_in_progress = false;
+        $repairs_in_progress_count = 0;
+        if ($planet->getObjectLevel('space_dock') > 0) {
+            $repairsInProgress = $space_dock->retrieveQueueItems($planet);
+            $has_repairs_in_progress = $repairsInProgress->isNotEmpty();
+            $repairs_in_progress_count = $repairsInProgress->count();
+        }
+
         return view('ingame.overview.index')->with([
             'header_filename' => $planet->isMoon() ? 'moon/' . $planet->getPlanetImageType() : $planet->getPlanetBiomeType(),
             'planet_name' => $planet->getPlanetName(),
@@ -104,6 +175,12 @@ class OverviewController extends OGameController
             'has_moon' => $has_moon,
             'has_planet' => $has_planet,
             'other_planet' => $other_planet,
+            'has_wreckage' => $has_wreckage,
+            'wreckage_count' => $wreckage_count,
+            'has_ready_repairs' => $has_ready_repairs,
+            'ready_repairs_count' => $ready_repairs_count,
+            'has_repairs_in_progress' => $has_repairs_in_progress,
+            'repairs_in_progress_count' => $repairs_in_progress_count,
         ]);
     }
 }
