@@ -16,8 +16,8 @@ return new class () extends Migration {
         if (!Schema::hasTable('repair_queue')) {
             Schema::create('repair_queue', function (Blueprint $table) {
                 $table->id();
-                $table->unsignedBigInteger('planet_id');
-                $table->unsignedBigInteger('battle_report_id');
+                $table->unsignedInteger('planet_id'); // Match planets table increments('id')
+                $table->unsignedBigInteger('battle_report_id'); // Match battle_reports table id()
                 $table->integer('ship_object_id'); // The object ID of the ship being repaired
                 $table->integer('ship_amount'); // Number of ships being repaired
                 $table->integer('metal_cost'); // Metal cost to repair
