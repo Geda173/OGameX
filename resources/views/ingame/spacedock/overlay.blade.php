@@ -107,7 +107,12 @@
         <!-- Ready for Pickup Details -->
         @if (count($pickup_data) > 0)
             <div style="margin-bottom: 20px;">
-                <h4 style="color: #4CAF50; margin: 0 0 10px 0; font-size: 14px;">@lang('Ready for Pickup')</h4>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h4 style="color: #4CAF50; margin: 0; font-size: 14px;">@lang('Ready for Pickup')</h4>
+                    <button class="btn-claim-all" style="padding: 6px 16px; background: #3a4a3a; color: #4CAF50; border: 1px solid #4CAF50; border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: bold;">
+                        @lang('Collect All')
+                    </button>
+                </div>
                 @foreach ($pickup_data as $pickup)
                     <div style="padding: 8px; margin-bottom: 5px; background: #1a1d24; display: flex; justify-content: space-between; align-items: center;">
                         <span style="color: #fff;">{{ $pickup['ship_amount'] }}x {{ $pickup['ship_name'] }}</span>
@@ -222,7 +227,12 @@
 
 <script type="text/javascript">
 function toggleDetails() {
-    $('#details-section').slideToggle(300);
+    var $details = $('#details-section');
+    $details.slideToggle(300, function() {
+        // Save state to localStorage after animation completes
+        var isVisible = $details.is(':visible');
+        localStorage.setItem('spacedock_details_open', isVisible ? '1' : '0');
+    });
 }
 
 // Global countdown interval
@@ -230,6 +240,12 @@ var countdownInterval = null;
 
 // Function to reload overlay content
 function reloadOverlay() {
+    // Save current details state before reload
+    var detailsWereOpen = $('#details-section').is(':visible');
+    if (detailsWereOpen) {
+        localStorage.setItem('spacedock_details_open', '1');
+    }
+
     var spaceDockOverlayUrl = "{{ route('spacedock.overlay') }}";
     $.get(spaceDockOverlayUrl, function(data) {
         // Clear countdown interval before replacing content
@@ -245,12 +261,26 @@ function reloadOverlay() {
             // Fallback: replace the overlay div directly
             $('#spacedock_overlay').replaceWith(data);
         }
+
+        // Restore details state after reload (with small delay to ensure DOM is ready)
+        setTimeout(function() {
+            var shouldBeOpen = localStorage.getItem('spacedock_details_open') === '1';
+            if (shouldBeOpen) {
+                $('#details-section').show();
+            }
+        }, 50);
     }).fail(function() {
         alert('Failed to reload Space Dock. Please close and reopen.');
     });
 }
 
 $(document).ready(function() {
+    // Restore details section state from localStorage
+    var shouldBeOpen = localStorage.getItem('spacedock_details_open') === '1';
+    if (shouldBeOpen) {
+        $('#details-section').show();
+    }
+
     // Update countdowns
     function updateCountdowns() {
         $('.countdown').each(function() {
@@ -282,6 +312,7 @@ $(document).ready(function() {
     $(document).off('click', '.btn-start-all-repairs');
     $(document).off('click', '.btn-cancel-repair');
     $(document).off('click', '.btn-claim-repair');
+    $(document).off('click', '.btn-claim-all');
     $(document).off('click', '.btn-dismiss-wreckage');
 
     // Start all repairs button - batch ALL wreckage into one repair
