@@ -72,6 +72,19 @@ class AttackMission extends GameMission
         $attackerPlayer = $origin_planet->getPlayer();
         $attackerUnits = $this->fleetMissionService->getFleetUnits($mission);
 
+        // If attacker planet was abandoned/destroyed after sending the attack,
+        // the fleet is lost and cannot complete the battle
+        if ($attackerPlayer === null) {
+            \Log::info('Attack mission cancelled: attacker planet was abandoned', [
+                'mission_id' => $mission->id,
+                'origin_planet' => $mission->planet_id_from,
+            ]);
+            // Mark mission as processed without battle
+            $mission->processed = 1;
+            $mission->save();
+            return;
+        }
+
         // Execute the battle logic using configured battle engine
         switch ($this->settings->battleEngine()) {
             case 'php':

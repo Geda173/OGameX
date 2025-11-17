@@ -73,9 +73,11 @@ abstract class BattleEngine
 
         // Initialize the battle result object with the attacker and defender information.
         $result->lootPercentage = $this->lootPercentage;
-        $result->attackerWeaponLevel = $this->attackerPlayer->getResearchLevel('weapon_technology');
-        $result->attackerShieldLevel = $this->attackerPlayer->getResearchLevel('shielding_technology');
-        $result->attackerArmorLevel = $this->attackerPlayer->getResearchLevel('armor_technology');
+
+        // Attacker research levels (0 if attacker planet was destroyed/abandoned after sending attack)
+        $result->attackerWeaponLevel = $this->attackerPlayer !== null ? $this->attackerPlayer->getResearchLevel('weapon_technology') : 0;
+        $result->attackerShieldLevel = $this->attackerPlayer !== null ? $this->attackerPlayer->getResearchLevel('shielding_technology') : 0;
+        $result->attackerArmorLevel = $this->attackerPlayer !== null ? $this->attackerPlayer->getResearchLevel('armor_technology') : 0;
 
         // Defender research levels (0 for destroyed planets with no owner)
         $defenderPlayer = $this->defenderPlanet->getPlayer();
