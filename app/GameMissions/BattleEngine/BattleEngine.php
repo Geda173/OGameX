@@ -77,9 +77,11 @@ abstract class BattleEngine
         $result->attackerShieldLevel = $this->attackerPlayer->getResearchLevel('shielding_technology');
         $result->attackerArmorLevel = $this->attackerPlayer->getResearchLevel('armor_technology');
 
-        $result->defenderWeaponLevel = $this->defenderPlanet->getPlayer()->getResearchLevel('weapon_technology');
-        $result->defenderShieldLevel = $this->defenderPlanet->getPlayer()->getResearchLevel('shielding_technology');
-        $result->defenderArmorLevel = $this->defenderPlanet->getPlayer()->getResearchLevel('armor_technology');
+        // Defender research levels (0 for destroyed planets with no owner)
+        $defenderPlayer = $this->defenderPlanet->getPlayer();
+        $result->defenderWeaponLevel = $defenderPlayer !== null ? $defenderPlayer->getResearchLevel('weapon_technology') : 0;
+        $result->defenderShieldLevel = $defenderPlayer !== null ? $defenderPlayer->getResearchLevel('shielding_technology') : 0;
+        $result->defenderArmorLevel = $defenderPlayer !== null ? $defenderPlayer->getResearchLevel('armor_technology') : 0;
 
         $result->attackerUnitsStart = clone $this->attackerFleet;
         $result->attackerUnitsResult = clone $this->attackerFleet;
