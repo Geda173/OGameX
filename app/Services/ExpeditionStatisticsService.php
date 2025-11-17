@@ -2,10 +2,12 @@
 
 namespace OGame\Services;
 
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use OGame\GameMissions\Models\ExpeditionOutcomeType;
 use OGame\Models\FleetMission;
 use OGame\Models\Message;
+use OGame\Models\User;
 
 /**
  * Service class for gathering and analyzing expedition statistics.
@@ -13,234 +15,246 @@ use OGame\Models\Message;
 class ExpeditionStatisticsService
 {
     /**
-     * Get comprehensive expedition statistics for a user.
+     * Get player rankings by expedition count within a time frame.
      *
-     * @param int|null $userId User ID to filter statistics for. If null, gets server-wide statistics.
-     * @return array{
-     *     overview: array{
-     *         total_expeditions: int,
-     *         completed_expeditions: int,
-     *         in_progress_expeditions: int,
-     *         success_rate: float
-     *     },
-     *     outcomes: array<string, array{
-     *         count: int,
-     *         percentage: float
-     *     }>,
-     *     resources: array{
-     *         total_metal: int,
-     *         total_crystal: int,
-     *         total_deuterium: int,
-     *         total_dark_matter: int
-     *     },
-     *     ships: array<string, int>,
-     *     battles: array{
-     *         total_battles: int,
-     *         pirate_battles: int,
-     *         alien_battles: int
-     *     },
-     *     timeline: array<array{
-     *         date: string,
-     *         count: int
-     *     }>
-     * }
+     * @param Carbon|null $from Start date (null for all time)
+     * @param Carbon|null $to End date (null for now)
+     * @param int $limit Maximum number of players to return
+     * @return array<array{
+     *     user_id: int,
+     *     username: string,
+     *     expedition_count: int,
+     *     completed_count: int,
+     *     in_progress_count: int,
+     *     success_rate: float,
+     *     total_profit: int,
+     *     total_loss: int,
+     *     net_profit: int
+     * }>
      */
-    public function getStatistics(?int $userId = null): array
+    public function getPlayerRankings(?Carbon $from = null, ?Carbon $to = null, int $limit = 50): array
     {
-        $overview = $this->getOverviewStatistics($userId);
-        $outcomes = $this->getOutcomeDistribution($userId);
-        $resources = $this->getResourcesGained($userId);
-        $ships = $this->getShipsGained($userId);
-        $battles = $this->getBattleStatistics($userId);
-        $timeline = $this->getTimelineStatistics($userId);
+        // Build query to get expedition counts per user
+        $query = FleetMission::where('mission_type', 15);
 
-        return [
-            'overview' => $overview,
-            'outcomes' => $outcomes,
-            'resources' => $resources,
-            'ships' => $ships,
-            'battles' => $battles,
-            'timeline' => $timeline,
-        ];
+        if ($from) {
+            $query->where('created_at', '>=', $from);
+        }
+        if ($to) {
+            $query->where('created_at', '<=', $to);
+        }
+
+        $expeditionCounts = $query->select('user_id', DB::raw('count(*) as total_count'))
+            ->groupBy('user_id')
+            ->orderBy('total_count', 'desc')
+            ->limit($limit)
+            ->get();
+
+        $rankings = [];
+
+        foreach ($expeditionCounts as $row) {
+            $userId = $row->user_id;
+
+            // Get user info
+            $user = User::find($userId);
+            if (!$user) {
+                continue;
+            }
+
+            // Get detailed statistics for this user
+            $stats = $this->getPlayerStatistics($userId, $from, $to);
+
+            $rankings[] = [
+                'user_id' => $userId,
+                'username' => $user->username,
+                'expedition_count' => $stats['total_expeditions'],
+                'completed_count' => $stats['completed_expeditions'],
+                'in_progress_count' => $stats['in_progress_expeditions'],
+                'success_rate' => $stats['success_rate'],
+                'total_profit' => $stats['total_profit'],
+                'total_loss' => $stats['total_loss'],
+                'net_profit' => $stats['net_profit'],
+            ];
+        }
+
+        return $rankings;
     }
 
     /**
-     * Get overview statistics for expeditions.
+     * Get comprehensive statistics for a specific player.
      *
-     * @param int|null $userId
+     * @param int $userId
+     * @param Carbon|null $from
+     * @param Carbon|null $to
      * @return array{
      *     total_expeditions: int,
      *     completed_expeditions: int,
      *     in_progress_expeditions: int,
-     *     success_rate: float
+     *     success_rate: float,
+     *     total_profit: int,
+     *     total_loss: int,
+     *     net_profit: int,
+     *     resources_gained: array{metal: int, crystal: int, deuterium: int, dark_matter: int},
+     *     ships_gained: array<string, int>,
+     *     ships_lost: array<string, int>,
+     *     outcomes: array<string, int>,
+     *     battles: array{total: int, pirate: int, alien: int}
      * }
      */
-    private function getOverviewStatistics(?int $userId = null): array
+    public function getPlayerStatistics(int $userId, ?Carbon $from = null, ?Carbon $to = null): array
     {
-        $query = FleetMission::where('mission_type', 15);
+        // Get expedition counts
+        $expeditionQuery = FleetMission::where('mission_type', 15)
+            ->where('user_id', $userId);
 
-        if ($userId !== null) {
-            $query->where('user_id', $userId);
+        if ($from) {
+            $expeditionQuery->where('created_at', '>=', $from);
+        }
+        if ($to) {
+            $expeditionQuery->where('created_at', '<=', $to);
         }
 
-        $totalExpeditions = $query->count();
-        $completedExpeditions = (clone $query)->where('processed', 1)->count();
-        $inProgressExpeditions = (clone $query)->where('processed', 0)->count();
+        $totalExpeditions = $expeditionQuery->count();
+        $completedExpeditions = (clone $expeditionQuery)->where('processed', 1)->count();
+        $inProgressExpeditions = (clone $expeditionQuery)->where('processed', 0)->count();
 
-        // Calculate success rate based on non-failed outcomes
-        $successRate = 0.0;
-        if ($completedExpeditions > 0) {
-            $messageQuery = Message::where('tab', 'fleets')
-                ->where('subtab', 'expeditions');
+        // Get message-based statistics
+        $messageQuery = Message::where('user_id', $userId)
+            ->where('tab', 'fleets')
+            ->where('subtab', 'expeditions');
 
-            if ($userId !== null) {
-                $messageQuery->where('user_id', $userId);
-            }
-
-            $failedOutcomes = [
-                ExpeditionOutcomeType::Failed->value,
-                ExpeditionOutcomeType::FailedAndDelay->value,
-                ExpeditionOutcomeType::FailedAndSpeedup->value,
-                ExpeditionOutcomeType::LossOfFleet->value,
-            ];
-
-            $failedCount = (clone $messageQuery)->whereIn('key', $failedOutcomes)->count();
-            $totalOutcomes = $messageQuery->count();
-
-            if ($totalOutcomes > 0) {
-                $successRate = (($totalOutcomes - $failedCount) / $totalOutcomes) * 100;
-            }
+        if ($from) {
+            $messageQuery->where('created_at', '>=', $from);
         }
+        if ($to) {
+            $messageQuery->where('created_at', '<=', $to);
+        }
+
+        $messages = $messageQuery->get();
+
+        // Calculate outcomes
+        $outcomes = [];
+        foreach ($messages as $message) {
+            $key = $message->key;
+            if (!isset($outcomes[$key])) {
+                $outcomes[$key] = 0;
+            }
+            $outcomes[$key]++;
+        }
+
+        // Calculate success rate
+        $failedOutcomes = [
+            ExpeditionOutcomeType::Failed->value,
+            ExpeditionOutcomeType::FailedAndDelay->value,
+            ExpeditionOutcomeType::FailedAndSpeedup->value,
+            ExpeditionOutcomeType::LossOfFleet->value,
+        ];
+
+        $failedCount = 0;
+        foreach ($failedOutcomes as $outcome) {
+            $failedCount += $outcomes[$outcome] ?? 0;
+        }
+
+        $totalOutcomes = count($messages);
+        $successRate = $totalOutcomes > 0 ? (($totalOutcomes - $failedCount) / $totalOutcomes) * 100 : 0;
+
+        // Calculate resources gained
+        $resourcesGained = $this->calculateResourcesGained($messages);
+
+        // Calculate ships gained
+        $shipsGained = $this->calculateShipsGained($messages);
+
+        // Calculate ships lost
+        $shipsLost = $this->calculateShipsLost($messages);
+
+        // Calculate battles
+        $battles = [
+            'total' => ($outcomes[ExpeditionOutcomeType::BattlePirates->value] ?? 0) +
+                      ($outcomes[ExpeditionOutcomeType::BattleAliens->value] ?? 0) +
+                      ($outcomes[ExpeditionOutcomeType::Battle->value] ?? 0),
+            'pirate' => $outcomes[ExpeditionOutcomeType::BattlePirates->value] ?? 0,
+            'alien' => $outcomes[ExpeditionOutcomeType::BattleAliens->value] ?? 0,
+        ];
+
+        // Calculate profit and loss
+        $totalProfit = $this->calculateTotalProfit($resourcesGained, $shipsGained);
+        $totalLoss = $this->calculateTotalLoss($shipsLost);
+        $netProfit = $totalProfit - $totalLoss;
 
         return [
             'total_expeditions' => $totalExpeditions,
             'completed_expeditions' => $completedExpeditions,
             'in_progress_expeditions' => $inProgressExpeditions,
             'success_rate' => round($successRate, 2),
+            'total_profit' => $totalProfit,
+            'total_loss' => $totalLoss,
+            'net_profit' => $netProfit,
+            'resources_gained' => $resourcesGained,
+            'ships_gained' => $shipsGained,
+            'ships_lost' => $shipsLost,
+            'outcomes' => $outcomes,
+            'battles' => $battles,
         ];
     }
 
     /**
-     * Get distribution of expedition outcomes.
+     * Calculate total resources gained from messages.
      *
-     * @param int|null $userId
-     * @return array<string, array{count: int, percentage: float}>
+     * @param \Illuminate\Database\Eloquent\Collection $messages
+     * @return array{metal: int, crystal: int, deuterium: int, dark_matter: int}
      */
-    private function getOutcomeDistribution(?int $userId = null): array
+    private function calculateResourcesGained($messages): array
     {
-        $query = Message::where('tab', 'fleets')
-            ->where('subtab', 'expeditions');
-
-        if ($userId !== null) {
-            $query->where('user_id', $userId);
-        }
-
-        $outcomes = $query->select('key', DB::raw('count(*) as count'))
-            ->groupBy('key')
-            ->get();
-
-        $totalOutcomes = $outcomes->sum('count');
-        $distribution = [];
-
-        foreach ($outcomes as $outcome) {
-            $percentage = $totalOutcomes > 0 ? ($outcome->count / $totalOutcomes) * 100 : 0;
-            $distribution[$outcome->key] = [
-                'count' => $outcome->count,
-                'percentage' => round($percentage, 2),
-            ];
-        }
-
-        return $distribution;
-    }
-
-    /**
-     * Get total resources gained from expeditions.
-     *
-     * @param int|null $userId
-     * @return array{total_metal: int, total_crystal: int, total_deuterium: int, total_dark_matter: int}
-     */
-    private function getResourcesGained(?int $userId = null): array
-    {
-        $query = Message::where('tab', 'fleets')
-            ->where('subtab', 'expeditions')
-            ->where('key', ExpeditionOutcomeType::GainResources->value);
-
-        if ($userId !== null) {
-            $query->where('user_id', $userId);
-        }
-
-        $messages = $query->get();
-
-        $totalMetal = 0;
-        $totalCrystal = 0;
-        $totalDeuterium = 0;
+        $metal = 0;
+        $crystal = 0;
+        $deuterium = 0;
+        $darkMatter = 0;
 
         foreach ($messages as $message) {
-            $params = $message->params ?? [];
-            $totalMetal += (int)($params['metal'] ?? 0);
-            $totalCrystal += (int)($params['crystal'] ?? 0);
-            $totalDeuterium += (int)($params['deuterium'] ?? 0);
-        }
-
-        // Dark matter from expedition_gain_dark_matter messages
-        $darkMatterQuery = Message::where('tab', 'fleets')
-            ->where('subtab', 'expeditions')
-            ->where('key', ExpeditionOutcomeType::GainDarkMatter->value);
-
-        if ($userId !== null) {
-            $darkMatterQuery->where('user_id', $userId);
-        }
-
-        $darkMatterMessages = $darkMatterQuery->get();
-        $totalDarkMatter = 0;
-
-        foreach ($darkMatterMessages as $message) {
-            $params = $message->params ?? [];
-            $totalDarkMatter += (int)($params['dark_matter'] ?? 0);
+            if ($message->key === ExpeditionOutcomeType::GainResources->value) {
+                $params = $message->params ?? [];
+                $metal += (int)($params['metal'] ?? 0);
+                $crystal += (int)($params['crystal'] ?? 0);
+                $deuterium += (int)($params['deuterium'] ?? 0);
+            } elseif ($message->key === ExpeditionOutcomeType::GainDarkMatter->value) {
+                $params = $message->params ?? [];
+                $darkMatter += (int)($params['dark_matter'] ?? 0);
+            }
         }
 
         return [
-            'total_metal' => $totalMetal,
-            'total_crystal' => $totalCrystal,
-            'total_deuterium' => $totalDeuterium,
-            'total_dark_matter' => $totalDarkMatter,
+            'metal' => $metal,
+            'crystal' => $crystal,
+            'deuterium' => $deuterium,
+            'dark_matter' => $darkMatter,
         ];
     }
 
     /**
-     * Get total ships gained from expeditions.
+     * Calculate total ships gained from messages.
      *
-     * @param int|null $userId
+     * @param \Illuminate\Database\Eloquent\Collection $messages
      * @return array<string, int>
      */
-    private function getShipsGained(?int $userId = null): array
+    private function calculateShipsGained($messages): array
     {
-        $query = Message::where('tab', 'fleets')
-            ->where('subtab', 'expeditions')
-            ->where('key', ExpeditionOutcomeType::GainShips->value);
-
-        if ($userId !== null) {
-            $query->where('user_id', $userId);
-        }
-
-        $messages = $query->get();
-
         $ships = [];
 
         foreach ($messages as $message) {
-            $params = $message->params ?? [];
+            if ($message->key === ExpeditionOutcomeType::GainShips->value) {
+                $params = $message->params ?? [];
 
-            // Ships are stored in params with ship type as key and count as value
-            foreach ($params as $key => $value) {
-                // Skip non-ship parameters
-                if (in_array($key, ['metal', 'crystal', 'deuterium', 'dark_matter', 'subject', 'variation'])) {
-                    continue;
-                }
+                foreach ($params as $key => $value) {
+                    // Skip non-ship parameters
+                    if (in_array($key, ['metal', 'crystal', 'deuterium', 'dark_matter', 'subject', 'variation'])) {
+                        continue;
+                    }
 
-                if (!isset($ships[$key])) {
-                    $ships[$key] = 0;
+                    if (!isset($ships[$key])) {
+                        $ships[$key] = 0;
+                    }
+                    $ships[$key] += (int)$value;
                 }
-                $ships[$key] += (int)$value;
             }
         }
 
@@ -248,130 +262,129 @@ class ExpeditionStatisticsService
     }
 
     /**
-     * Get battle statistics from expeditions.
+     * Calculate total ships lost from messages (black holes and battles).
      *
-     * @param int|null $userId
-     * @return array{total_battles: int, pirate_battles: int, alien_battles: int}
+     * @param \Illuminate\Database\Eloquent\Collection $messages
+     * @return array<string, int>
      */
-    private function getBattleStatistics(?int $userId = null): array
+    private function calculateShipsLost($messages): array
     {
-        $query = Message::where('tab', 'fleets')
-            ->where('subtab', 'expeditions');
+        $ships = [];
 
-        if ($userId !== null) {
-            $query->where('user_id', $userId);
+        foreach ($messages as $message) {
+            // Black hole destroys entire fleet - would need to get fleet composition from the mission
+            // For now, this is not easily accessible from messages alone
+            // TODO: Implement loss tracking if fleet composition is stored in message params
+
+            // Battle losses would need battle report data
+            // This is complex as we'd need to parse battle reports
         }
 
-        $pirateBattles = (clone $query)->where('key', ExpeditionOutcomeType::BattlePirates->value)->count();
-        $alienBattles = (clone $query)->where('key', ExpeditionOutcomeType::BattleAliens->value)->count();
-        $genericBattles = (clone $query)->where('key', ExpeditionOutcomeType::Battle->value)->count();
-
-        return [
-            'total_battles' => $pirateBattles + $alienBattles + $genericBattles,
-            'pirate_battles' => $pirateBattles,
-            'alien_battles' => $alienBattles,
-        ];
+        return $ships;
     }
 
     /**
-     * Get expedition timeline statistics (expeditions per day for the last 30 days).
+     * Calculate total profit value (resources + ship values).
      *
-     * @param int|null $userId
-     * @return array<array{date: string, count: int}>
+     * @param array $resources
+     * @param array $ships
+     * @return int Total value in resource points
      */
-    private function getTimelineStatistics(?int $userId = null, int $days = 30): array
+    private function calculateTotalProfit(array $resources, array $ships): int
     {
-        $query = FleetMission::where('mission_type', 15)
-            ->where('created_at', '>=', now()->subDays($days));
+        $totalValue = $resources['metal'] + $resources['crystal'] + $resources['deuterium'];
 
-        if ($userId !== null) {
-            $query->where('user_id', $userId);
+        // Add ship values (metal + crystal + deuterium costs)
+        foreach ($ships as $shipType => $count) {
+            try {
+                $unitObject = ObjectService::getUnitObjectByMachineName($shipType);
+                $shipCost = $unitObject->price->resources;
+                $totalValue += ($shipCost->metal + $shipCost->crystal + $shipCost->deuterium) * $count;
+            } catch (\Exception $e) {
+                // Ship type not found, skip
+                continue;
+            }
         }
 
-        $expeditions = $query->select(
-            DB::raw('DATE(created_at) as date'),
-            DB::raw('count(*) as count')
-        )
-            ->groupBy('date')
-            ->orderBy('date', 'asc')
-            ->get();
-
-        return $expeditions->map(function ($item) {
-            return [
-                'date' => $item->date,
-                'count' => $item->count,
-            ];
-        })->toArray();
+        return $totalValue;
     }
 
     /**
-     * Get detailed expedition list with outcomes for a user.
+     * Calculate total loss value (ship values lost).
      *
-     * @param int $userId
-     * @param int $limit
-     * @param int $offset
+     * @param array $ships
+     * @return int Total value in resource points
+     */
+    private function calculateTotalLoss(array $ships): int
+    {
+        $totalValue = 0;
+
+        foreach ($ships as $shipType => $count) {
+            try {
+                $unitObject = ObjectService::getUnitObjectByMachineName($shipType);
+                $shipCost = $unitObject->price->resources;
+                $totalValue += ($shipCost->metal + $shipCost->crystal + $shipCost->deuterium) * $count;
+            } catch (\Exception $e) {
+                // Ship type not found, skip
+                continue;
+            }
+        }
+
+        return $totalValue;
+    }
+
+    /**
+     * Get server-wide statistics.
+     *
+     * @param Carbon|null $from
+     * @param Carbon|null $to
      * @return array{
-     *     expeditions: array<array{
-     *         id: int,
-     *         departure_time: string,
-     *         arrival_time: string,
-     *         holding_time: int,
-     *         processed: bool,
-     *         outcome: string|null,
-     *         outcome_details: array|null
-     *     }>,
-     *     total: int
+     *     total_expeditions: int,
+     *     total_players: int,
+     *     average_per_player: float,
+     *     most_active_player: array{id: int, username: string, count: int}|null
      * }
      */
-    public function getDetailedExpeditionList(int $userId, int $limit = 20, int $offset = 0): array
+    public function getServerStatistics(?Carbon $from = null, ?Carbon $to = null): array
     {
-        $query = FleetMission::where('mission_type', 15)
-            ->where('user_id', $userId)
-            ->orderBy('created_at', 'desc');
+        $query = FleetMission::where('mission_type', 15);
 
-        $total = $query->count();
+        if ($from) {
+            $query->where('created_at', '>=', $from);
+        }
+        if ($to) {
+            $query->where('created_at', '<=', $to);
+        }
 
-        $expeditions = $query->limit($limit)
-            ->offset($offset)
+        $totalExpeditions = $query->count();
+
+        $playerCounts = (clone $query)
+            ->select('user_id', DB::raw('count(*) as count'))
+            ->groupBy('user_id')
             ->get();
 
-        $result = [];
+        $totalPlayers = $playerCounts->count();
+        $averagePerPlayer = $totalPlayers > 0 ? $totalExpeditions / $totalPlayers : 0;
 
-        foreach ($expeditions as $expedition) {
-            $outcome = null;
-            $outcomeDetails = null;
+        $mostActive = $playerCounts->sortByDesc('count')->first();
+        $mostActivePlayer = null;
 
-            // Try to find the outcome message for this expedition
-            // Messages are created when the expedition completes
-            if ($expedition->processed) {
-                // Find message that was created around the same time as the mission's arrival
-                $message = Message::where('user_id', $userId)
-                    ->where('tab', 'fleets')
-                    ->where('subtab', 'expeditions')
-                    ->where('created_at', '>=', $expedition->time_arrival->subMinutes(5))
-                    ->where('created_at', '<=', $expedition->time_arrival->addMinutes(5))
-                    ->first();
-
-                if ($message) {
-                    $outcome = $message->key;
-                    $outcomeDetails = $message->params;
-                }
+        if ($mostActive) {
+            $user = User::find($mostActive->user_id);
+            if ($user) {
+                $mostActivePlayer = [
+                    'id' => $user->id,
+                    'username' => $user->username,
+                    'count' => $mostActive->count,
+                ];
             }
-
-            $result[] = [
-                'id' => $expedition->id,
-                'departure_time' => $expedition->time_departure->toDateTimeString(),
-                'arrival_time' => $expedition->time_arrival->toDateTimeString(),
-                'holding_time' => $expedition->time_holding,
-                'processed' => (bool)$expedition->processed,
-                'outcome' => $outcome,
-                'outcome_details' => $outcomeDetails,
-            ];
         }
 
         return [
-            'expeditions' => $result,
-            'total' => $total,
+            'total_expeditions' => $totalExpeditions,
+            'total_players' => $totalPlayers,
+            'average_per_player' => round($averagePerPlayer, 2),
+            'most_active_player' => $mostActivePlayer,
         ];
     }
 }

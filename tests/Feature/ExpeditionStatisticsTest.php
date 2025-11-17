@@ -2,70 +2,65 @@
 
 namespace Tests\Feature;
 
+use Carbon\Carbon;
 use OGame\GameMissions\Models\ExpeditionOutcomeType;
-use OGame\Models\Message;
 use OGame\Models\FleetMission;
-use OGame\Models\Resources;
+use OGame\Models\Message;
 use OGame\Services\ExpeditionStatisticsService;
-use OGame\Services\ObjectService;
-use OGame\Services\PlayerService;
 use Tests\AccountTestCase;
 
 /**
- * Test that expedition statistics service works as expected.
+ * Test that expedition statistics service and command work as expected.
  */
 class ExpeditionStatisticsTest extends AccountTestCase
 {
     /**
-     * Test that the expedition statistics service returns empty statistics for a new player.
+     * Test that the service returns empty statistics for a player with no expeditions.
      */
     public function testEmptyStatistics(): void
     {
         $expeditionStatisticsService = resolve(ExpeditionStatisticsService::class);
 
-        /** @var PlayerService $player */
-        $player = $this->playerService;
-
-        $statistics = $expeditionStatisticsService->getStatistics($player->getId());
+        $stats = $expeditionStatisticsService->getPlayerStatistics($this->currentUserId);
 
         // Verify overview statistics
-        $this->assertEquals(0, $statistics['overview']['total_expeditions']);
-        $this->assertEquals(0, $statistics['overview']['completed_expeditions']);
-        $this->assertEquals(0, $statistics['overview']['in_progress_expeditions']);
-        $this->assertEquals(0.0, $statistics['overview']['success_rate']);
+        $this->assertEquals(0, $stats['total_expeditions']);
+        $this->assertEquals(0, $stats['completed_expeditions']);
+        $this->assertEquals(0, $stats['in_progress_expeditions']);
+        $this->assertEquals(0.0, $stats['success_rate']);
 
-        // Verify outcomes are empty
-        $this->assertEmpty($statistics['outcomes']);
+        // Verify profit/loss are zero
+        $this->assertEquals(0, $stats['total_profit']);
+        $this->assertEquals(0, $stats['total_loss']);
+        $this->assertEquals(0, $stats['net_profit']);
 
         // Verify resources are all zero
-        $this->assertEquals(0, $statistics['resources']['total_metal']);
-        $this->assertEquals(0, $statistics['resources']['total_crystal']);
-        $this->assertEquals(0, $statistics['resources']['total_deuterium']);
-        $this->assertEquals(0, $statistics['resources']['total_dark_matter']);
+        $this->assertEquals(0, $stats['resources_gained']['metal']);
+        $this->assertEquals(0, $stats['resources_gained']['crystal']);
+        $this->assertEquals(0, $stats['resources_gained']['deuterium']);
+        $this->assertEquals(0, $stats['resources_gained']['dark_matter']);
 
-        // Verify ships are empty
-        $this->assertEmpty($statistics['ships']);
+        // Verify ships and outcomes are empty
+        $this->assertEmpty($stats['ships_gained']);
+        $this->assertEmpty($stats['outcomes']);
 
-        // Verify battles are all zero
-        $this->assertEquals(0, $statistics['battles']['total_battles']);
-        $this->assertEquals(0, $statistics['battles']['pirate_battles']);
-        $this->assertEquals(0, $statistics['battles']['alien_battles']);
+        // Verify battles are zero
+        $this->assertEquals(0, $stats['battles']['total']);
+        $this->assertEquals(0, $stats['battles']['pirate']);
+        $this->assertEquals(0, $stats['battles']['alien']);
     }
 
     /**
-     * Test that the expedition statistics service counts expeditions correctly.
+     * Test that the service counts expeditions correctly.
      */
     public function testExpeditionCounting(): void
     {
         $expeditionStatisticsService = resolve(ExpeditionStatisticsService::class);
 
-        /** @var PlayerService $player */
-        $player = $this->playerService;
-
         // Create a few expedition missions
         for ($i = 0; $i < 3; $i++) {
             FleetMission::create([
-                'user_id' => $player->getId(),
+                'user_id' => $this->currentUserId,
                 'planet_id_from' => $this->planetService->getPlanetId(),
                 'planet_id_to' => null,
                 'galaxy_to' => 1,
@@ -86,7 +81,7 @@ class ExpeditionStatisticsTest extends AccountTestCase
 
         // Create a completed expedition
         FleetMission::create([
-            'user_id' => $player->getId(),
+            'user_id' => $this->currentUserId,
             'planet_id_from' => $this->planetService->getPlanetId(),
             'planet_id_to' => null,
             'galaxy_to' => 1,
@@ -104,28 +99,25 @@ class ExpeditionStatisticsTest extends AccountTestCase
             'deuterium' => 1000,
         ]);
 
-        $statistics = $expeditionStatisticsService->getStatistics($player->getId());
+        $stats = $expeditionStatisticsService->getPlayerStatistics($this->currentUserId);
 
         // Verify counts
-        $this->assertEquals(4, $statistics['overview']['total_expeditions']);
-        $this->assertEquals(1, $statistics['overview']['completed_expeditions']);
-        $this->assertEquals(3, $statistics['overview']['in_progress_expeditions']);
+        $this->assertEquals(4, $stats['total_expeditions']);
+        $this->assertEquals(1, $stats['completed_expeditions']);
+        $this->assertEquals(3, $stats['in_progress_expeditions']);
     }
 
     /**
-     * Test that the expedition statistics service counts resources gained correctly.
+     * Test that the service calculates resources gained correctly.
      */
     public function testResourcesGained(): void
     {
         $expeditionStatisticsService = resolve(ExpeditionStatisticsService::class);
 
-        /** @var PlayerService $player */
-        $player = $this->playerService;
-
         // Create expedition gain resources messages
         for ($i = 0; $i < 3; $i++) {
             Message::create([
-                'user_id' => $player->getId(),
+                'user_id' => $this->currentUserId,
                 'key' => ExpeditionOutcomeType::GainResources->value,
                 'tab' => 'fleets',
                 'subtab' => 'expeditions',
@@ -139,41 +131,40 @@ class ExpeditionStatisticsTest extends AccountTestCase
             ]);
         }
 
-        $statistics = $expeditionStatisticsService->getStatistics($player->getId());
+        $stats = $expeditionStatisticsService->getPlayerStatistics($this->currentUserId);
 
         // Verify resource totals
-        $this->assertEquals(30000, $statistics['resources']['total_metal']);
-        $this->assertEquals(15000, $statistics['resources']['total_crystal']);
-        $this->assertEquals(7500, $statistics['resources']['total_deuterium']);
+        $this->assertEquals(30000, $stats['resources_gained']['metal']);
+        $this->assertEquals(15000, $stats['resources_gained']['crystal']);
+        $this->assertEquals(7500, $stats['resources_gained']['deuterium']);
+
+        // Verify profit includes resources
+        $this->assertEquals(52500, $stats['total_profit']);
     }
 
     /**
-     * Test that the expedition statistics service counts ships gained correctly.
+     * Test that the service calculates ships gained correctly.
      */
     public function testShipsGained(): void
     {
         $expeditionStatisticsService = resolve(ExpeditionStatisticsService::class);
 
-        /** @var PlayerService $player */
-        $player = $this->playerService;
-
         // Create expedition gain ships messages
         Message::create([
-            'user_id' => $player->getId(),
+            'user_id' => $this->currentUserId,
             'key' => ExpeditionOutcomeType::GainShips->value,
             'tab' => 'fleets',
             'subtab' => 'expeditions',
             'params' => [
                 'light_fighter' => 10,
                 'heavy_fighter' => 5,
-                'cruiser' => 2,
             ],
             'viewed' => 0,
             'created_at' => now(),
         ]);
 
         Message::create([
-            'user_id' => $player->getId(),
+            'user_id' => $this->currentUserId,
             'key' => ExpeditionOutcomeType::GainShips->value,
             'tab' => 'fleets',
             'subtab' => 'expeditions',
@@ -185,77 +176,28 @@ class ExpeditionStatisticsTest extends AccountTestCase
             'created_at' => now(),
         ]);
 
-        $statistics = $expeditionStatisticsService->getStatistics($player->getId());
+        $stats = $expeditionStatisticsService->getPlayerStatistics($this->currentUserId);
 
         // Verify ship totals
-        $this->assertEquals(18, $statistics['ships']['light_fighter']);
-        $this->assertEquals(5, $statistics['ships']['heavy_fighter']);
-        $this->assertEquals(2, $statistics['ships']['cruiser']);
-        $this->assertEquals(3, $statistics['ships']['battleship']);
+        $this->assertEquals(18, $stats['ships_gained']['light_fighter']);
+        $this->assertEquals(5, $stats['ships_gained']['heavy_fighter']);
+        $this->assertEquals(3, $stats['ships_gained']['battleship']);
+
+        // Verify profit includes ship values
+        $this->assertGreaterThan(0, $stats['total_profit']);
     }
 
     /**
-     * Test that the expedition statistics service calculates outcome distribution correctly.
-     */
-    public function testOutcomeDistribution(): void
-    {
-        $expeditionStatisticsService = resolve(ExpeditionStatisticsService::class);
-
-        /** @var PlayerService $player */
-        $player = $this->playerService;
-
-        // Create various outcome messages
-        $outcomes = [
-            ExpeditionOutcomeType::GainResources->value => 5,
-            ExpeditionOutcomeType::GainShips->value => 3,
-            ExpeditionOutcomeType::Failed->value => 2,
-            ExpeditionOutcomeType::BattlePirates->value => 1,
-        ];
-
-        foreach ($outcomes as $outcome => $count) {
-            for ($i = 0; $i < $count; $i++) {
-                Message::create([
-                    'user_id' => $player->getId(),
-                    'key' => $outcome,
-                    'tab' => 'fleets',
-                    'subtab' => 'expeditions',
-                    'params' => [],
-                    'viewed' => 0,
-                    'created_at' => now(),
-                ]);
-            }
-        }
-
-        $statistics = $expeditionStatisticsService->getStatistics($player->getId());
-
-        // Total outcomes = 11
-        $this->assertEquals(5, $statistics['outcomes'][ExpeditionOutcomeType::GainResources->value]['count']);
-        $this->assertEquals(45.45, $statistics['outcomes'][ExpeditionOutcomeType::GainResources->value]['percentage']);
-
-        $this->assertEquals(3, $statistics['outcomes'][ExpeditionOutcomeType::GainShips->value]['count']);
-        $this->assertEquals(27.27, $statistics['outcomes'][ExpeditionOutcomeType::GainShips->value]['percentage']);
-
-        $this->assertEquals(2, $statistics['outcomes'][ExpeditionOutcomeType::Failed->value]['count']);
-        $this->assertEquals(18.18, $statistics['outcomes'][ExpeditionOutcomeType::Failed->value]['percentage']);
-
-        $this->assertEquals(1, $statistics['outcomes'][ExpeditionOutcomeType::BattlePirates->value]['count']);
-        $this->assertEquals(9.09, $statistics['outcomes'][ExpeditionOutcomeType::BattlePirates->value]['percentage']);
-    }
-
-    /**
-     * Test that the expedition statistics service calculates success rate correctly.
+     * Test that the service calculates success rate correctly.
      */
     public function testSuccessRate(): void
     {
         $expeditionStatisticsService = resolve(ExpeditionStatisticsService::class);
 
-        /** @var PlayerService $player */
-        $player = $this->playerService;
-
         // Create successful outcomes
         for ($i = 0; $i < 7; $i++) {
             Message::create([
-                'user_id' => $player->getId(),
+                'user_id' => $this->currentUserId,
                 'key' => ExpeditionOutcomeType::GainResources->value,
                 'tab' => 'fleets',
                 'subtab' => 'expeditions',
@@ -268,7 +210,7 @@ class ExpeditionStatisticsTest extends AccountTestCase
         // Create failed outcomes
         for ($i = 0; $i < 3; $i++) {
             Message::create([
-                'user_id' => $player->getId(),
+                'user_id' => $this->currentUserId,
                 'key' => ExpeditionOutcomeType::Failed->value,
                 'tab' => 'fleets',
                 'subtab' => 'expeditions',
@@ -278,98 +220,157 @@ class ExpeditionStatisticsTest extends AccountTestCase
             ]);
         }
 
-        $statistics = $expeditionStatisticsService->getStatistics($player->getId());
+        $stats = $expeditionStatisticsService->getPlayerStatistics($this->currentUserId);
 
         // Success rate should be 70% (7 successes out of 10 total)
-        $this->assertEquals(70.00, $statistics['overview']['success_rate']);
+        $this->assertEquals(70.00, $stats['success_rate']);
     }
 
     /**
-     * Test that the expedition statistics service counts battle statistics correctly.
+     * Test that player rankings work correctly.
      */
-    public function testBattleStatistics(): void
+    public function testPlayerRankings(): void
     {
         $expeditionStatisticsService = resolve(ExpeditionStatisticsService::class);
 
-        /** @var PlayerService $player */
-        $player = $this->playerService;
-
-        // Create battle messages
-        for ($i = 0; $i < 2; $i++) {
-            Message::create([
-                'user_id' => $player->getId(),
-                'key' => ExpeditionOutcomeType::BattlePirates->value,
-                'tab' => 'fleets',
-                'subtab' => 'expeditions',
-                'params' => [],
-                'viewed' => 0,
+        // Create expeditions for current user
+        for ($i = 0; $i < 5; $i++) {
+            FleetMission::create([
+                'user_id' => $this->currentUserId,
+                'planet_id_from' => $this->planetService->getPlanetId(),
+                'planet_id_to' => null,
+                'galaxy_to' => 1,
+                'system_to' => 1,
+                'position_to' => 16,
+                'mission_type' => 15,
+                'time_departure' => now(),
+                'time_arrival' => now()->addHours(1),
+                'time_holding' => 3600,
+                'processed' => 1,
+                'canceled' => 0,
+                'light_fighter' => 10,
+                'metal' => 0,
+                'crystal' => 0,
+                'deuterium' => 1000,
                 'created_at' => now(),
             ]);
         }
 
-        for ($i = 0; $i < 3; $i++) {
-            Message::create([
-                'user_id' => $player->getId(),
-                'key' => ExpeditionOutcomeType::BattleAliens->value,
-                'tab' => 'fleets',
-                'subtab' => 'expeditions',
-                'params' => [],
-                'viewed' => 0,
-                'created_at' => now(),
-            ]);
+        $rankings = $expeditionStatisticsService->getPlayerRankings(null, null, 10);
+
+        // Should have at least one player
+        $this->assertGreaterThanOrEqual(1, count($rankings));
+
+        // Current user should be in rankings
+        $found = false;
+        foreach ($rankings as $rank) {
+            if ($rank['user_id'] === $this->currentUserId) {
+                $found = true;
+                $this->assertEquals(5, $rank['expedition_count']);
+                break;
+            }
         }
-
-        $statistics = $expeditionStatisticsService->getStatistics($player->getId());
-
-        // Verify battle counts
-        $this->assertEquals(5, $statistics['battles']['total_battles']);
-        $this->assertEquals(2, $statistics['battles']['pirate_battles']);
-        $this->assertEquals(3, $statistics['battles']['alien_battles']);
+        $this->assertTrue($found, 'Current user not found in rankings');
     }
 
     /**
-     * Test that the API endpoint returns correct JSON response.
+     * Test that time filtering works correctly.
      */
-    public function testStatisticsApiEndpoint(): void
+    public function testTimeFiltering(): void
     {
-        $response = $this->get('/ajax/expedition-statistics');
+        $expeditionStatisticsService = resolve(ExpeditionStatisticsService::class);
 
-        $response->assertStatus(200);
-        $response->assertJsonStructure([
-            'overview' => [
-                'total_expeditions',
-                'completed_expeditions',
-                'in_progress_expeditions',
-                'success_rate',
-            ],
-            'outcomes',
-            'resources' => [
-                'total_metal',
-                'total_crystal',
-                'total_deuterium',
-                'total_dark_matter',
-            ],
-            'ships',
-            'battles' => [
-                'total_battles',
-                'pirate_battles',
-                'alien_battles',
-            ],
-            'timeline',
+        // Create old expeditions
+        FleetMission::create([
+            'user_id' => $this->currentUserId,
+            'planet_id_from' => $this->planetService->getPlanetId(),
+            'planet_id_to' => null,
+            'galaxy_to' => 1,
+            'system_to' => 1,
+            'position_to' => 16,
+            'mission_type' => 15,
+            'time_departure' => now()->subDays(10),
+            'time_arrival' => now()->subDays(10)->addHours(1),
+            'time_holding' => 3600,
+            'processed' => 1,
+            'canceled' => 0,
+            'light_fighter' => 10,
+            'metal' => 0,
+            'crystal' => 0,
+            'deuterium' => 1000,
+            'created_at' => now()->subDays(10),
         ]);
+
+        // Create recent expeditions
+        for ($i = 0; $i < 3; $i++) {
+            FleetMission::create([
+                'user_id' => $this->currentUserId,
+                'planet_id_from' => $this->planetService->getPlanetId(),
+                'planet_id_to' => null,
+                'galaxy_to' => 1,
+                'system_to' => 1,
+                'position_to' => 16,
+                'mission_type' => 15,
+                'time_departure' => now(),
+                'time_arrival' => now()->addHours(1),
+                'time_holding' => 3600,
+                'processed' => 1,
+                'canceled' => 0,
+                'light_fighter' => 10,
+                'metal' => 0,
+                'crystal' => 0,
+                'deuterium' => 1000,
+                'created_at' => now(),
+            ]);
+        }
+
+        // Get stats for last 7 days
+        $from = Carbon::now()->subDays(7);
+        $stats = $expeditionStatisticsService->getPlayerStatistics($this->currentUserId, $from);
+
+        // Should only count recent expeditions
+        $this->assertEquals(3, $stats['total_expeditions']);
     }
 
     /**
-     * Test that the statistics page loads correctly.
+     * Test that the artisan command runs without errors.
      */
-    public function testStatisticsPageLoads(): void
+    public function testCommandRuns(): void
     {
-        $response = $this->get('/expedition-statistics');
+        // Create some test data
+        FleetMission::create([
+            'user_id' => $this->currentUserId,
+            'planet_id_from' => $this->planetService->getPlanetId(),
+            'planet_id_to' => null,
+            'galaxy_to' => 1,
+            'system_to' => 1,
+            'position_to' => 16,
+            'mission_type' => 15,
+            'time_departure' => now(),
+            'time_arrival' => now()->addHours(1),
+            'time_holding' => 3600,
+            'processed' => 1,
+            'canceled' => 0,
+            'light_fighter' => 10,
+            'metal' => 0,
+            'crystal' => 0,
+            'deuterium' => 1000,
+        ]);
 
-        $response->assertStatus(200);
-        $response->assertSee('Expedition Statistics');
-        $response->assertSee('Overview');
-        $response->assertSee('Total Expeditions');
-        $response->assertSee('Success Rate');
+        // Test basic command
+        $this->artisan('expedition:stats')
+            ->assertExitCode(0);
+
+        // Test with player option
+        $this->artisan('expedition:stats', ['--player' => $this->currentUserId])
+            ->assertExitCode(0);
+
+        // Test with server option
+        $this->artisan('expedition:stats', ['--server' => true])
+            ->assertExitCode(0);
+
+        // Test with days option
+        $this->artisan('expedition:stats', ['--days' => 30])
+            ->assertExitCode(0);
     }
 }

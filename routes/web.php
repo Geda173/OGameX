@@ -7,7 +7,6 @@ use OGame\Http\Controllers\AllianceController;
 use OGame\Http\Controllers\BuddiesController;
 use OGame\Http\Controllers\ChangeNickController;
 use OGame\Http\Controllers\DefenseController;
-use OGame\Http\Controllers\ExpeditionStatisticsController;
 use OGame\Http\Controllers\FacilitiesController;
 use OGame\Http\Controllers\FleetController;
 use OGame\Http\Controllers\FleetEventsController;
@@ -140,12 +139,6 @@ Route::middleware(['auth', 'globalgame', 'locale'])->group(function () {
     Route::get('/ajax/messages', [MessagesController::class, 'ajaxGetTabContents'])->name('messages.ajax.gettabcontents');
     // For handling individual message AJAX requests by ID
     Route::get('/ajax/messages/{messageId}', [MessagesController::class, 'ajaxGetMessage'])->name('messages.ajax.getmessage');
-
-    // Expedition Statistics
-    Route::get('/expedition-statistics', [ExpeditionStatisticsController::class, 'index'])->name('expedition-statistics.index');
-    Route::get('/ajax/expedition-statistics', [ExpeditionStatisticsController::class, 'getStatistics'])->name('expedition-statistics.ajax.get');
-    Route::get('/ajax/expedition-statistics/list', [ExpeditionStatisticsController::class, 'getExpeditionList'])->name('expedition-statistics.ajax.list');
-    Route::get('/ajax/expedition-statistics/server', [ExpeditionStatisticsController::class, 'getServerStatistics'])->name('expedition-statistics.ajax.server');
 
     // Misc
     Route::get('/merchant', [MerchantController::class, 'index'])->name('merchant.index');
