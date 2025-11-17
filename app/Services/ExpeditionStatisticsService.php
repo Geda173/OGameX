@@ -344,12 +344,57 @@ class ExpeditionStatisticsService
         $ships = [];
 
         foreach ($messages as $message) {
-            // Black hole destroys entire fleet - would need to get fleet composition from the mission
-            // For now, this is not easily accessible from messages alone
-            // TODO: Implement loss tracking if fleet composition is stored in message params
+            // Black hole - entire fleet is destroyed
+            if ($message->key === ExpeditionOutcomeType::LossOfFleet->value) {
+                // Find the fleet mission around the time of this message
+                $userId = $message->user_id;
+                $messageTime = $message->created_at;
 
-            // Battle losses would need battle report data
-            // This is complex as we'd need to parse battle reports
+                $fleetMission = FleetMission::where('mission_type', 15)
+                    ->where('user_id', $userId)
+                    ->where('time_arrival', '>=', $messageTime->copy()->subMinutes(5))
+                    ->where('time_arrival', '<=', $messageTime->copy()->addMinutes(5))
+                    ->first();
+
+                if ($fleetMission) {
+                    // Get all ship columns from the mission
+                    $shipColumns = [
+                        'small_cargo', 'large_cargo', 'light_fighter', 'heavy_fighter',
+                        'cruiser', 'battleship', 'colony_ship', 'recycler', 'espionage_probe',
+                        'bomber', 'solar_satellite', 'destroyer', 'deathstar', 'battlecruiser'
+                    ];
+
+                    foreach ($shipColumns as $column) {
+                        $count = $fleetMission->$column ?? 0;
+                        if ($count > 0) {
+                            if (!isset($ships[$column])) {
+                                $ships[$column] = 0;
+                            }
+                            $ships[$column] += $count;
+                        }
+                    }
+                }
+            }
+
+            // Battle with pirates or aliens - get losses from battle report
+            if ($message->key === ExpeditionOutcomeType::BattlePirates->value ||
+                $message->key === ExpeditionOutcomeType::BattleAliens->value) {
+
+                // Messages table has battle_report_id for battle messages
+                if (isset($message->battle_report_id) && $message->battle_report_id) {
+                    $battleReport = \OGame\Models\BattleReport::find($message->battle_report_id);
+
+                    if ($battleReport && isset($battleReport->attacker['losses'])) {
+                        // Attacker losses are in the format: ['ship_machine_name' => count]
+                        foreach ($battleReport->attacker['losses'] as $shipMachineName => $lossCount) {
+                            if (!isset($ships[$shipMachineName])) {
+                                $ships[$shipMachineName] = 0;
+                            }
+                            $ships[$shipMachineName] += (int)$lossCount;
+                        }
+                    }
+                }
+            }
         }
 
         return $ships;
