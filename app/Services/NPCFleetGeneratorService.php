@@ -187,9 +187,9 @@ class NPCFleetGeneratorService
      * Pirates: Mostly cargo (85%), with occasional weak combat ships (15%)
      * - Can spawn light_fighter (10%) or heavy_fighter (5%)
      *
-     * Aliens: Balanced mix of cargo (45%) and strong combat ships (45%)
-     * - Can spawn battlecruiser (25%) or bomber (20%)
-     * - Can also spawn espionage_probe (10%)
+     * Aliens: Balanced mix of cargo (41%) and strong combat ships (50%)
+     * - Can spawn battlecruiser (25%), bomber (20%), or destroyer (10%)
+     * - Can also spawn espionage_probe (9%)
      *
      * @param int $allocatedValue Total value to spend on ships
      * @param string $npcType 'pirate' or 'alien'
@@ -217,6 +217,7 @@ class NPCFleetGeneratorService
                 'espionage_probe' => 10, // Uncommon
                 'battlecruiser' => 25,   // Common - aliens are advanced
                 'bomber' => 20,          // Common - aliens use bombers
+                'destroyer' => 10,       // Uncommon - very strong, matches player T2/T3
             ];
         }
 
