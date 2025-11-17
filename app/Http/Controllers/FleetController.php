@@ -178,8 +178,8 @@ class FleetController extends OGameController
         $galaxy = request()->input('galaxy');
         $system = request()->input('system');
         $position = request()->input('position');
-        $targetType = (int)request()->input('type');
-        $planetType = PlanetType::from($targetType);
+        $targetType = (int)request()->input('type', 1); // Default to Planet type (1) if not specified
+        $planetType = $targetType > 0 ? PlanetType::from($targetType) : PlanetType::Planet;
 
         // Load the target planet
         $targetCoordinates = new Coordinate($galaxy, $system, $position);
