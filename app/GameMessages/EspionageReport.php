@@ -133,14 +133,20 @@ class EspionageReport extends GameMessage
         $coordinate = new Coordinate($this->espionageReportModel->planet_galaxy, $this->espionageReportModel->planet_system, $this->espionageReportModel->planet_position);
         $planet = $this->planetServiceFactory->makeForCoordinate($coordinate, true, PlanetType::from($this->espionageReportModel->planet_type));
 
-        // If planet owner is the same as the player, we load the player by planet owner which is already loaded.
-        if ($this->espionageReportModel->planet_user_id === $planet->getPlayer()->getId()) {
-            $player = $this->playerServiceFactory->make($planet->getPlayer()->getId());
-        } else {
+        // Check if planet has a player (may be null for destroyed planets)
+        $planetPlayer = $planet->getPlayer();
+
+        if ($planetPlayer !== null && $this->espionageReportModel->planet_user_id === $planetPlayer->getId()) {
+            // Planet owner is the same as when report was generated
+            $player = $this->playerServiceFactory->make($planetPlayer->getId());
+        } elseif ($this->espionageReportModel->planet_user_id !== null) {
             // It is theoretically possible that the original player has deleted their planet and another user has
             // colonized the same position of the original planet. In that case, we should load the player by user_id
             // from the espionage report.
             $player = $this->playerServiceFactory->make($this->espionageReportModel->planet_user_id);
+        } else {
+            // Destroyed planet with no owner - player is null
+            $player = null;
         }
 
         // Extract resources
@@ -215,7 +221,7 @@ class EspionageReport extends GameMessage
         return [
             'subject' => $this->getSubject(),
             'from' => $this->getFrom(),
-            'playername' => $player->getUsername(),
+            'playername' => $player !== null ? $player->getUsername() : ($this->espionageReportModel->player_info['player_name'] ?? __('Destroyed Planet')),
             'resources' => $resources,
             'debris' => $debris,
             'ships' => $ships,

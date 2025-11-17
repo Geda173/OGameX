@@ -187,9 +187,16 @@ class FleetController extends OGameController
         if ($targetPlanet !== null) {
             $targetPlayer = $targetPlanet->getPlayer();
 
-            $targetPlayerId = $targetPlayer->getId();
+            // Handle destroyed planets with no owner
+            if ($targetPlayer !== null) {
+                $targetPlayerId = $targetPlayer->getId();
+                $targetPlayerName = $targetPlayer->getUsername(false);
+            } else {
+                // Destroyed planet
+                $targetPlayerId = 99999;
+                $targetPlayerName = __('Destroyed Planet');
+            }
             $targetPlanetName = $targetPlanet->getPlanetName();
-            $targetPlayerName = $targetPlayer->getUsername(false);
             $targetCoordinates = $targetPlanet->getPlanetCoordinates();
         } else {
             $targetPlayerId = 99999;
