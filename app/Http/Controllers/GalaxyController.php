@@ -160,6 +160,8 @@ class GalaxyController extends OGameController
     private function createPlanetsArray(PlanetService $planet, array $availableMissions): array
     {
         $isDestroyed = $planet->isDestroyed();
+        $coordinates = $planet->getPlanetCoordinates();
+
         $planetData = [
             'activity' => $isDestroyed ? [] : $this->getPlanetActivityStatus($planet),
             'availableMissions' => $availableMissions,
@@ -170,6 +172,10 @@ class GalaxyController extends OGameController
             'planetName' => $isDestroyed ? __('Destroyed Planet') : $planet->getPlanetName(),
             'playerId' => $isDestroyed ? null : $planet->getPlayer()?->getId(),
             'planetType' => 1,
+            // Add coordinate fields for destroyed planets so JavaScript can extract them
+            'galaxy' => $coordinates->galaxy,
+            'system' => $coordinates->system,
+            'position' => $coordinates->position,
         ];
 
         // Add destruction timer info if planet is destroyed
