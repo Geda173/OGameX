@@ -223,8 +223,29 @@ class ExpeditionStatistics extends Command
                 $this->line("<fg=yellow>Sample Messages:</>");
                 foreach ($stats['debug_info']['sample_messages'] as $msg) {
                     $this->line("  Key: {$msg['key']}, Created: {$msg['created_at']}");
+                    $this->line("    Battle Report ID: " . ($msg['battle_report_id'] ?? 'NULL'));
                     if (!empty($msg['params'])) {
                         $this->line("    Params: " . json_encode($msg['params']));
+                    }
+                }
+            }
+
+            if (!empty($stats['debug_info']['battle_messages'])) {
+                $this->newLine();
+                $this->line("<fg=yellow>Battle/Loss Messages:</>");
+                foreach ($stats['debug_info']['battle_messages'] as $msg) {
+                    $this->line("  Key: {$msg['key']}, Battle Report ID: {$msg['battle_report_id']}, Created: {$msg['created_at']}");
+                }
+            }
+
+            if (isset($stats['debug_info']['ships_lost_details'])) {
+                $this->newLine();
+                $this->line("<fg=yellow>Ships Lost Details:</>");
+                if (empty($stats['debug_info']['ships_lost_details'])) {
+                    $this->line("  No ships lost found");
+                } else {
+                    foreach ($stats['debug_info']['ships_lost_details'] as $ship => $count) {
+                        $this->line("  {$ship}: {$count}");
                     }
                 }
             }

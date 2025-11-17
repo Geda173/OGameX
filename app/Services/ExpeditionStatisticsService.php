@@ -193,9 +193,24 @@ class ExpeditionStatisticsService
                     return [
                         'key' => $msg->key,
                         'params' => $msg->params,
+                        'battle_report_id' => $msg->battle_report_id ?? null,
                         'created_at' => $msg->created_at->toDateTimeString(),
                     ];
                 })->toArray(),
+                'ships_lost_details' => $shipsLost,
+                'battle_messages' => $messages->filter(function ($msg) {
+                    return in_array($msg->key, [
+                        ExpeditionOutcomeType::BattlePirates->value,
+                        ExpeditionOutcomeType::BattleAliens->value,
+                        ExpeditionOutcomeType::LossOfFleet->value
+                    ]);
+                })->map(function ($msg) {
+                    return [
+                        'key' => $msg->key,
+                        'battle_report_id' => $msg->battle_report_id ?? 'NULL',
+                        'created_at' => $msg->created_at->toDateTimeString(),
+                    ];
+                })->values()->toArray(),
             ];
         }
 

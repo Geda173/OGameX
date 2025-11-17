@@ -662,18 +662,53 @@ class ExpeditionMission extends GameMission
         // Send battle report message to player
         $this->messageService->sendBattleReportMessageToPlayer($player, $reportId);
 
-        // Send expedition battle outcome message (pirate or alien specific)
+        // Send expedition battle outcome message (pirate or alien specific) with battle_report_id
         if ($npcType === 'pirate') {
             $message_variation_id = ExpeditionBattlePirates::getRandomMessageVariationId();
-            $this->messageService->sendSystemMessageToPlayer($player, ExpeditionBattlePirates::class, ['message_variation_id' => $message_variation_id]);
+            $this->sendExpeditionBattleMessage($player, ExpeditionBattlePirates::class, $message_variation_id, $reportId);
         } else {
             $message_variation_id = ExpeditionBattleAliens::getRandomMessageVariationId();
-            $this->messageService->sendSystemMessageToPlayer($player, ExpeditionBattleAliens::class, ['message_variation_id' => $message_variation_id]);
+            $this->sendExpeditionBattleMessage($player, ExpeditionBattleAliens::class, $message_variation_id, $reportId);
         }
 
         // CRITICAL: Return surviving units (not added to original)
         // The caller will REPLACE $units with this, not add to it
         return [$survivingUnits, $loot];
+    }
+
+    /**
+     * Send an expedition battle message with battle_report_id attached.
+     *
+     * @param PlayerService $player
+     * @param string $gameMessageClass
+     * @param int $messageVariationId
+     * @param int $battleReportId
+     * @return void
+     */
+    private function sendExpeditionBattleMessage(PlayerService $player, string $gameMessageClass, int $messageVariationId, int $battleReportId): void
+    {
+        try {
+            // Create a temporary message to instantiate the GameMessage class and get metadata
+            $tempMessage = new \OGame\Models\Message();
+            $tempMessage->user_id = $player->getId();
+            $tempMessage->params = ['message_variation_id' => $messageVariationId];
+            $tempMessage->battle_report_id = $battleReportId;
+
+            /** @var \OGame\GameMessages\Abstracts\GameMessage $gameMessage */
+            $gameMessage = app($gameMessageClass, ['message' => $tempMessage]);
+
+            // Now create the actual message with all the metadata and battle_report_id
+            $message = new \OGame\Models\Message();
+            $message->user_id = $player->getId();
+            $message->key = $gameMessage->getKey();
+            $message->tab = $gameMessage->getTab();
+            $message->subtab = $gameMessage->getSubtab();
+            $message->params = ['message_variation_id' => $messageVariationId];
+            $message->battle_report_id = $battleReportId;
+            $message->save();
+        } catch (\Exception $e) {
+            throw new \RuntimeException('Could not create expedition battle message: ' . $e->getMessage(), 0, $e);
+        }
     }
 
     /**
