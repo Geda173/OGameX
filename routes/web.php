@@ -131,6 +131,7 @@ Route::middleware(['auth', 'globalgame', 'locale'])->group(function () {
     Route::get('/buddies', [BuddiesController::class, 'index'])->name('buddies.index');
     Route::get('/rewards', [RewardsController::class, 'index'])->name('rewards.index');
     Route::get('/planet-move', [PlanetMoveController::class, 'index'])->name('planetMove.index');
+    Route::post('/planet-move/relocate', [PlanetMoveController::class, 'relocate'])->name('planetMove.relocate');
 
     Route::get('/overlay/search', [SearchController::class, 'overlay'])->name('search.overlay');
 
