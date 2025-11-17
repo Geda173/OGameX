@@ -167,7 +167,8 @@ class ExpeditionStatisticsService
         $shipsGained = $this->calculateShipsGained($messages);
 
         // Calculate ships lost
-        $shipsLost = $this->calculateShipsLost($messages);
+        $debugInfo = $debug ? [] : null;
+        $shipsLost = $this->calculateShipsLost($messages, $debug, $debugInfo);
 
         // Calculate battles
         $battles = [
@@ -184,9 +185,9 @@ class ExpeditionStatisticsService
         $netProfit = $totalProfit - $totalLoss;
 
         // Collect debug info if requested
-        $debugInfo = null;
+        $finalDebugInfo = null;
         if ($debug) {
-            $debugInfo = [
+            $finalDebugInfo = [
                 'total_messages' => count($messages),
                 'message_keys' => $messages->pluck('key')->unique()->values()->toArray(),
                 'sample_messages' => $messages->take(5)->map(function ($msg) {
@@ -212,6 +213,11 @@ class ExpeditionStatisticsService
                     ];
                 })->values()->toArray(),
             ];
+
+            // Merge in debug info from calculateShipsLost
+            if ($debugInfo !== null) {
+                $finalDebugInfo = array_merge($finalDebugInfo, $debugInfo);
+            }
         }
 
         return [
@@ -227,7 +233,7 @@ class ExpeditionStatisticsService
             'ships_lost' => $shipsLost,
             'outcomes' => $outcomes,
             'battles' => $battles,
-            'debug_info' => $debugInfo,
+            'debug_info' => $finalDebugInfo,
         ];
     }
 
@@ -352,9 +358,11 @@ class ExpeditionStatisticsService
      * Calculate total ships lost from messages (black holes and battles).
      *
      * @param \Illuminate\Database\Eloquent\Collection $messages
+     * @param bool $debug
+     * @param array|null &$debugInfo
      * @return array<string, int>
      */
-    private function calculateShipsLost($messages): array
+    private function calculateShipsLost($messages, bool $debug = false, ?array &$debugInfo = null): array
     {
         $ships = [];
 
@@ -365,11 +373,45 @@ class ExpeditionStatisticsService
                 $userId = $message->user_id;
                 $messageTime = $message->created_at;
 
+                if ($debug && $debugInfo !== null) {
+                    $debugInfo['black_hole_search'] = [
+                        'message_time' => $messageTime->toDateTimeString(),
+                        'search_window_start' => $messageTime->copy()->subMinutes(5)->toDateTimeString(),
+                        'search_window_end' => $messageTime->copy()->addMinutes(5)->toDateTimeString(),
+                    ];
+                }
+
                 $fleetMission = FleetMission::where('mission_type', 15)
                     ->where('user_id', $userId)
-                    ->where('time_arrival', '>=', $messageTime->copy()->subMinutes(5))
-                    ->where('time_arrival', '<=', $messageTime->copy()->addMinutes(5))
+                    ->where('time_arrival', '>=', $messageTime->copy()->subMinutes(5)->timestamp)
+                    ->where('time_arrival', '<=', $messageTime->copy()->addMinutes(5)->timestamp)
                     ->first();
+
+                if ($debug && $debugInfo !== null) {
+                    if ($fleetMission) {
+                        $debugInfo['black_hole_mission_found'] = [
+                            'mission_id' => $fleetMission->id,
+                            'time_arrival' => date('Y-m-d H:i:s', $fleetMission->time_arrival),
+                            'processed' => $fleetMission->processed,
+                        ];
+                    } else {
+                        // Try to find ANY expedition missions for this user to help debug
+                        $allMissions = FleetMission::where('mission_type', 15)
+                            ->where('user_id', $userId)
+                            ->orderBy('time_arrival', 'desc')
+                            ->limit(5)
+                            ->get();
+
+                        $debugInfo['black_hole_mission_not_found'] = true;
+                        $debugInfo['recent_expeditions'] = $allMissions->map(function($m) {
+                            return [
+                                'id' => $m->id,
+                                'time_arrival' => date('Y-m-d H:i:s', $m->time_arrival),
+                                'processed' => $m->processed,
+                            ];
+                        })->toArray();
+                    }
+                }
 
                 if ($fleetMission) {
                     // Get all ship columns from the mission

@@ -249,6 +249,27 @@ class ExpeditionStatistics extends Command
                     }
                 }
             }
+
+            if (isset($stats['debug_info']['black_hole_search'])) {
+                $this->newLine();
+                $this->line("<fg=yellow>Black Hole Fleet Search:</>");
+                $search = $stats['debug_info']['black_hole_search'];
+                $this->line("  Message Time: {$search['message_time']}");
+                $this->line("  Search Window: {$search['search_window_start']} to {$search['search_window_end']}");
+
+                if (isset($stats['debug_info']['black_hole_mission_found'])) {
+                    $found = $stats['debug_info']['black_hole_mission_found'];
+                    $this->line("  <fg=green>Mission Found:</> ID {$found['mission_id']}, Arrival: {$found['time_arrival']}, Processed: {$found['processed']}");
+                } elseif (isset($stats['debug_info']['black_hole_mission_not_found'])) {
+                    $this->line("  <fg=red>Mission NOT Found</>");
+                    if (isset($stats['debug_info']['recent_expeditions'])) {
+                        $this->line("  Recent expedition missions for this player:");
+                        foreach ($stats['debug_info']['recent_expeditions'] as $exp) {
+                            $this->line("    ID {$exp['id']}, Arrival: {$exp['time_arrival']}, Processed: {$exp['processed']}");
+                        }
+                    }
+                }
+            }
         }
 
         return 0;
