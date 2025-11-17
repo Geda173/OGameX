@@ -87,52 +87,42 @@ class OverviewController extends OGameController
         $has_wreckage = false;
         $wreckage_count = 0;
         if ($planet->getObjectLevel('space_dock') > 0) {
+            $spaceDockLevel = $planet->getObjectLevel('space_dock');
             $availableWreckage = $space_dock->getAvailableWreckage($planet);
 
-            // Get repairs in progress and ready for pickup
-            $repairsInProgress = $space_dock->retrieveQueueItems($planet);
-            $readyForPickup = $space_dock->retrieveReadyForPickup($planet);
+            // Get debris field percentage for recovery calculation
+            $debrisFieldPercentage = app(\OGame\Services\SettingsService::class)->debrisFieldFromShips();
 
-            // Calculate wreckage amounts already in queue
-            $wreckageInQueue = [];
-            foreach (array_merge($repairsInProgress->toArray(), $readyForPickup->toArray()) as $repair) {
-                $battleId = $repair['battle_report_id'];
-                $shipObjectId = $repair['ship_object_id'];
-                $amount = $repair['ship_amount'];
-
-                if (!isset($wreckageInQueue[$battleId])) {
-                    $wreckageInQueue[$battleId] = [];
-                }
-                if (!isset($wreckageInQueue[$battleId][$shipObjectId])) {
-                    $wreckageInQueue[$battleId][$shipObjectId] = 0;
-                }
-                $wreckageInQueue[$battleId][$shipObjectId] += $amount;
-            }
-
-            // Count only battle reports with truly available wreckage (not in queue)
+            // Count only battle reports with truly available wreckage (accounting for consumed amounts)
             foreach ($availableWreckage as $report) {
                 if (empty($report->wreckage)) {
                     continue;
                 }
 
+                // Calculate recoverable amount based on CURRENT Space Dock level
+                $rawWreckage = $report->wreckage; // Stores raw defender losses
+                $recoverableWreckage = $space_dock->calculateRecoverableFromRaw(
+                    $rawWreckage,
+                    $spaceDockLevel,
+                    $debrisFieldPercentage
+                );
+
+                // Get consumed amounts (ships already taken for repairs)
+                $consumed = $report->wreckage_consumed ?? [];
+
                 $hasAvailableWreckage = false;
-                foreach ($report->wreckage as $machineName => $amount) {
-                    if ($amount <= 0) {
+                foreach ($recoverableWreckage as $machineName => $recoverableAmount) {
+                    if ($recoverableAmount <= 0) {
                         continue;
                     }
 
-                    try {
-                        $shipObject = \OGame\Services\ObjectService::getUnitObjectByMachineName($machineName);
-                        $amountInQueue = $wreckageInQueue[$report->id][$shipObject->id] ?? 0;
-                        $availableAmount = $amount - $amountInQueue;
+                    // Subtract consumed amount
+                    $consumedAmount = $consumed[$machineName] ?? 0;
+                    $availableAmount = $recoverableAmount - $consumedAmount;
 
-                        if ($availableAmount > 0) {
-                            $hasAvailableWreckage = true;
-                            break;
-                        }
-                    } catch (\Exception $e) {
-                        // Skip invalid ship types
-                        continue;
+                    if ($availableAmount > 0) {
+                        $hasAvailableWreckage = true;
+                        break;
                     }
                 }
 
