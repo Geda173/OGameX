@@ -58,12 +58,8 @@
                             </button>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <script type="text/javascript">
+                    <script type="text/javascript">
         // Override movePlanet IMMEDIATELY before anything else can use it
         console.log('=== DM Relocate: Script loading ===');
         if (typeof window.movePlanet !== 'undefined') {
@@ -162,4 +158,8 @@
             }
         })();
     </script>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
