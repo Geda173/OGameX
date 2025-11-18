@@ -379,7 +379,12 @@ class NoobProtectionTest extends AccountTestCase
         $data = $response->json();
         $this->assertNotEmpty($data['errors'] ?? []);
         $errorMessages = array_column($data['errors'], 'message');
-        $this->assertContains('The target player is under noob protection and cannot be spied on.', $errorMessages);
+
+        // Debug: Show what error messages we actually got
+        if (!in_array('The target player is under noob protection and cannot be spied on.', $errorMessages)) {
+            $this->fail('Expected noob protection error not found. Actual errors: ' . implode(' | ', $errorMessages));
+        }
+
         // Check that espionage mission is disabled
         $this->assertFalse($data['orders'][6] ?? true);
     }
@@ -435,9 +440,23 @@ class NoobProtectionTest extends AccountTestCase
         $response->assertStatus(200);
         $data = $response->json();
 
+        // Debug: Check what we got
+        $coords = $foreignPlanet->getPlanetCoordinates();
+        $galaxyContent = $data['system']['galaxyContent'] ?? [];
+
+        if (empty($galaxyContent)) {
+            // Check if the planet actually exists in the database
+            $dbPlanet = \DB::table('planets')
+                ->where('galaxy', $coords->galaxy)
+                ->where('system', $coords->system)
+                ->where('planet', $coords->position)
+                ->first();
+
+            $this->fail("Galaxy content is empty! Requesting G:{$coords->galaxy} S:{$coords->system}. Foreign planet at position {$coords->position}. DB planet exists: " . ($dbPlanet ? 'yes (user_id: ' . $dbPlanet->user_id . ')' : 'no'));
+        }
+
         // Find the foreign planet in the response
         $planetData = null;
-        $galaxyContent = $data['system']['galaxyContent'] ?? [];
         foreach ($galaxyContent as $row) {
             if (isset($row['planet']) && $row['planet']['playerId'] === $foreignPlayerId) {
                 $planetData = $row['planet'];
@@ -447,7 +466,6 @@ class NoobProtectionTest extends AccountTestCase
 
         // Debug: Log foreign planet coordinates if not found
         if ($planetData === null) {
-            $coords = $foreignPlanet->getPlanetCoordinates();
             // Log all player IDs in the galaxy content for debugging
             $playerIds = [];
             foreach ($galaxyContent as $row) {
