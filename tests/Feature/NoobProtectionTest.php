@@ -441,6 +441,12 @@ class NoobProtectionTest extends AccountTestCase
             }
         }
 
+        // Debug: Log foreign planet coordinates if not found
+        if ($planetData === null) {
+            $coords = $foreignPlanet->getPlanetCoordinates();
+            $this->fail("Foreign planet not found in galaxy view. Planet at {$coords->galaxy}:{$coords->system}:{$coords->position}, Player ID: {$foreignPlayerId}");
+        }
+
         // Assert that the player is marked as newbie
         $this->assertNotNull($planetData);
         $this->assertTrue($planetData['player']['isNewbie']);
