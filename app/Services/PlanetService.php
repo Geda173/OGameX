@@ -963,13 +963,19 @@ class PlanetService
     {
         $research_lab_level = $this->getObjectLevel('research_lab');
 
+        // Destroyed planets have no owner and cannot use research network
+        $player = $this->getPlayer();
+        if ($player === null) {
+            return $research_lab_level;
+        }
+
         // The Intergalactic Research Network technology enables multiple research labs
         // across different planets to collaborate, significantly reducing research times.
-        $irn_level = $this->getPlayer()->getResearchLevel('intergalactic_research_network');
+        $irn_level = $player->getResearchLevel('intergalactic_research_network');
         if ($irn_level > 0) {
             // Get the research lab levels of all planets in the player's possession.
             $research_lab_levels = [];
-            foreach ($this->getPlayer()->planets->allPlanets() as $planet) {
+            foreach ($player->planets->allPlanets() as $planet) {
                 // Check if the object's requirements are met on the planet;
                 // otherwise, the planet's research lab cannot be included in the research network.
                 if (!ObjectService::objectRequirementsMet($machine_name, $planet)) {
@@ -1284,8 +1290,13 @@ class PlanetService
         }
 
         // Access all players planets and see if there is a moon with the same coordinates
-        // as this planet.
-        if ($this->getPlayer()->planets->getMoonByCoordinates($this->getPlanetCoordinates()) !== null) {
+        // as this planet. Destroyed planets have no owner and cannot have moons.
+        $player = $this->getPlayer();
+        if ($player === null) {
+            return false;
+        }
+
+        if ($player->planets->getMoonByCoordinates($this->getPlanetCoordinates()) !== null) {
             return true;
         }
 
@@ -1299,7 +1310,12 @@ class PlanetService
      */
     public function moon(): PlanetService
     {
-        $moon = $this->getPlayer()->planets->getMoonByCoordinates($this->getPlanetCoordinates());
+        $player = $this->getPlayer();
+        if ($player === null) {
+            throw new RuntimeException('Cannot get moon for destroyed planet with no owner.');
+        }
+
+        $moon = $player->planets->getMoonByCoordinates($this->getPlanetCoordinates());
 
         if ($moon === null) {
             throw new RuntimeException('No moon found for this planet.');
@@ -1321,8 +1337,13 @@ class PlanetService
         }
 
         // Access all players planets and see if there is a moon with the same coordinates
-        // as this planet.
-        if ($this->getPlayer()->planets->getPlanetByCoordinates($this->getPlanetCoordinates()) !== null) {
+        // as this planet. Destroyed moons have no owner.
+        $player = $this->getPlayer();
+        if ($player === null) {
+            return false;
+        }
+
+        if ($player->planets->getPlanetByCoordinates($this->getPlanetCoordinates()) !== null) {
             return true;
         }
 
@@ -1336,7 +1357,12 @@ class PlanetService
      */
     public function planet(): PlanetService
     {
-        $moon = $this->getPlayer()->planets->getPlanetByCoordinates($this->getPlanetCoordinates());
+        $player = $this->getPlayer();
+        if ($player === null) {
+            throw new RuntimeException('Cannot get planet for destroyed moon with no owner.');
+        }
+
+        $moon = $player->planets->getPlanetByCoordinates($this->getPlanetCoordinates());
 
         if ($moon === null) {
             throw new RuntimeException('No planet found for this moon.');
