@@ -161,22 +161,26 @@ class ProcessPlanetRelocations extends Command
 
         // All checks passed - execute relocation!
 
-        // Create planet service to access ships
+        // Create planet service
         $planetService = $planetServiceFactory->make($planet->id);
 
-        // Get all ships currently on the planet
-        $stationedShips = $planetService->getShips();
+        // Get all ships currently on the planet by reading ship columns
+        $stationedShips = new UnitCollection();
+        $shipObjects = \OGame\Services\ObjectService::getShipObjects();
+
+        foreach ($shipObjects as $shipObject) {
+            $machineName = $shipObject->machine_name;
+            $amount = $planet->$machineName ?? 0;
+
+            if ($amount > 0) {
+                $stationedShips->addUnit($shipObject, $amount);
+            }
+        }
+
         $totalShips = $stationedShips->getAmount();
 
         // If there are ships, launch them to new coordinates via deployment mission
         if ($totalShips > 0) {
-            // Store old coordinates
-            $oldCoordinate = new Coordinate(
-                $relocation->from_galaxy,
-                $relocation->from_system,
-                $relocation->from_position
-            );
-
             $newCoordinate = new Coordinate(
                 $relocation->to_galaxy,
                 $relocation->to_system,
