@@ -76241,14 +76241,21 @@ FleetDispatcher.prototype.selectShips = function (ships) {
 FleetDispatcher.prototype.selectStandardFleet = function (standardFleetId) {
   this.resetShips();
 
+  console.log('selectStandardFleet called with ID:', standardFleetId, 'type:', typeof standardFleetId);
+  console.log('Available templates:', this.standardFleets);
+
   let standardFleet = this.standardFleets.find(function (item) {
-    return item.id === standardFleetId;
+    return item.id == standardFleetId; // Use loose equality to handle type coercion
   });
 
+  console.log('Found template:', standardFleet);
+
   if (standardFleet === undefined || standardFleet.ships === undefined) {
+    console.log('Template not found or has no ships');
     return;
   }
 
+  console.log('Selecting ships:', standardFleet.ships);
   this.selectShips(standardFleet.ships);
 };
 
