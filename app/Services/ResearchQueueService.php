@@ -153,12 +153,18 @@ class ResearchQueueService
      */
     public function retrieveQueue(PlanetService $planet): ResearchQueueListViewModel
     {
+        // Cannot retrieve research queue for destroyed planets with no owner
+        $planetPlayer = $planet->getPlayer();
+        if ($planetPlayer === null) {
+            return new ResearchQueueListViewModel([]);
+        }
+
         // Fetch queue items from model
         $queue_items = $this->model
             ->join('planets', 'research_queues.planet_id', '=', 'planets.id')
             ->join('users', 'planets.user_id', '=', 'users.id')
             ->where([
-                ['users.id', $planet->getPlayer()->getId()],
+                ['users.id', $planetPlayer->getId()],
                 ['research_queues.processed', 0],
                 ['research_queues.canceled', 0],
             ])
@@ -170,7 +176,7 @@ class ResearchQueueService
         $list = [];
         foreach ($queue_items as $item) {
             $object = ObjectService::getResearchObjectById($item->object_id);
-            $planetService = $planet->getPlayer()->planets->getById($item['planet_id']);
+            $planetService = $planetPlayer->planets->getById($item['planet_id']);
             $time_countdown = $item->time_end - (int)Carbon::now()->timestamp;
             if ($time_countdown < 0) {
                 $time_countdown = 0;

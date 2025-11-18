@@ -636,7 +636,14 @@ class PlayerService
                         $this->load($this->getId());
                     }
                 } catch (Exception $e) {
-                    throw new RuntimeException('Fleet mission service process error: ' . $e->getMessage());
+                    \Log::error('Fleet mission processing error - full details', [
+                        'player_id' => $this->getId(),
+                        'error_message' => $e->getMessage(),
+                        'error_file' => $e->getFile(),
+                        'error_line' => $e->getLine(),
+                        'error_trace' => $e->getTraceAsString(),
+                    ]);
+                    throw new RuntimeException('Fleet mission service process error: ' . $e->getMessage(), 0, $e);
                 }
             } else {
                 throw new Exception('Could not acquire update fleet mission planet lock.');
