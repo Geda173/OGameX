@@ -76241,21 +76241,14 @@ FleetDispatcher.prototype.selectShips = function (ships) {
 FleetDispatcher.prototype.selectStandardFleet = function (standardFleetId) {
   this.resetShips();
 
-  console.log('selectStandardFleet called with ID:', standardFleetId, 'type:', typeof standardFleetId);
-  console.log('Available templates:', this.standardFleets);
-
   let standardFleet = this.standardFleets.find(function (item) {
-    return item.id == standardFleetId; // Use loose equality to handle type coercion
+    return item.id == standardFleetId;
   });
 
-  console.log('Found template:', standardFleet);
-
   if (standardFleet === undefined || standardFleet.ships === undefined) {
-    console.log('Template not found or has no ships');
     return;
   }
 
-  console.log('Selecting ships:', standardFleet.ships);
   this.selectShips(standardFleet.ships);
 };
 
@@ -83994,9 +83987,27 @@ function setShipsFleet(ships, tempName, techId) {
   $("#template_id").val(techId);
   $("#template_name").val(tempName);
 
+  // Clear all ship inputs first
+  $('input[name^="ship["]').val('');
+
   for (var techID in ships) {
     $("#ship" + techID).val(ships[techID]);
   }
+}
+
+function getCurrentFleetSelection() {
+  var ships = {};
+  if (typeof fleetDispatcher !== 'undefined' && fleetDispatcher && fleetDispatcher.shipsToSend) {
+    fleetDispatcher.shipsToSend.forEach(function(ship) {
+      ships[ship.id] = ship.number;
+    });
+  }
+  return ships;
+}
+
+function openAddNewTemplate() {
+  var currentShips = getCurrentFleetSelection();
+  setShipsFleet(currentShips, '', 0);
 }
 $(function () {
   $('.techdetail').on('click', function () {

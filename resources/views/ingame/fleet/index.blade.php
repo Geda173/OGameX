@@ -544,7 +544,7 @@
                                 </tbody>
                             </table>
                             <a href="javascript: void(0);" class="btn_blue float_right overlay" id="addNewTpl"
-                               onclick="setShipsFleet({&quot;202&quot;:0,&quot;203&quot;:0,&quot;204&quot;:0,&quot;205&quot;:0,&quot;206&quot;:0,&quot;207&quot;:0,&quot;208&quot;:0,&quot;209&quot;:0,&quot;210&quot;:0,&quot;211&quot;:0,&quot;212&quot;:0,&quot;213&quot;:0,&quot;214&quot;:0,&quot;215&quot;:0,&quot;218&quot;:0,&quot;219&quot;:0}, &quot;&quot;, 0)"
+                               onclick="openAddNewTemplate()"
                                data-overlay-inline="#fleetTemplatesEdit" data-overlay-title="Add new template">
                                 Add new template
                             </a>
