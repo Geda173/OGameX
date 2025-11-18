@@ -172,6 +172,29 @@ class ProcessPlanetRelocations extends Command
             $this->info('Moved moon with planet ' . $planet->id);
         }
 
+        // Update all incoming fleet missions to new coordinates
+        // This handles enemy attacks, ACS defend, transports, deployments, etc.
+        // Ensures other players can't cancel relocation by sending fleets
+        $incomingFleets = FleetMission::where('galaxy_to', $relocation->from_galaxy)
+            ->where('system_to', $relocation->from_system)
+            ->where('planet_to', $relocation->from_position)
+            ->where('processed', 0)
+            ->get();
+
+        $updatedFleetCount = 0;
+        foreach ($incomingFleets as $fleet) {
+            // Update destination to new coordinates
+            $fleet->galaxy_to = $relocation->to_galaxy;
+            $fleet->system_to = $relocation->to_system;
+            $fleet->planet_to = $relocation->to_position;
+            $fleet->save();
+            $updatedFleetCount++;
+        }
+
+        if ($updatedFleetCount > 0) {
+            $this->info('Updated ' . $updatedFleetCount . ' incoming fleet mission(s) to new coordinates');
+        }
+
         // Deduct Dark Matter
         $user->dark_matter -= $dm_cost;
         $user->save();
