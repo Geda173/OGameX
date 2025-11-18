@@ -246,8 +246,7 @@ abstract class GameMission
         // The $holdingHours is in hours, so we convert it to seconds.
         // Only applies to expeditions and ACS Defend missions.
         if (static::class === ExpeditionMission::class || static::class === ACSDefendMission::class) {
-            // TEMP: Set to 1 minute for testing expeditions
-            $mission->time_holding = 60; // Normally: $holdingHours * 3600
+            $mission->time_holding = $holdingHours * 3600;
         }
 
         $mission->type_to = $targetType->value;
