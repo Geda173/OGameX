@@ -198,21 +198,21 @@
                 @endif
 
                 @if ($pending_relocation)
-                    <div id="relocation_alert" class="relocation-notification" style="position: absolute; top: 70px; right: 10px; z-index: 100; max-width: 300px;">
-                        <div class="relocation-box" style="background: rgba(0,0,0,0.9); border: 2px solid #ff9800; border-radius: 8px; padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.7), 0 0 20px rgba(255,152,0,0.4); animation: pulse-relocation 2s infinite;">
-                            <div style="color: #ff9800; font-weight: bold; font-size: 14px; margin-bottom: 8px; display: flex; align-items: center;">
-                                <span style="font-size: 20px; margin-right: 6px;">⏱</span>
-                                <span>@lang('Planet Relocation In Progress')</span>
+                    <div id="relocation_alert" class="relocation-notification" style="position: absolute; top: 10px; left: 10px; z-index: 100; max-width: 220px;">
+                        <div class="relocation-box" style="background: rgba(0,0,0,0.95); border: 2px solid #ff9800; border-radius: 6px; padding: 8px 10px; box-shadow: 0 3px 10px rgba(0,0,0,0.8), 0 0 15px rgba(255,152,0,0.4); animation: pulse-relocation 2s infinite;">
+                            <div style="color: #ff9800; font-weight: bold; font-size: 11px; margin-bottom: 5px; display: flex; align-items: center;">
+                                <span style="font-size: 14px; margin-right: 4px;">⏱</span>
+                                <span>@lang('Relocation Pending')</span>
                             </div>
-                            <div style="color: #fff; font-size: 12px; margin-bottom: 6px;">
+                            <div style="color: #fff; font-size: 10px; margin-bottom: 4px;">
                                 <strong>@lang('Target'):</strong> [{{ $pending_relocation->to_galaxy }}:{{ $pending_relocation->to_system }}:{{ $pending_relocation->to_position }}]
                             </div>
-                            <div style="color: #fff; font-size: 12px; margin-bottom: 6px;">
-                                <strong>@lang('Time remaining'):</strong>
+                            <div style="color: #fff; font-size: 10px; margin-bottom: 4px;">
+                                <strong>@lang('Time'):</strong>
                                 <span id="relocationCountdown" data-end="{{ $pending_relocation->time_end }}">{{ gmdate('H:i:s', max(0, $pending_relocation->time_end - time())) }}</span>
                             </div>
-                            <div style="color: #ffcc00; font-size: 11px; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,152,0,0.3); line-height: 1.4;">
-                                <strong>⚠ @lang('Warning'):</strong> @lang('Ensure no fleets, construction, research, or repairs are active when timer expires!')
+                            <div style="color: #ffcc00; font-size: 9px; margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255,152,0,0.3); line-height: 1.3;">
+                                <strong>⚠</strong> @lang('Keep fleets/construction inactive!')
                             </div>
                         </div>
                     </div>
