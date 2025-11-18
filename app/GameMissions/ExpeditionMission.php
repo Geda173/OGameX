@@ -535,7 +535,7 @@ class ExpeditionMission extends GameMission
         $player->addDarkMatter($darkMatterAmount);
 
         $message_variation_id = ExpeditionGainDarkMatter::getRandomMessageVariationId();
-        $this->messageService->sendSystemMessageToPlayer($player, ExpeditionGainDarkMatter::class, ['message_variation_id' => $message_variation_id]);
+        $this->messageService->sendSystemMessageToPlayer($player, ExpeditionGainDarkMatter::class, ['message_variation_id' => $message_variation_id, 'dark_matter_amount' => $darkMatterAmount]);
     }
 
     /**
