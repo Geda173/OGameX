@@ -78,17 +78,45 @@ class NoobProtectionTest extends AccountTestCase
      */
     private function setupForeignPlanetTest(): array
     {
-        // Store the attacker's ID
+        // Store the attacker's ID and coordinates
         $attackerId = $this->currentUserId;
+        $attackerCoordinates = $this->planetService->getPlanetCoordinates();
 
-        // Get a foreign planet (this will create a second user if needed)
-        $foreignPlanet = $this->getNearbyForeignPlanet();
-        $foreignPlayerId = $foreignPlanet->getPlayer()->getId();
+        // Check if there's already a second user
+        $foreignPlayerId = \DB::table('users')
+            ->where('id', '!=', $attackerId)
+            ->first()?->id;
 
-        // Switch back to attacking user
-        $this->reloadApplication();
-        \Auth::loginUsingId($attackerId);
-        $this->retrieveMetaFields();
+        if (!$foreignPlayerId) {
+            // Create a new user
+            $this->createAndLoginUser();
+            $foreignPlayerId = $this->currentUserId;
+
+            // Switch back to the attacker
+            $this->reloadApplication();
+            \Auth::loginUsingId($attackerId);
+            $this->retrieveMetaFields();
+        }
+
+        // Check if the foreign player has a planet nearby
+        $foreignPlanetId = \DB::table('planets')
+            ->where('user_id', $foreignPlayerId)
+            ->where('galaxy', $attackerCoordinates->galaxy)
+            ->where('planet_type', PlanetType::Planet->value)
+            ->whereBetween('system', [$attackerCoordinates->system - 15, $attackerCoordinates->system + 15])
+            ->first()?->id;
+
+        if (!$foreignPlanetId) {
+            // Create a planet for the foreign player near the attacker
+            $coordinate = $this->getNearbyEmptyCoordinate();
+            $planetServiceFactory = resolve(\OGame\Factories\PlanetServiceFactory::class);
+            $playerServiceFactory = resolve(\OGame\Factories\PlayerServiceFactory::class);
+            $foreignPlayer = $playerServiceFactory->make($foreignPlayerId);
+            $foreignPlanet = $planetServiceFactory->createAdditionalPlanetForPlayer($foreignPlayer, $coordinate);
+        } else {
+            $planetServiceFactory = resolve(\OGame\Factories\PlanetServiceFactory::class);
+            $foreignPlanet = $planetServiceFactory->make($foreignPlanetId);
+        }
 
         return [$attackerId, $foreignPlanet, $foreignPlayerId];
     }
