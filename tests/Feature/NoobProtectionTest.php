@@ -370,7 +370,7 @@ class NoobProtectionTest extends AccountTestCase
             'position' => $foreignPlanet->getPlanetCoordinates()->position,
             'type' => PlanetType::Planet->value,
             'mission' => 6, // Espionage
-            'espionage_probe' => 1, // Send 1 probe
+            'am210' => 1, // Send 1 espionage probe (ID 210)
         ]);
 
         $response->assertStatus(200);
@@ -456,29 +456,29 @@ class NoobProtectionTest extends AccountTestCase
         }
 
         // Find the foreign planet in the response
-        $planetData = null;
+        $rowData = null;
         foreach ($galaxyContent as $row) {
-            if (isset($row['planet']) && $row['planet']['playerId'] === $foreignPlayerId) {
-                $planetData = $row['planet'];
+            if (isset($row['player']) && $row['player']['playerId'] === $foreignPlayerId) {
+                $rowData = $row;
                 break;
             }
         }
 
         // Debug: Log foreign planet coordinates if not found
-        if ($planetData === null) {
+        if ($rowData === null) {
             // Log all player IDs in the galaxy content for debugging
             $playerIds = [];
             foreach ($galaxyContent as $row) {
-                if (isset($row['planet'])) {
-                    $playerIds[] = $row['planet']['playerId'] ?? 'null';
+                if (isset($row['player'])) {
+                    $playerIds[] = $row['player']['playerId'] ?? 'null';
                 }
             }
             $this->fail("Foreign planet not found in galaxy view. Planet at {$coords->galaxy}:{$coords->system}:{$coords->position}, Player ID: {$foreignPlayerId}. Found player IDs: " . implode(', ', $playerIds));
         }
 
         // Assert that the player is marked as newbie
-        $this->assertNotNull($planetData);
-        $this->assertTrue($planetData['player']['isNewbie']);
-        $this->assertFalse($planetData['player']['isStrong']);
+        $this->assertNotNull($rowData);
+        $this->assertTrue($rowData['player']['isNewbie']);
+        $this->assertFalse($rowData['player']['isStrong']);
     }
 }
