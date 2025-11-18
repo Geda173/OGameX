@@ -80,6 +80,7 @@ class NoobProtectionTest extends AccountTestCase
     {
         // Store the attacker's ID and coordinates
         $attackerId = $this->currentUserId;
+        $attackerPlanetId = $this->planetService->getPlanetId();
         $attackerCoordinates = $this->planetService->getPlanetCoordinates();
 
         // Check if there's already a second user
@@ -92,10 +93,15 @@ class NoobProtectionTest extends AccountTestCase
             $this->createAndLoginUser();
             $foreignPlayerId = $this->currentUserId;
 
-            // Switch back to the attacker
-            $this->reloadApplication();
-            \Auth::loginUsingId($attackerId);
-            $this->retrieveMetaFields();
+            // Switch back to the attacker WITHOUT reloading application
+            $attackerUser = \OGame\Models\User::find($attackerId);
+            $this->actingAs($attackerUser);
+            $this->currentUserId = $attackerId;
+            $this->currentPlanetId = $attackerPlanetId;
+
+            // Recreate planet service for the attacker
+            $planetServiceFactory = resolve(\OGame\Factories\PlanetServiceFactory::class);
+            $this->planetService = $planetServiceFactory->make($attackerPlanetId);
         }
 
         // Check if the foreign player has a planet nearby
