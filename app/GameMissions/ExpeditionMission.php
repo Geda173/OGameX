@@ -528,10 +528,14 @@ class ExpeditionMission extends GameMission
         // Load the mission owner user
         $player = $this->playerServiceFactory->make($mission->user_id, true);
 
-        // TODO: Add actual dark matter to player when dark matter itself is implemented.
+        // Determine dark matter amount based on rank 1 player score
+        $darkMatterAmount = $this->determineDarkMatterFind();
+
+        // Add dark matter to player
+        $player->addDarkMatter($darkMatterAmount);
 
         $message_variation_id = ExpeditionGainDarkMatter::getRandomMessageVariationId();
-        $this->messageService->sendSystemMessageToPlayer($player, ExpeditionGainDarkMatter::class, ['message_variation_id' => $message_variation_id]);
+        $this->messageService->sendSystemMessageToPlayer($player, ExpeditionGainDarkMatter::class, ['message_variation_id' => $message_variation_id, 'dark_matter_amount' => $darkMatterAmount]);
     }
 
     /**
@@ -826,7 +830,6 @@ class ExpeditionMission extends GameMission
             // TODO: Remove this filter once outcomes are fully implemented
             // For now, skip unimplemented outcomes
             if (in_array($outcome, [
-                ExpeditionOutcomeType::GainDarkMatter,
                 ExpeditionOutcomeType::GainItems,
                 ExpeditionOutcomeType::GainMerchantTrade,
                 ExpeditionOutcomeType::Battle,
@@ -929,5 +932,58 @@ class ExpeditionMission extends GameMission
         $resourceAmount = $resourceAmount * $rewardsMultiplier;
 
         return (int)$resourceAmount;
+    }
+
+    /**
+     * Determine the max dark matter find amount based on the rank 1 player's general highscore points.
+     * Dark matter is a premium resource, so amounts are much smaller than regular resources.
+     *
+     * @return int
+     */
+    private function determineDarkMatterFind(): int
+    {
+        // Max dark matter found is based on rank 1 player's general points:
+        // < 10.000 points: 100-300 dark matter
+        // < 100.000 points: 300-600 dark matter
+        // < 1.000.000 points: 600-900 dark matter
+        // < 5.000.000 points: 900-1200 dark matter
+        // < 25.000.000 points: 1200-1500 dark matter
+        // < 50.000.000 points: 1500-2000 dark matter
+        // < 75.000.000 points: 2000-2500 dark matter
+        // < 100.000.000 points: 2500-3000 dark matter
+        // > 100.000.000 points: 3000-5000 dark matter
+        $rank_1_highscore_points = Highscore::orderByDesc(HighscoreTypeEnum::general->name)->first()->general;
+
+        if ($rank_1_highscore_points < 10000) {
+            $min = 100;
+            $max = 300;
+        } elseif ($rank_1_highscore_points < 100000) {
+            $min = 300;
+            $max = 600;
+        } elseif ($rank_1_highscore_points < 1000000) {
+            $min = 600;
+            $max = 900;
+        } elseif ($rank_1_highscore_points < 5000000) {
+            $min = 900;
+            $max = 1200;
+        } elseif ($rank_1_highscore_points < 25000000) {
+            $min = 1200;
+            $max = 1500;
+        } elseif ($rank_1_highscore_points < 50000000) {
+            $min = 1500;
+            $max = 2000;
+        } elseif ($rank_1_highscore_points < 75000000) {
+            $min = 2000;
+            $max = 2500;
+        } elseif ($rank_1_highscore_points < 100000000) {
+            $min = 2500;
+            $max = 3000;
+        } else {
+            $min = 3000;
+            $max = 5000;
+        }
+
+        // Pick a random amount between min and max.
+        return random_int($min, $max);
     }
 }

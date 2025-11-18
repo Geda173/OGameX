@@ -56,17 +56,17 @@
         </tr>
         <tr class="data">
             <td colspan="2">
-                <a class="build-faster dark_highlight tooltipLeft js_hideTipOnMobile building " title="Reduces construction time by 50% of the total construction time (7m 10s)." href="javascript:void(0);" rel="#TODO_componentOnly&amp;component=itemactions&amp;action=buyAndActivate&amp;itemUuid=cb4fd53e61feced0d52cfc4c1ce383bad9c05f67&amp;asJson=1">
-                    <div class="                                                build-faster-img
-                                            " alt="                                                Halve time
-                                            "></div>
-                    <span class="build-txt">
-                                                                                            Halve time
-                                                                                    </span>
-                    <span class="dm_cost ">
-                                                                                                    Costs:
-                                                                                                        750 DM
-                                                                                            </span>
+                @php
+                    $dm_cost = max(100, (int)ceil($build_active->time_total / 120));
+                    $time_saved = (int)floor($build_active->time_total / 2);
+                @endphp
+                <a class="build-faster dark_highlight tooltipLeft js_hideTipOnMobile building "
+                   title="Reduces research time by 50% of the total research time ({{ \OGame\Facades\AppUtil::formatTimeDuration($time_saved) }})."
+                   href="javascript:void(0);"
+                   onclick="halveResearchTime({{ $dm_cost }}); return false;">
+                    <div class="build-faster-img" alt="Halve time"></div>
+                    <span class="build-txt">Halve time</span>
+                    <span class="dm_cost">Costs: {{ number_format($dm_cost) }} DM</span>
                 </a>
             </td>
         </tr>
@@ -74,8 +74,7 @@
     </table>
     <script type="text/javascript">
         var cancelBuildListEntryUrl = '{{ route('research.cancelbuildrequest') }}';
-        var questionbuilding = 'Do\u0020you\u0020want\u0020to\u0020reduce\u0020the\u0020construction\u0020time\u0020of\u0020the\u0020current\u0020construction\u0020project\u0020by\u002050\u0025\u0020of\u0020the\u0020total\u0020construction\u0020time\u0020\u00287m\u002010s\u0029\u0020for\u0020\u003Cspan\u0020style\u003D\u0022font\u002Dweight\u003A\u0020bold\u003B\u0022\u003E750\u0020Dark\u0020Matter\u003C\/span\u003E\u003F';
-        var pricebuilding = 750;
+        var halveTimeUrl = '{{ route('research.halvetime') }}';
         var referrerPage = $.deparam.querystring().page;
 
         new CountdownTimer('researchCountdown', {{ $build_active->time_countdown }},'{{ url()->current() }}',null,true,3)
@@ -83,6 +82,31 @@
         function cancelbuilding(id, listId, question) {
             errorBoxDecision('Caution', "" + question + "", 'yes', 'No', function() {
                 buildListActionCancel(id, listId)
+            });
+        }
+
+        function halveResearchTime(dmCost) {
+            var question = 'Do you want to reduce the research time by 50% for <span style="font-weight: bold;">' + dmCost.toLocaleString() + ' Dark Matter</span>?';
+            errorBoxDecision('Halve Research Time', question, 'Yes', 'No', function () {
+                $.post(halveTimeUrl, {
+                    _token: '{{ csrf_token() }}'
+                }, function (data) {
+                    if (data.success) {
+                        fadeBox(data.message, false);
+                        // Reload the page to show updated timer and dark matter
+                        setTimeout(function () {
+                            location.reload();
+                        }, 1000);
+                    } else {
+                        fadeBox(data.message, true);
+                    }
+                }).fail(function (xhr) {
+                    var message = 'An error occurred.';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        message = xhr.responseJSON.message;
+                    }
+                    fadeBox(message, true);
+                });
             });
         }
     </script>

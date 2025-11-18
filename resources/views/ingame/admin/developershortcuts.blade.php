@@ -126,6 +126,17 @@
                                                            placeholder="0" name="{{ $resource->value }}">
                                                 </div>
                                             @endforeach
+                                            <div style="display: flex; gap: 10px;">
+                                                <label for="darkmatter" style="min-width: 80px;">Dark Matter:</label>
+                                                <input type="text" id="darkmatter" pattern="^[-+0-9,.kmb]+$"
+                                                       class="textInput w100 textCenter textBeefy"
+                                                       placeholder="0" name="darkmatter">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="fieldwrapper">
+                                        <div class="smallFont" style="color: #ff9800; margin-bottom: 10px;">
+                                            ⚠️ @lang('Note: Dark Matter is added to the planet owner (player resource), not the planet itself.')
                                         </div>
                                     </div>
                                     <div class="fieldwrapper" style="text-align: center;">

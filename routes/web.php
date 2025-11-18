@@ -61,6 +61,7 @@ Route::middleware(['auth', 'globalgame', 'locale'])->group(function () {
     Route::post('/resources/cancel-buildrequest', [ResourcesController::class, 'cancelBuildRequest'])->name('resources.cancelbuildrequest');
     Route::get('/resources/add-teardownrequest', [ResourcesController::class, 'addTeardownRequest'])->name('resources.addteardownrequest');
     Route::post('/resources/add-teardownrequest', [ResourcesController::class, 'addTeardownRequest'])->name('resources.addteardownrequest.post');
+    Route::post('/resources/halve-time', [ResourcesController::class, 'halveTime'])->name('resources.halvetime');
 
     // Facilities
     Route::get('/facilities', [FacilitiesController::class, 'index'])->name('facilities.index');
@@ -70,6 +71,7 @@ Route::middleware(['auth', 'globalgame', 'locale'])->group(function () {
     Route::post('/facilities/cancel-buildrequest', [FacilitiesController::class, 'cancelBuildRequest'])->name('facilities.cancelbuildrequest');
     Route::get('/facilities/add-teardownrequest', [FacilitiesController::class, 'addTeardownRequest'])->name('facilities.addteardownrequest');
     Route::post('/facilities/add-teardownrequest', [FacilitiesController::class, 'addTeardownRequest'])->name('facilities.addteardownrequest.post');
+    Route::post('/facilities/halve-time', [FacilitiesController::class, 'halveTime'])->name('facilities.halvetime');
 
     // Research
     Route::get('/research', [ResearchController::class, 'index'])->name('research.index');
@@ -77,6 +79,7 @@ Route::middleware(['auth', 'globalgame', 'locale'])->group(function () {
     Route::get('/research/add-buildrequest', [ResearchController::class, 'addBuildRequest'])->name('research.addbuildrequest');
     Route::post('/research/add-buildrequest', [ResearchController::class, 'addBuildRequest'])->name('research.addbuildrequest.post');
     Route::post('/research/cancel-buildrequest', [ResearchController::class, 'cancelBuildRequest'])->name('research.cancelbuildrequest');
+    Route::post('/research/halve-time', [ResearchController::class, 'halveTime'])->name('research.halvetime');
 
     // Shipyard
     Route::get('/shipyard', [ShipyardController::class, 'index'])->name('shipyard.index');
@@ -176,6 +179,7 @@ Route::middleware(['auth', 'globalgame', 'locale'])->group(function () {
     Route::post('/buddies/remove/{buddyId}', [BuddiesController::class, 'removeBuddy'])->name('buddies.removeBuddy');
     Route::get('/rewards', [RewardsController::class, 'index'])->name('rewards.index');
     Route::get('/planet-move', [PlanetMoveController::class, 'index'])->name('planetMove.index');
+    Route::post('/planet-move/relocate', [PlanetMoveController::class, 'relocate'])->name('planetMove.relocate');
 
     Route::get('/overlay/search', [SearchController::class, 'overlay'])->name('search.overlay');
     Route::get('/overlay/buddies', [BuddiesController::class, 'overlay'])->name('buddies.overlay');

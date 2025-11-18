@@ -183,6 +183,7 @@ class CreateNewUser implements CreatesNewUsers
                     'username' => $this->generateUniqueName(),
                     'email' => $input['email'],
                     'password' => Hash::make($input['password']),
+                    'dark_matter' => $this->settings->darkMatterBonus(),
                 ]);
 
                 // Check if the user is the first registered user

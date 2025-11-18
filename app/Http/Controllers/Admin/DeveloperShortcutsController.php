@@ -206,6 +206,20 @@ class DeveloperShortcutsController extends OGameController
             $planet->addResources($resourcesToAdd);
         }
 
+        // Handle Dark Matter (player resource, not planet resource)
+        if ($request->filled('darkmatter')) {
+            $darkMatter = AppUtil::parseResourceValue($request->input('darkmatter', 0));
+
+            // Get the owner of the planet
+            $owner = $planet->getPlayer();
+
+            if ($darkMatter > 0) {
+                $owner->addDarkMatter($darkMatter);
+            } elseif ($darkMatter < 0) {
+                $owner->deductDarkMatter(abs($darkMatter));
+            }
+        }
+
         return redirect()->back()->with('success', 'Resources updated successfully');
     }
 

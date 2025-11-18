@@ -452,4 +452,84 @@ class ResearchQueueService
             }
         }
     }
+
+    /**
+     * Calculate the Dark Matter cost to halve the time of a research.
+     *
+     * @param int $research_time_seconds The total research time in seconds
+     * @return int The cost in Dark Matter
+     */
+    public function calculateHalveTimeCost(int $research_time_seconds): int
+    {
+        // Formula: 1 DM per 2 minutes of total research time, minimum 100 DM
+        $base_cost = max(100, (int)ceil($research_time_seconds / 120));
+
+        return $base_cost;
+    }
+
+    /**
+     * Halve the time of the currently researching item using Dark Matter.
+     *
+     * @param PlayerService $player
+     * @param PlanetService $planet
+     * @throws Exception
+     */
+    public function halveTime(PlayerService $player, PlanetService $planet): void
+    {
+        $research_queue = $this->retrieveQueue($planet);
+        $currently_researching = $research_queue->getCurrentlyBuildingFromQueue();
+
+        if (empty($currently_researching)) {
+            throw new Exception('No research is currently in progress.');
+        }
+
+        // Get the queue item from database
+        $queue_item = $this->model
+            ->join('planets', 'research_queues.planet_id', '=', 'planets.id')
+            ->join('users', 'planets.user_id', '=', 'users.id')
+            ->where([
+                ['users.id', $player->getId()],
+                ['research_queues.id', $currently_researching->id],
+                ['research_queues.building', 1],
+                ['research_queues.processed', 0],
+                ['research_queues.canceled', 0],
+            ])
+            ->select('research_queues.*')
+            ->first();
+
+        if (!$queue_item) {
+            throw new Exception('Research queue item not found.');
+        }
+
+        // Typecast to a new object to avoid issues with the model
+        $queue_item = $queue_item instanceof ResearchQueue ? $queue_item : new ResearchQueue($queue_item->getAttributes());
+
+        // Calculate Dark Matter cost
+        $dm_cost = $this->calculateHalveTimeCost($queue_item->time_duration);
+
+        // Check if player has enough Dark Matter
+        if ($player->getDarkMatter() < $dm_cost) {
+            throw new Exception('Insufficient Dark Matter.');
+        }
+
+        // Calculate new end time (halve the remaining time)
+        $current_time = (int)Carbon::now()->timestamp;
+        $time_elapsed = $current_time - $queue_item->time_start;
+        $time_remaining = $queue_item->time_end - $current_time;
+
+        // Reduce remaining time by half
+        $new_time_remaining = (int)ceil($time_remaining / 2);
+        $queue_item->time_end = $current_time + $new_time_remaining;
+
+        // Deduct Dark Matter
+        $player->deductDarkMatter($dm_cost);
+
+        // Save the updated queue item
+        $queue_item->save();
+
+        // If the new end time is in the past, update immediately
+        if ($queue_item->time_end < Carbon::now()->timestamp) {
+            $player->updateResearchQueue();
+        }
+    }
 }
