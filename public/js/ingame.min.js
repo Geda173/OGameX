@@ -75974,7 +75974,7 @@ FleetDispatcher.prototype.initFleet1 = function () {
     initStandardFleet();
   });
   elem.on('change', '#standardfleet', function (e) {
-    let standardFleetId = getValue($('select.combatunits').val());
+    let standardFleetId = getValue($('#standardfleet').val());
     that.selectStandardFleet(standardFleetId);
     that.refresh();
   });
@@ -83976,7 +83976,7 @@ function initStandardFleet() {
     $(this).parents('form')[0].reset();
   });
   $('.changeFleet').unbind('click').bind('click', function () {
-    $('.combatunits').val($(this).attr('rel')).trigger('change');
+    $('#standardfleet').val($(this).attr('rel')).trigger('change');
     $(this).parents('.ui-dialog').find('.ui-dialog-titlebar-close').click();
   });
 }
