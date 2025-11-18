@@ -12,21 +12,33 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Check if the index already exists before attempting to create it
-        $indexExists = DB::select("
-            SELECT COUNT(*) as count
-            FROM information_schema.statistics
-            WHERE table_schema = DATABASE()
-            AND table_name = 'acs_groups'
-            AND index_name = 'idx_target_coords_status'
-        ");
+        // For SQLite (testing), just try to create the index
+        // For MySQL/MariaDB, check if it exists first
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            try {
+                Schema::table('acs_groups', function (Blueprint $table) {
+                    $table->index(['galaxy_to', 'system_to', 'position_to', 'type_to', 'status'], 'idx_target_coords_status');
+                });
+            } catch (\Exception $e) {
+                // Index might already exist, ignore
+            }
+        } else {
+            // Check if the index already exists before attempting to create it (MySQL/MariaDB)
+            $indexExists = DB::select("
+                SELECT COUNT(*) as count
+                FROM information_schema.statistics
+                WHERE table_schema = DATABASE()
+                AND table_name = 'acs_groups'
+                AND index_name = 'idx_target_coords_status'
+            ");
 
-        if ($indexExists[0]->count == 0) {
-            Schema::table('acs_groups', function (Blueprint $table) {
-                // Add composite index for finding available ACS groups by target coordinates
-                // This significantly speeds up getGroupsForTarget() queries
-                $table->index(['galaxy_to', 'system_to', 'position_to', 'type_to', 'status'], 'idx_target_coords_status');
-            });
+            if ($indexExists[0]->count == 0) {
+                Schema::table('acs_groups', function (Blueprint $table) {
+                    // Add composite index for finding available ACS groups by target coordinates
+                    // This significantly speeds up getGroupsForTarget() queries
+                    $table->index(['galaxy_to', 'system_to', 'position_to', 'type_to', 'status'], 'idx_target_coords_status');
+                });
+            }
         }
     }
 
@@ -35,20 +47,32 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Check if the index exists before attempting to drop it
-        $indexExists = DB::select("
-            SELECT COUNT(*) as count
-            FROM information_schema.statistics
-            WHERE table_schema = DATABASE()
-            AND table_name = 'acs_groups'
-            AND index_name = 'idx_target_coords_status'
-        ");
+        // For SQLite (testing), just try to drop the index
+        // For MySQL/MariaDB, check if it exists first
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            try {
+                Schema::table('acs_groups', function (Blueprint $table) {
+                    $table->dropIndex('idx_target_coords_status');
+                });
+            } catch (\Exception $e) {
+                // Index might not exist, ignore
+            }
+        } else {
+            // Check if the index exists before attempting to drop it (MySQL/MariaDB)
+            $indexExists = DB::select("
+                SELECT COUNT(*) as count
+                FROM information_schema.statistics
+                WHERE table_schema = DATABASE()
+                AND table_name = 'acs_groups'
+                AND index_name = 'idx_target_coords_status'
+            ");
 
-        if ($indexExists[0]->count > 0) {
-            Schema::table('acs_groups', function (Blueprint $table) {
-                // Drop the composite index
-                $table->dropIndex('idx_target_coords_status');
-            });
+            if ($indexExists[0]->count > 0) {
+                Schema::table('acs_groups', function (Blueprint $table) {
+                    // Drop the composite index
+                    $table->dropIndex('idx_target_coords_status');
+                });
+            }
         }
     }
 };
