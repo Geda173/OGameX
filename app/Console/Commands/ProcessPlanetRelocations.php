@@ -179,35 +179,19 @@ class ProcessPlanetRelocations extends Command
 
         $totalShips = $stationedShips->getAmount();
 
-        // If there are ships, launch them to new coordinates via deployment mission
+        // Store ship data for later fleet creation (after planet moves)
+        $shipFleetData = null;
         if ($totalShips > 0) {
-            $newCoordinate = new Coordinate(
-                $relocation->to_galaxy,
-                $relocation->to_system,
-                $relocation->to_position
-            );
+            // Remove ships from planet before moving it
+            $planetService->removeUnits($stationedShips, true);
 
-            try {
-                // Create deployment mission from old coordinates to new coordinates
-                // Mission type 4 = Deployment, speed 100%, no resources, no parent mission
-                // Note: createNewFromPlanet automatically removes ships from planet
-                $fleetMission = $fleetMissionService->createNewFromPlanet(
-                    $planetService,
-                    $newCoordinate,
-                    PlanetType::Planet,
-                    4, // Deployment mission
-                    $stationedShips,
-                    new Resources(0, 0, 0, 0),
-                    10, // 100% speed (10 = max speed, slowest ship will determine actual speed)
-                    0, // No holding time
-                    0 // No parent mission
-                );
+            // Store data to create fleet mission after planet moves
+            $shipFleetData = [
+                'ships' => $stationedShips,
+                'total' => $totalShips,
+            ];
 
-                $this->info('Launched ' . $totalShips . ' ship(s) to new coordinates (mission ID: ' . $fleetMission->id . ')');
-            } catch (\Exception $e) {
-                $this->warn('Could not launch ships to new coordinates: ' . $e->getMessage());
-                $this->warn('Ships will remain at old coordinates.');
-            }
+            $this->info('Removed ' . $totalShips . ' ship(s) from planet for relocation');
         }
 
         // Find and move moon if exists
@@ -233,6 +217,79 @@ class ProcessPlanetRelocations extends Command
             $moon->planet = $relocation->to_position;
             $moon->save();
             $this->info('Moved moon with planet ' . $planet->id);
+        }
+
+        // Now that planet has moved, create fleet mission for ships if any
+        if ($shipFleetData !== null) {
+            try {
+                // Calculate travel time based on distance and slowest ship speed
+                $player = $planetService->getPlayer();
+                $slowestSpeed = $shipFleetData['ships']->getSlowestUnitSpeed($player);
+
+                // Calculate distance between old and new coordinates
+                $oldGalaxy = $relocation->from_galaxy;
+                $oldSystem = $relocation->from_system;
+                $oldPosition = $relocation->from_position;
+                $newGalaxy = $relocation->to_galaxy;
+                $newSystem = $relocation->to_system;
+                $newPosition = $relocation->to_position;
+
+                // Distance calculation based on OGame formula
+                if ($oldGalaxy != $newGalaxy) {
+                    $distance = abs($oldGalaxy - $newGalaxy) * 20000;
+                } elseif ($oldSystem != $newSystem) {
+                    $distance = abs($oldSystem - $newSystem) * 5 * 19 + 2700;
+                } elseif ($oldPosition != $newPosition) {
+                    $distance = abs($oldPosition - $newPosition) * 5 + 1000;
+                } else {
+                    $distance = 0;
+                }
+
+                // Calculate flight time: (35000 / speed_percent * sqrt(distance * 10 / slowest_speed) + 10) / game_speed
+                $speed_percent = 100; // 100% speed
+                $fleetSpeed = app(\OGame\Services\SettingsService::class)->fleetSpeed();
+                $travelTime = (int)((35000 / $speed_percent * sqrt($distance * 10 / $slowestSpeed) + 10) / $fleetSpeed);
+
+                $currentTime = time();
+                $arrivalTime = $currentTime + $travelTime;
+
+                // Manually create fleet mission record
+                $fleetMission = new FleetMission();
+                $fleetMission->user_id = $user->id;
+                $fleetMission->planet_id_from = $planet->id;
+                $fleetMission->planet_id_to = $planet->id; // Same planet, just moved
+                $fleetMission->galaxy_from = $oldGalaxy;
+                $fleetMission->system_from = $oldSystem;
+                $fleetMission->position_from = $oldPosition;
+                $fleetMission->planet_type_from = PlanetType::Planet->value;
+                $fleetMission->galaxy_to = $newGalaxy;
+                $fleetMission->system_to = $newSystem;
+                $fleetMission->position_to = $newPosition;
+                $fleetMission->planet_type_to = PlanetType::Planet->value;
+                $fleetMission->mission_type = 4; // Deployment
+                $fleetMission->time_start = $currentTime;
+                $fleetMission->time_arrival = $arrivalTime;
+                $fleetMission->time_return = 0; // One-way mission
+
+                // Add ships to mission
+                foreach ($shipFleetData['ships']->units as $unit) {
+                    $machineName = $unit->unitObject->machine_name;
+                    $fleetMission->$machineName = $unit->amount;
+                }
+
+                // Resources (none for relocation)
+                $fleetMission->metal = 0;
+                $fleetMission->crystal = 0;
+                $fleetMission->deuterium = 0;
+
+                $fleetMission->processed = 0;
+                $fleetMission->save();
+
+                $this->info('Launched ' . $shipFleetData['total'] . ' ship(s) to new coordinates (mission ID: ' . $fleetMission->id . ', arrival in ' . gmdate('H:i:s', $travelTime) . ')');
+            } catch (\Exception $e) {
+                $this->warn('Could not launch ships to new coordinates: ' . $e->getMessage());
+                $this->warn('Ships were removed from planet but could not be sent. They are lost!');
+            }
         }
 
         // Update all incoming fleet missions to new coordinates
