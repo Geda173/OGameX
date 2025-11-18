@@ -6,6 +6,7 @@ use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use OGame\Models\Enums\PlanetType;
 use OGame\Models\Planet;
 use OGame\Services\PlayerService;
 
@@ -76,11 +77,12 @@ class PlanetMoveController extends OGameController
                 throw new Exception('Planet can only be relocated to position ' . $coordinates->position . ' in a different solar system.');
             }
 
-            // Check if target position is free (excluding the current planet)
+            // Check if target position is free (excluding the current planet and checking only for planets, not moons)
             $existing_planet = Planet::where([
                 ['galaxy', $galaxy],
                 ['system', $system],
                 ['planet', $position],
+                ['planet_type', PlanetType::Planet->value],
                 ['destroyed', 0],
             ])
             ->where('id', '!=', $planet->id)
@@ -101,11 +103,29 @@ class PlanetMoveController extends OGameController
             // Deduct Dark Matter
             $player->deductDarkMatter($dm_cost);
 
+            // Find and move the moon if it exists at the same coordinates
+            $moon = Planet::where([
+                ['galaxy', $coordinates->galaxy],
+                ['system', $coordinates->system],
+                ['planet', $coordinates->position],
+                ['planet_type', PlanetType::Moon->value],
+                ['user_id', $player->getId()],
+                ['destroyed', 0],
+            ])->first();
+
             // Move the planet
             $planet->galaxy = $galaxy;
             $planet->system = $system;
             $planet->planet = $position;
             $planet->save();
+
+            // Move the moon if it exists
+            if ($moon) {
+                $moon->galaxy = $galaxy;
+                $moon->system = $system;
+                $moon->planet = $position;
+                $moon->save();
+            }
 
             return response()->json([
                 'error' => '', // Empty string indicates success
