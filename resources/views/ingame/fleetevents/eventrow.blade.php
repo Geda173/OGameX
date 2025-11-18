@@ -304,8 +304,10 @@
         <td class="sendMail">
             @if ($fleet_event_row->is_recallable)
                 <span class="reversal reversal_time" ref="{{ $fleet_event_row->id }}">
-                    <a class="icon_link tooltipHTML recallFleet" data-fleet-id="{{ $fleet_event_row->id }}"
-                       title="Recall:| {{ date('d.m.Y', $fleet_event_row->recall_return_time) }}<br>{{ date('H:i:s', $fleet_event_row->recall_return_time) }}">
+                    <a class="icon_link tooltipHTML recallFleet dynamicRecallTooltip"
+                       data-fleet-id="{{ $fleet_event_row->id }}"
+                       data-departure-time="{{ $fleet_event_row->mission_time_departure }}"
+                       title="Recall:| ">
                         <img src="/img/icons/89624964d4b06356842188dba05b1b.gif" height="16" width="16"/>
                     </a>
                 </span>
@@ -351,6 +353,29 @@
             "#TODO_page=componentOnly&component=eventList&action=checkEvents&ajax=1&asJson=1",
             [0, 1]
         );
+
+        @if ($fleet_event_row->is_recallable)
+        // Dynamic recall tooltip update
+        $('.recallFleet[data-fleet-id="{{ $fleet_event_row->id }}"]').on('mouseenter', function() {
+            var departureTime = parseInt($(this).attr('data-departure-time'));
+            var currentTime = Math.floor(Date.now() / 1000);
+            var timeSpentTraveling = currentTime - departureTime;
+            var recallReturnTime = currentTime + timeSpentTraveling;
+
+            var returnDate = new Date(recallReturnTime * 1000);
+            var day = String(returnDate.getDate()).padStart(2, '0');
+            var month = String(returnDate.getMonth() + 1).padStart(2, '0');
+            var year = returnDate.getFullYear();
+            var hours = String(returnDate.getHours()).padStart(2, '0');
+            var minutes = String(returnDate.getMinutes()).padStart(2, '0');
+            var seconds = String(returnDate.getSeconds()).padStart(2, '0');
+
+            var formattedDate = day + '.' + month + '.' + year;
+            var formattedTime = hours + ':' + minutes + ':' + seconds;
+
+            $(this).attr('title', 'Recall:| ' + formattedDate + '<br>' + formattedTime);
+        });
+        @endif
     })(jQuery);
 </script>
 

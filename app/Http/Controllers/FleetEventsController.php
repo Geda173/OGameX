@@ -103,6 +103,7 @@ class FleetEventsController extends OGameController
             $eventRowViewModel->mission_type = $row->mission_type;
             $eventRowViewModel->mission_label = $fleetMissionService->missionTypeToLabel($row->mission_type);
             $eventRowViewModel->mission_time_arrival = $row->time_arrival;
+            $eventRowViewModel->mission_time_departure = $row->time_departure;
             $eventRowViewModel->is_return_trip = !empty($row->parent_id); // If mission has a parent, it is a return trip
 
             $eventRowViewModel->origin_planet_name = '';
