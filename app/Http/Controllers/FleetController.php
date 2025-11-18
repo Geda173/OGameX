@@ -1818,18 +1818,19 @@ class FleetController extends OGameController
         // Handle save operation
         if ($mode === 'save' && !empty($templateName)) {
             // Extract ship data from the request
+            // Laravel parses name="ship[204]" into a nested array: $request->input('ship')[204]
             $ships = [];
-            foreach ($request->all() as $key => $value) {
-                if (str_starts_with($key, 'ship')) {
-                    // Extract ship ID from key like "ship[202]"
-                    preg_match('/ship\[(\d+)\]/', $key, $matches);
-                    if (isset($matches[1]) && is_numeric($value) && (int)$value > 0) {
-                        $ships[(int)$matches[1]] = (int)$value;
-                    }
+            $shipData = $request->input('ship', []);
+
+            foreach ($shipData as $shipId => $amount) {
+                // Filter out null/empty values and convert to integers
+                if ($amount !== null && $amount !== '' && is_numeric($amount) && (int)$amount > 0) {
+                    $ships[(int)$shipId] = (int)$amount;
                 }
             }
 
             \Log::debug('Extracted ships from request', [
+                'raw_ship_data' => $shipData,
                 'ships' => $ships,
                 'ship_count' => count($ships),
             ]);

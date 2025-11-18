@@ -544,7 +544,7 @@
                                 </tbody>
                             </table>
                             <a href="javascript: void(0);" class="btn_blue float_right overlay" id="addNewTpl"
-                               onclick="openAddNewTemplate()"
+                               onclick="setShipsFleet({}, '', 0)"
                                data-overlay-inline="#fleetTemplatesEdit" data-overlay-title="Add new template">
                                 Add new template
                             </a>

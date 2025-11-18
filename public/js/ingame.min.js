@@ -83994,27 +83994,6 @@ function setShipsFleet(ships, tempName, techId) {
     $("#ship" + techID).val(ships[techID]);
   }
 }
-
-function getCurrentFleetSelection() {
-  var ships = {};
-  if (typeof fleetDispatcher !== 'undefined' && fleetDispatcher && fleetDispatcher.shipsToSend) {
-    console.log('fleetDispatcher.shipsToSend:', fleetDispatcher.shipsToSend);
-    fleetDispatcher.shipsToSend.forEach(function(ship) {
-      ships[ship.id] = ship.number;
-    });
-  } else {
-    console.log('fleetDispatcher or shipsToSend not available');
-  }
-  console.log('getCurrentFleetSelection returning:', ships);
-  return ships;
-}
-
-function openAddNewTemplate() {
-  console.log('openAddNewTemplate called');
-  var currentShips = getCurrentFleetSelection();
-  console.log('Setting fleet with ships:', currentShips);
-  setShipsFleet(currentShips, '', 0);
-}
 $(function () {
   $('.techdetail').on('click', function () {
     loadDetails($(this).data('techid'));
