@@ -289,13 +289,16 @@ class GalaxyController extends OGameController
         // Get planet owner (may be null for destroyed planets)
         $planetOwner = $planet->getPlayer();
         $isForeignPlanet = $planetOwner === null || $planetOwner->getId() !== $this->playerService->getId();
+        $isDestroyed = $planetOwner === null;
 
-        // Transport.
-        $availableMissions[] = [
-            'missionType' => 3,
-            'link' => route('fleet.index', ['galaxy' => $galaxy, 'system' => $system, 'position' => $position, 'type' => $planet->getPlanetType()->value, 'mission' => 3]),
-            'name' => __('Transport'),
-        ];
+        // Transport (not available for destroyed planets - no owner to receive resources)
+        if (!$isDestroyed) {
+            $availableMissions[] = [
+                'missionType' => 3,
+                'link' => route('fleet.index', ['galaxy' => $galaxy, 'system' => $system, 'position' => $position, 'type' => $planet->getPlanetType()->value, 'mission' => 3]),
+                'name' => __('Transport'),
+            ];
+        }
 
         if ($isForeignPlanet) {
             // Espionage (only if foreign planet).
