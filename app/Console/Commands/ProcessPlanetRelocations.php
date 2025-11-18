@@ -4,6 +4,7 @@ namespace OGame\Console\Commands;
 
 use Carbon\Carbon;
 use Illuminate\Console\Command;
+use OGame\Factories\PlanetServiceFactory;
 use OGame\GameObjects\Models\Coordinate;
 use OGame\GameObjects\Models\UnitCollection;
 use OGame\Models\BuildingQueue;
@@ -16,7 +17,6 @@ use OGame\Models\Resources;
 use OGame\Models\ResearchQueue;
 use OGame\Models\User;
 use OGame\Services\FleetMissionService;
-use OGame\Services\PlanetServiceFactory;
 use OGame\Services\PlayerService;
 
 class ProcessPlanetRelocations extends Command
