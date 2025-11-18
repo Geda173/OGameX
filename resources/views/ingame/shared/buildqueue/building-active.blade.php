@@ -39,8 +39,8 @@
         <tr class="data">
             <td colspan="2">
                 @php
-                    $dm_cost = max(100, (int)ceil($build_active->time_duration / 120));
-                    $time_saved = (int)floor($build_active->time_duration / 2);
+                    $dm_cost = max(100, (int)ceil($build_active->time_total / 120));
+                    $time_saved = (int)floor($build_active->time_total / 2);
                 @endphp
                 <a class="build-faster dark_highlight tooltipLeft js_hideTipOnMobile building "
                    title="Reduces construction time by 50% of the total construction time ({{ \OGame\Facades\AppUtil::formatTimeDuration($time_saved) }})."
