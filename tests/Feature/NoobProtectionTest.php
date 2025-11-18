@@ -91,6 +91,7 @@ class NoobProtectionTest extends AccountTestCase
         if (!$foreignPlayerId) {
             // Create a new user
             $this->createAndLoginUser();
+            $this->retrieveMetaFields(); // This updates $this->currentUserId
             $foreignPlayerId = $this->currentUserId;
 
             // Switch back to the attacker WITHOUT reloading application
@@ -196,7 +197,7 @@ class NoobProtectionTest extends AccountTestCase
         $this->setPlayerHighscore($foreignPlayerId, 600000, 50000, 300);
 
         // Add some defenses to the target to prevent empty planet issues
-        $foreignPlanet->addUnit(ObjectService::getDefenseObjectByMachineName('rocket_launcher'), 10);
+        $foreignPlanet->addUnit('rocket_launcher', 10);
 
         // Try to attack - should be allowed
         $response = $this->post('/ajax/fleet/dispatch/check-target', [
@@ -228,7 +229,7 @@ class NoobProtectionTest extends AccountTestCase
         $this->setPlayerHighscore($foreignPlayerId, 10000, 800000, 50);
 
         // Add some defenses to the target
-        $foreignPlanet->addUnit(ObjectService::getDefenseObjectByMachineName('rocket_launcher'), 10);
+        $foreignPlanet->addUnit('rocket_launcher', 10);
 
         // Try to attack - should be allowed due to military exception
         $response = $this->post('/ajax/fleet/dispatch/check-target', [
@@ -257,7 +258,7 @@ class NoobProtectionTest extends AccountTestCase
         $this->setPlayerHighscore($foreignPlayerId, 10000, 600000, 400);
 
         // Add some defenses to the target
-        $foreignPlanet->addUnit(ObjectService::getDefenseObjectByMachineName('rocket_launcher'), 10);
+        $foreignPlanet->addUnit('rocket_launcher', 10);
 
         // Try to attack - should be allowed due to military exception
         $response = $this->post('/ajax/fleet/dispatch/check-target', [
@@ -289,7 +290,7 @@ class NoobProtectionTest extends AccountTestCase
         $this->makePlayerInactive($foreignPlayerId);
 
         // Add some defenses to the target
-        $foreignPlanet->addUnit(ObjectService::getDefenseObjectByMachineName('rocket_launcher'), 10);
+        $foreignPlanet->addUnit('rocket_launcher', 10);
 
         // Try to attack - should be allowed because player is inactive
         $response = $this->post('/ajax/fleet/dispatch/check-target', [
@@ -323,7 +324,7 @@ class NoobProtectionTest extends AccountTestCase
             ->update(['outlaw_until' => now()->addDays(7)]);
 
         // Add some defenses to the target
-        $foreignPlanet->addUnit(ObjectService::getDefenseObjectByMachineName('rocket_launcher'), 10);
+        $foreignPlanet->addUnit('rocket_launcher', 10);
 
         // Try to attack - should be allowed because player is outlaw
         $response = $this->post('/ajax/fleet/dispatch/check-target', [
@@ -406,7 +407,7 @@ class NoobProtectionTest extends AccountTestCase
         $this->setPlayerHighscore($foreignPlayerId, 10000, 5000, 500);
 
         // Get galaxy view data
-        $response = $this->get('/ajax/galaxy/content', [
+        $response = $this->post('/ajax/galaxy', [
             'galaxy' => $foreignPlanet->getPlanetCoordinates()->galaxy,
             'system' => $foreignPlanet->getPlanetCoordinates()->system,
         ]);
@@ -416,7 +417,8 @@ class NoobProtectionTest extends AccountTestCase
 
         // Find the foreign planet in the response
         $planetData = null;
-        foreach ($data as $row) {
+        $galaxyContent = $data['system']['galaxyContent'] ?? [];
+        foreach ($galaxyContent as $row) {
             if (isset($row['planet']) && $row['planet']['playerId'] === $foreignPlayerId) {
                 $planetData = $row['planet'];
                 break;
