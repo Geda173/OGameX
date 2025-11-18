@@ -360,6 +360,9 @@ class NoobProtectionTest extends AccountTestCase
         $this->setPlayerHighscore($attackerId, 40000000, 1000000, 4);
         $this->setPlayerHighscore($foreignPlayerId, 10000, 5000, 500);
 
+        // Add espionage probes to the attacker's planet
+        $this->planetAddUnit('espionage_probe', 5);
+
         // Try to spy - should be blocked
         $response = $this->post('/ajax/fleet/dispatch/check-target', [
             'galaxy' => $foreignPlanet->getPlanetCoordinates()->galaxy,
@@ -367,6 +370,7 @@ class NoobProtectionTest extends AccountTestCase
             'position' => $foreignPlanet->getPlanetCoordinates()->position,
             'type' => PlanetType::Planet->value,
             'mission' => 6, // Espionage
+            'espionage_probe' => 1, // Send 1 probe
         ]);
 
         $response->assertStatus(200);
@@ -444,7 +448,14 @@ class NoobProtectionTest extends AccountTestCase
         // Debug: Log foreign planet coordinates if not found
         if ($planetData === null) {
             $coords = $foreignPlanet->getPlanetCoordinates();
-            $this->fail("Foreign planet not found in galaxy view. Planet at {$coords->galaxy}:{$coords->system}:{$coords->position}, Player ID: {$foreignPlayerId}");
+            // Log all player IDs in the galaxy content for debugging
+            $playerIds = [];
+            foreach ($galaxyContent as $row) {
+                if (isset($row['planet'])) {
+                    $playerIds[] = $row['planet']['playerId'] ?? 'null';
+                }
+            }
+            $this->fail("Foreign planet not found in galaxy view. Planet at {$coords->galaxy}:{$coords->system}:{$coords->position}, Player ID: {$foreignPlayerId}. Found player IDs: " . implode(', ', $playerIds));
         }
 
         // Assert that the player is marked as newbie
