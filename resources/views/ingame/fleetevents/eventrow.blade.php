@@ -356,7 +356,10 @@
 
         @if ($fleet_event_row->is_recallable)
         // Dynamic recall tooltip update
-        $('.recallFleet[data-fleet-id="{{ $fleet_event_row->id }}"]').on('mouseenter', function() {
+        var recallButton = $('.recallFleet[data-fleet-id="{{ $fleet_event_row->id }}"]');
+
+        // Update title on mouseenter to calculate current recall time
+        recallButton.on('mouseenter', function() {
             var departureTime = parseInt($(this).attr('data-departure-time'));
             var currentTime = Math.floor(Date.now() / 1000);
             var timeSpentTraveling = currentTime - departureTime;
@@ -370,10 +373,10 @@
             var minutes = String(returnDate.getMinutes()).padStart(2, '0');
             var seconds = String(returnDate.getSeconds()).padStart(2, '0');
 
-            var formattedDate = day + '.' + month + '.' + year;
-            var formattedTime = hours + ':' + minutes + ':' + seconds;
+            var newTitle = 'Recall:| ' + day + '.' + month + '.' + year + '<br>' + hours + ':' + minutes + ':' + seconds;
 
-            $(this).attr('title', 'Recall:| ' + formattedDate + '<br>' + formattedTime);
+            // Use the changeTooltip function to update the tooltip
+            changeTooltip(this, newTitle);
         });
         @endif
     })(jQuery);
