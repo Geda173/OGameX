@@ -186,7 +186,7 @@ class ProcessPlanetRelocations extends Command
         // Ensures other players can't cancel relocation by sending fleets
         $incomingFleets = FleetMission::where('galaxy_to', $relocation->from_galaxy)
             ->where('system_to', $relocation->from_system)
-            ->where('planet_to', $relocation->from_position)
+            ->where('position_to', $relocation->from_position)
             ->where('processed', 0)
             ->get();
 
@@ -195,7 +195,7 @@ class ProcessPlanetRelocations extends Command
             // Update destination to new coordinates
             $fleet->galaxy_to = $relocation->to_galaxy;
             $fleet->system_to = $relocation->to_system;
-            $fleet->planet_to = $relocation->to_position;
+            $fleet->position_to = $relocation->to_position;
             $fleet->save();
             $updatedFleetCount++;
         }
