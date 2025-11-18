@@ -79,7 +79,8 @@ class PlanetService
         if ($player === null) {
             // If no player has been provided, we load it ourselves here.
             // However, destroyed planets have null user_id and no owner.
-            if ($this->planet->user_id !== null) {
+            // Only load player if user_id is a valid positive integer
+            if ($this->planet->user_id !== null && $this->planet->user_id > 0) {
                 $playerService = $playerServiceFactory->make($this->planet->user_id);
                 $this->player = $playerService;
             } else {
