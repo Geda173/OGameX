@@ -1795,6 +1795,13 @@ class FleetController extends OGameController
         $templateId = (int)$request->input('template_id', 0);
         $templateName = $request->input('template_name', '');
 
+        \Log::debug('saveStandardFleet called', [
+            'mode' => $mode,
+            'template_id' => $templateId,
+            'template_name' => $templateName,
+            'all_request_data' => $request->all(),
+        ]);
+
         // Handle delete operation
         if ($mode === 'delete' && $templateId > 0) {
             $standardFleet = StandardFleet::where('id', $templateId)
@@ -1821,6 +1828,11 @@ class FleetController extends OGameController
                     }
                 }
             }
+
+            \Log::debug('Extracted ships from request', [
+                'ships' => $ships,
+                'ship_count' => count($ships),
+            ]);
 
             // If template_id is greater than 0, update existing template
             if ($templateId > 0) {
