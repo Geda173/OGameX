@@ -197,7 +197,7 @@ class ProcessPlanetRelocations extends Command
                 4, // Deployment mission
                 $stationedShips,
                 new Resources(0, 0, 0, 0),
-                1.0, // 100% speed (slowest ship will determine actual speed)
+                10, // 100% speed (10 = max speed, slowest ship will determine actual speed)
                 0, // No holding time
                 0 // No parent mission
             );
