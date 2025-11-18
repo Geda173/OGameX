@@ -57,11 +57,50 @@ class TransportMission extends GameMission
         $origin_planet = $this->planetServiceFactory->make($mission->planet_id_from, true);
         $target_planet = $this->planetServiceFactory->make($mission->planet_id_to, true);
 
+        $originPlayer = $origin_planet->getPlayer();
+        $targetPlayer = $target_planet->getPlayer();
+
+        // If origin planet was abandoned, cancel mission and don't create return
+        if ($originPlayer === null) {
+            \Log::info('Transport mission cancelled: origin planet was abandoned', [
+                'mission_id' => $mission->id,
+                'origin_planet' => $mission->planet_id_from,
+            ]);
+            $mission->processed = 1;
+            $mission->save();
+            return;
+        }
+
+        // If target planet was destroyed/abandoned, resources are lost, but fleet returns
+        if ($targetPlayer === null) {
+            \Log::info('Transport mission failed: target planet was destroyed', [
+                'mission_id' => $mission->id,
+                'target_planet' => $mission->planet_id_to,
+            ]);
+
+            // Send message to origin player about failed transport
+            $this->messageService->sendSystemMessageToPlayer($originPlayer, TransportArrived::class, [
+                'from' => '[planet]' . $mission->planet_id_from . '[/planet]',
+                'to' => '[planet]' . $mission->planet_id_to . '[/planet]',
+                'metal' => '0',
+                'crystal' => '0',
+                'deuterium' => '0',
+            ]);
+
+            $mission->processed = 1;
+            $mission->save();
+
+            // Create return mission with empty cargo (resources lost)
+            $units = $this->fleetMissionService->getFleetUnits($mission);
+            $this->startReturn($mission, new Resources(0, 0, 0, 0), $units);
+            return;
+        }
+
         // Add resources to the target planet
         $target_planet->addResources($this->fleetMissionService->getResources($mission));
 
         // Send a message to the origin player that the mission has arrived
-        $this->messageService->sendSystemMessageToPlayer($origin_planet->getPlayer(), TransportArrived::class, [
+        $this->messageService->sendSystemMessageToPlayer($originPlayer, TransportArrived::class, [
             'from' => '[planet]' . $mission->planet_id_from . '[/planet]',
             'to' => '[planet]' . $mission->planet_id_to . '[/planet]',
             'metal' => (string)$mission->metal,
@@ -69,9 +108,9 @@ class TransportMission extends GameMission
             'deuterium' => (string)$mission->deuterium,
         ]);
 
-        if ($origin_planet->getPlayer()->getId() !== $target_planet->getPlayer()->getId()) {
+        if ($originPlayer->getId() !== $targetPlayer->getId()) {
             // Send a message to the target player that the mission has arrived
-            $this->messageService->sendSystemMessageToPlayer($target_planet->getPlayer(), TransportReceived::class, [
+            $this->messageService->sendSystemMessageToPlayer($targetPlayer, TransportReceived::class, [
                 'from' => '[planet]' . $mission->planet_id_from . '[/planet]',
                 'to' => '[planet]' . $mission->planet_id_to . '[/planet]',
                 'metal' => (string)$mission->metal,
