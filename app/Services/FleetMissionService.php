@@ -431,6 +431,7 @@ class FleetMissionService
                 $query->whereRaw('time_arrival + COALESCE(time_holding, 0) <= ?', [Carbon::now()->timestamp]);
             })
             ->where('processed', 0)
+            ->orderBy('time_arrival', 'asc')
             ->get();
     }
 

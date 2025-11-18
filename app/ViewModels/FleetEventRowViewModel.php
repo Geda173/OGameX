@@ -13,6 +13,7 @@ class FleetEventRowViewModel
     public int $mission_type;
     public string $mission_label;
     public int $mission_time_arrival;
+    public int $mission_time_departure;
     public bool $is_return_trip;
 
     /**
