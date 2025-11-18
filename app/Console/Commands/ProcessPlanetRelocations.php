@@ -4,14 +4,19 @@ namespace OGame\Console\Commands;
 
 use Carbon\Carbon;
 use Illuminate\Console\Command;
+use OGame\GameObjects\Models\Coordinate;
+use OGame\GameObjects\Models\UnitCollection;
 use OGame\Models\BuildingQueue;
 use OGame\Models\Enums\PlanetType;
 use OGame\Models\FleetMission;
 use OGame\Models\Planet;
 use OGame\Models\PlanetRelocation;
 use OGame\Models\RepairQueue;
+use OGame\Models\Resources;
 use OGame\Models\ResearchQueue;
 use OGame\Models\User;
+use OGame\Services\FleetMissionService;
+use OGame\Services\PlanetServiceFactory;
 use OGame\Services\PlayerService;
 
 class ProcessPlanetRelocations extends Command
@@ -19,7 +24,7 @@ class ProcessPlanetRelocations extends Command
     protected $signature = 'ogame:process-relocations';
     protected $description = 'Process pending planet relocations after 24-hour countdown';
 
-    public function handle(): int
+    public function handle(PlanetServiceFactory $planetServiceFactory, FleetMissionService $fleetMissionService): int
     {
         $currentTime = Carbon::now()->timestamp;
 
@@ -38,7 +43,7 @@ class ProcessPlanetRelocations extends Command
 
         foreach ($relocations as $relocation) {
             try {
-                $this->processRelocation($relocation);
+                $this->processRelocation($relocation, $planetServiceFactory, $fleetMissionService);
             } catch (\Exception $e) {
                 $this->error('Error processing relocation ID ' . $relocation->id . ': ' . $e->getMessage());
             }
@@ -48,7 +53,7 @@ class ProcessPlanetRelocations extends Command
         return 0;
     }
 
-    private function processRelocation(PlanetRelocation $relocation): void
+    private function processRelocation(PlanetRelocation $relocation, PlanetServiceFactory $planetServiceFactory, FleetMissionService $fleetMissionService): void
     {
         $planet = Planet::find($relocation->planet_id);
         if (!$planet) {
@@ -155,6 +160,48 @@ class ProcessPlanetRelocations extends Command
         }
 
         // All checks passed - execute relocation!
+
+        // Create planet service to access ships
+        $planetService = $planetServiceFactory->make($planet->id);
+
+        // Get all ships currently on the planet
+        $stationedShips = $planetService->getShips();
+        $totalShips = $stationedShips->getAmount();
+
+        // If there are ships, launch them to new coordinates via deployment mission
+        if ($totalShips > 0) {
+            // Store old coordinates
+            $oldCoordinate = new Coordinate(
+                $relocation->from_galaxy,
+                $relocation->from_system,
+                $relocation->from_position
+            );
+
+            $newCoordinate = new Coordinate(
+                $relocation->to_galaxy,
+                $relocation->to_system,
+                $relocation->to_position
+            );
+
+            // Remove ships from planet
+            $planetService->removeUnits($stationedShips);
+
+            // Create deployment mission from old coordinates to new coordinates
+            // Mission type 4 = Deployment, speed 100%, no resources, no parent mission
+            $fleetMission = $fleetMissionService->createNewFromPlanet(
+                $planetService,
+                $newCoordinate,
+                PlanetType::Planet,
+                4, // Deployment mission
+                $stationedShips,
+                new Resources(0, 0, 0, 0),
+                1.0, // 100% speed (slowest ship will determine actual speed)
+                0, // No holding time
+                0 // No parent mission
+            );
+
+            $this->info('Launched ' . $totalShips . ' ship(s) to new coordinates (mission ID: ' . $fleetMission->id . ')');
+        }
 
         // Find and move moon if exists
         $moon = Planet::where([
