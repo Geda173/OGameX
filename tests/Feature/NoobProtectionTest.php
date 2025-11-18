@@ -152,10 +152,14 @@ class NoobProtectionTest extends AccountTestCase
         ]);
 
         $response->assertStatus(200);
-        $response->assertJson([
-            'status' => 'failure',
-        ]);
-        $response->assertJsonFragment(['The target player is under noob protection and cannot be attacked.']);
+        $response->assertJson(['status' => 'success']);
+        // Check that error message is in errors array
+        $data = $response->json();
+        $this->assertNotEmpty($data['errors'] ?? []);
+        $errorMessages = array_column($data['errors'], 'message');
+        $this->assertContains('The target player is under noob protection and cannot be attacked.', $errorMessages);
+        // Check that attack mission is disabled
+        $this->assertFalse($data['orders'][1] ?? true);
     }
 
     /**
@@ -179,10 +183,14 @@ class NoobProtectionTest extends AccountTestCase
         ]);
 
         $response->assertStatus(200);
-        $response->assertJson([
-            'status' => 'failure',
-        ]);
-        $response->assertJsonFragment(['The target player is under noob protection and cannot be attacked.']);
+        $response->assertJson(['status' => 'success']);
+        // Check that error message is in errors array
+        $data = $response->json();
+        $this->assertNotEmpty($data['errors'] ?? []);
+        $errorMessages = array_column($data['errors'], 'message');
+        $this->assertContains('The target player is under noob protection and cannot be attacked.', $errorMessages);
+        // Check that attack mission is disabled
+        $this->assertFalse($data['orders'][1] ?? true);
     }
 
     /**
@@ -212,9 +220,9 @@ class NoobProtectionTest extends AccountTestCase
         $response->assertJson([
             'status' => 'success',
         ]);
-        $response->assertJsonFragment(['orders' => [
-            1 => true, // Attack should be enabled
-        ]]);
+        // Check that attack mission is enabled
+        $data = $response->json();
+        $this->assertTrue($data['orders'][1] ?? false);
     }
 
     /**
@@ -362,10 +370,14 @@ class NoobProtectionTest extends AccountTestCase
         ]);
 
         $response->assertStatus(200);
-        $response->assertJson([
-            'status' => 'failure',
-        ]);
-        $response->assertJsonFragment(['The target player is under noob protection and cannot be spied on.']);
+        $response->assertJson(['status' => 'success']);
+        // Check that error message is in errors array
+        $data = $response->json();
+        $this->assertNotEmpty($data['errors'] ?? []);
+        $errorMessages = array_column($data['errors'], 'message');
+        $this->assertContains('The target player is under noob protection and cannot be spied on.', $errorMessages);
+        // Check that espionage mission is disabled
+        $this->assertFalse($data['orders'][6] ?? true);
     }
 
     /**
@@ -389,10 +401,14 @@ class NoobProtectionTest extends AccountTestCase
         ]);
 
         $response->assertStatus(200);
-        $response->assertJson([
-            'status' => 'failure',
-        ]);
-        $response->assertJsonFragment(['The target player is under noob protection and cannot be attacked.']);
+        $response->assertJson(['status' => 'success']);
+        // Check that error message is in errors array
+        $data = $response->json();
+        $this->assertNotEmpty($data['errors'] ?? []);
+        $errorMessages = array_column($data['errors'], 'message');
+        $this->assertContains('The target player is under noob protection and cannot be attacked.', $errorMessages);
+        // Check that ACS attack mission is disabled
+        $this->assertFalse($data['orders'][2] ?? true);
     }
 
     /**
