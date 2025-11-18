@@ -106,14 +106,12 @@ class PlanetMoveController extends OGameController
             $planet->save();
 
             return response()->json([
-                'success' => true,
-                'message' => 'Planet successfully relocated to ' . $galaxy . ':' . $system . ':' . $position,
+                'error' => '', // Empty string indicates success
             ]);
         } catch (Exception $e) {
             return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 400);
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 }
