@@ -1013,13 +1013,13 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                                             <span class="icon icon_combatunits"></span>
                                             @lang('Standard fleets')
                                         </a>
-                                        <select class="combatunits dropdownInitialized" size="1" id="standardfleet"
+                                        <select class="standardfleet-select dropdownInitialized" size="1" id="standardfleet"
                                                 style="display: none;">
                                             <option value="">-</option>
                                             @foreach($standardFleets as $fleet)
                                                 <option value="{{ $fleet['id'] }}">{{ $fleet['name'] }}</option>
                                             @endforeach
-                                        </select><span class="dropdown currentlySelected combatunits" rel="dropdown484"
+                                        </select><span class="dropdown currentlySelected standardfleet-select" rel="dropdown484"
                                                        style="width: 144px;"><a class="undefined" data-value=""
                                                                                 rel="dropdown484"
                                                                                 href="javascript:void(0);">-</a></span>
