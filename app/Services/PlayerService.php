@@ -301,34 +301,38 @@ class PlayerService
     }
 
     /**
-     * Checks if military highscore exception applies between this player and another.
+     * Checks if military highscore exception applies for attacking a target.
      * Exception applies if:
      * - Players are within 100 places on military highscore, OR
-     * - This player has more than 50% of the other player's military points
+     * - Target (defender) has more than 50% of attacker's military points
      *
-     * @param PlayerService $comparedTo The player to compare against
+     * This is called from the attacker's perspective: $attacker->hasMilitaryHighscoreException($target)
+     *
+     * @param PlayerService $target The target/defender player
      * @return bool True if military exception allows bypassing noob protection
      */
-    public function hasMilitaryHighscoreException(PlayerService $comparedTo): bool
+    public function hasMilitaryHighscoreException(PlayerService $target): bool
     {
-        $thisHighscore = \OGame\Models\Highscore::where('player_id', $this->getId())->first();
-        $otherHighscore = \OGame\Models\Highscore::where('player_id', $comparedTo->getId())->first();
+        $attackerHighscore = \OGame\Models\Highscore::where('player_id', $this->getId())->first();
+        $targetHighscore = \OGame\Models\Highscore::where('player_id', $target->getId())->first();
 
-        if (!$thisHighscore || !$otherHighscore) {
+        if (!$attackerHighscore || !$targetHighscore) {
             return false;
         }
 
         // Check if within 100 places on military highscore
-        $rankDifference = abs($thisHighscore->military_rank - $otherHighscore->military_rank);
+        $rankDifference = abs($attackerHighscore->military_rank - $targetHighscore->military_rank);
         if ($rankDifference <= 100) {
             return true;
         }
 
-        // Check if this player has more than 50% of the other player's military points
-        $thisMilitaryPoints = $thisHighscore->military ?? 0;
-        $otherMilitaryPoints = $otherHighscore->military ?? 0;
+        // Check if target (defender) has more than 50% of attacker's military points
+        // Per wiki: "wenn man mehr als 50% von seinen Militärpunkten hat"
+        // = if the defender has more than 50% of the attacker's military points
+        $attackerMilitaryPoints = $attackerHighscore->military ?? 0;
+        $targetMilitaryPoints = $targetHighscore->military ?? 0;
 
-        if ($otherMilitaryPoints > 0 && $thisMilitaryPoints > ($otherMilitaryPoints * 0.5)) {
+        if ($attackerMilitaryPoints > 0 && $targetMilitaryPoints > ($attackerMilitaryPoints * 0.5)) {
             return true;
         }
 
