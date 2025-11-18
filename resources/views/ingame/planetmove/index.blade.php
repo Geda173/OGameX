@@ -73,8 +73,9 @@
                 var system = $('#system').val();
                 var position = $('#position').val();
                 var cost = {{ $relocation_cost }};
+                var costFormatted = '{{ number_format($relocation_cost) }}';
 
-                var question = 'Do you want to relocate your planet to <strong>' + galaxy + ':' + system + ':' + position + '</strong> for <span style="font-weight: bold; color: #ffd700;">' + cost.toLocaleString() + ' Dark Matter</span>?';
+                var question = 'Do you want to relocate your planet to <strong>' + galaxy + ':' + system + ':' + position + '</strong> for <span style="font-weight: bold; color: #ffd700;">' + costFormatted + ' Dark Matter</span>?';
 
                 errorBoxDecision('@lang('Relocate Planet')', question, '@lang('Yes')', '@lang('No')', function() {
                     $.post('{{ route('planetMove.relocate') }}', {
