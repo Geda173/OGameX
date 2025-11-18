@@ -71,16 +71,37 @@ class NoobProtectionTest extends AccountTestCase
     }
 
     /**
+     * Helper method to get a foreign planet and switch back to attacker.
+     * Returns array with [attackerId, foreignPlanet, foreignPlayerId]
+     *
+     * @return array
+     */
+    private function setupForeignPlanetTest(): array
+    {
+        // Store the attacker's ID
+        $attackerId = $this->currentUserId;
+
+        // Get a foreign planet (this will create a second user if needed)
+        $foreignPlanet = $this->getNearbyForeignPlanet();
+        $foreignPlayerId = $foreignPlanet->getPlayer()->getId();
+
+        // Switch back to attacking user
+        $this->reloadApplication();
+        \Auth::loginUsingId($attackerId);
+        $this->retrieveMetaFields();
+
+        return [$attackerId, $foreignPlanet, $foreignPlayerId];
+    }
+
+    /**
      * Test that attack is blocked when target is under 50k points and attacker has 5x more points.
      */
     public function testAttackBlockedUnder50kPoints(): void
     {
-        // Set current player to have 40M points
-        $this->setPlayerHighscore($this->currentUserId, 40000000, 1000000, 4);
+        [$attackerId, $foreignPlanet, $foreignPlayerId] = $this->setupForeignPlanetTest();
 
-        // Get a foreign planet and set its owner to have 10k points (under 50k threshold)
-        $foreignPlanet = $this->getNearbyForeignPlanet();
-        $foreignPlayerId = $foreignPlanet->getPlayer()->getId();
+        // Set highscores
+        $this->setPlayerHighscore($attackerId, 40000000, 1000000, 4);
         $this->setPlayerHighscore($foreignPlayerId, 10000, 5000, 500);
 
         // Try to attack - should be blocked
@@ -107,18 +128,13 @@ class NoobProtectionTest extends AccountTestCase
      */
     public function testAttackBlockedBetween50kAnd500kPoints(): void
     {
-        // Set current player to have 40M points
-        $this->setPlayerHighscore($this->currentUserId, 40000000, 1000000, 4);
+        [$attackerId, $foreignPlanet, $foreignPlayerId] = $this->setupForeignPlanetTest();
 
-        // Get a foreign planet and set its owner to have 100k points (between 50k-500k threshold)
-        $foreignPlanet = $this->getNearbyForeignPlanet();
-        $foreignPlayerId = $foreignPlanet->getPlayer()->getId();
+        // Set highscores
+        $this->setPlayerHighscore($attackerId, 40000000, 1000000, 4);
         $this->setPlayerHighscore($foreignPlayerId, 100000, 10000, 400);
 
         // Try to attack - should be blocked (40M is more than 10x of 100k)
-        $unitCollection = new UnitCollection();
-        $unitCollection->addUnit(ObjectService::getUnitObjectByMachineName('light_fighter'), 1);
-
         $response = $this->post('/ajax/fleet/dispatch/check-target', [
             'galaxy' => $foreignPlanet->getPlanetCoordinates()->galaxy,
             'system' => $foreignPlanet->getPlanetCoordinates()->system,
@@ -139,21 +155,16 @@ class NoobProtectionTest extends AccountTestCase
      */
     public function testAttackAllowedOver500kPoints(): void
     {
-        // Set current player to have 40M points
-        $this->setPlayerHighscore($this->currentUserId, 40000000, 1000000, 4);
+        [$attackerId, $foreignPlanet, $foreignPlayerId] = $this->setupForeignPlanetTest();
 
-        // Get a foreign planet and set its owner to have 600k points (over 500k threshold)
-        $foreignPlanet = $this->getNearbyForeignPlanet();
-        $foreignPlayerId = $foreignPlanet->getPlayer()->getId();
+        // Set highscores
+        $this->setPlayerHighscore($attackerId, 40000000, 1000000, 4);
         $this->setPlayerHighscore($foreignPlayerId, 600000, 50000, 300);
 
         // Add some defenses to the target to prevent empty planet issues
         $foreignPlanet->addUnit(ObjectService::getDefenseObjectByMachineName('rocket_launcher'), 10);
 
         // Try to attack - should be allowed
-        $unitCollection = new UnitCollection();
-        $unitCollection->addUnit(ObjectService::getUnitObjectByMachineName('light_fighter'), 1);
-
         $response = $this->post('/ajax/fleet/dispatch/check-target', [
             'galaxy' => $foreignPlanet->getPlanetCoordinates()->galaxy,
             'system' => $foreignPlanet->getPlanetCoordinates()->system,
@@ -176,12 +187,10 @@ class NoobProtectionTest extends AccountTestCase
      */
     public function testMilitaryHighscoreExceptionWithin100Ranks(): void
     {
-        // Set current player to have 40M points, rank 4
-        $this->setPlayerHighscore($this->currentUserId, 40000000, 1000000, 4);
+        [$attackerId, $foreignPlanet, $foreignPlayerId] = $this->setupForeignPlanetTest();
 
-        // Get a foreign planet and set its owner to have 10k points but military rank 50 (within 100 ranks)
-        $foreignPlanet = $this->getNearbyForeignPlanet();
-        $foreignPlayerId = $foreignPlanet->getPlayer()->getId();
+        // Set highscores
+        $this->setPlayerHighscore($attackerId, 40000000, 1000000, 4);
         $this->setPlayerHighscore($foreignPlayerId, 10000, 800000, 50);
 
         // Add some defenses to the target
@@ -207,12 +216,10 @@ class NoobProtectionTest extends AccountTestCase
      */
     public function testMilitaryHighscoreExceptionDefenderHas50PercentMilitary(): void
     {
-        // Set current player to have 40M points, 1M military
-        $this->setPlayerHighscore($this->currentUserId, 40000000, 1000000, 4);
+        [$attackerId, $foreignPlanet, $foreignPlayerId] = $this->setupForeignPlanetTest();
 
-        // Get a foreign planet and set its owner to have 10k points but 600k military (>50% of attacker)
-        $foreignPlanet = $this->getNearbyForeignPlanet();
-        $foreignPlayerId = $foreignPlanet->getPlayer()->getId();
+        // Set highscores
+        $this->setPlayerHighscore($attackerId, 40000000, 1000000, 4);
         $this->setPlayerHighscore($foreignPlayerId, 10000, 600000, 400);
 
         // Add some defenses to the target
@@ -238,12 +245,10 @@ class NoobProtectionTest extends AccountTestCase
      */
     public function testInactivePlayerLosesNoobProtection(): void
     {
-        // Set current player to have 40M points
-        $this->setPlayerHighscore($this->currentUserId, 40000000, 1000000, 4);
+        [$attackerId, $foreignPlanet, $foreignPlayerId] = $this->setupForeignPlanetTest();
 
-        // Get a foreign planet and set its owner to have 10k points
-        $foreignPlanet = $this->getNearbyForeignPlanet();
-        $foreignPlayerId = $foreignPlanet->getPlayer()->getId();
+        // Set highscores
+        $this->setPlayerHighscore($attackerId, 40000000, 1000000, 4);
         $this->setPlayerHighscore($foreignPlayerId, 10000, 5000, 500);
 
         // Make the foreign player inactive (7+ days)
@@ -272,12 +277,10 @@ class NoobProtectionTest extends AccountTestCase
      */
     public function testOutlawPlayerLosesNoobProtection(): void
     {
-        // Set current player to have 40M points
-        $this->setPlayerHighscore($this->currentUserId, 40000000, 1000000, 4);
+        [$attackerId, $foreignPlanet, $foreignPlayerId] = $this->setupForeignPlanetTest();
 
-        // Get a foreign planet and set its owner to have 10k points
-        $foreignPlanet = $this->getNearbyForeignPlanet();
-        $foreignPlayerId = $foreignPlanet->getPlayer()->getId();
+        // Set highscores
+        $this->setPlayerHighscore($attackerId, 40000000, 1000000, 4);
         $this->setPlayerHighscore($foreignPlayerId, 10000, 5000, 500);
 
         // Make the foreign player outlaw
@@ -308,12 +311,10 @@ class NoobProtectionTest extends AccountTestCase
      */
     public function testEspionageBlockedForProtectedPlayer(): void
     {
-        // Set current player to have 40M points
-        $this->setPlayerHighscore($this->currentUserId, 40000000, 1000000, 4);
+        [$attackerId, $foreignPlanet, $foreignPlayerId] = $this->setupForeignPlanetTest();
 
-        // Get a foreign planet and set its owner to have 10k points
-        $foreignPlanet = $this->getNearbyForeignPlanet();
-        $foreignPlayerId = $foreignPlanet->getPlayer()->getId();
+        // Set highscores
+        $this->setPlayerHighscore($attackerId, 40000000, 1000000, 4);
         $this->setPlayerHighscore($foreignPlayerId, 10000, 5000, 500);
 
         // Try to spy - should be blocked
@@ -337,12 +338,10 @@ class NoobProtectionTest extends AccountTestCase
      */
     public function testACSAttackBlockedForProtectedPlayer(): void
     {
-        // Set current player to have 40M points
-        $this->setPlayerHighscore($this->currentUserId, 40000000, 1000000, 4);
+        [$attackerId, $foreignPlanet, $foreignPlayerId] = $this->setupForeignPlanetTest();
 
-        // Get a foreign planet and set its owner to have 10k points
-        $foreignPlanet = $this->getNearbyForeignPlanet();
-        $foreignPlayerId = $foreignPlanet->getPlayer()->getId();
+        // Set highscores
+        $this->setPlayerHighscore($attackerId, 40000000, 1000000, 4);
         $this->setPlayerHighscore($foreignPlayerId, 10000, 5000, 500);
 
         // Try to send ACS attack - should be blocked
@@ -366,12 +365,10 @@ class NoobProtectionTest extends AccountTestCase
      */
     public function testGalaxyViewPlayerStatusIndicators(): void
     {
-        // Set current player to have 40M points
-        $this->setPlayerHighscore($this->currentUserId, 40000000, 1000000, 4);
+        [$attackerId, $foreignPlanet, $foreignPlayerId] = $this->setupForeignPlanetTest();
 
-        // Get a foreign planet and set its owner to have 10k points (should show as newbie)
-        $foreignPlanet = $this->getNearbyForeignPlanet();
-        $foreignPlayerId = $foreignPlanet->getPlayer()->getId();
+        // Set highscores
+        $this->setPlayerHighscore($attackerId, 40000000, 1000000, 4);
         $this->setPlayerHighscore($foreignPlayerId, 10000, 5000, 500);
 
         // Get galaxy view data
