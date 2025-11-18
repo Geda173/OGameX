@@ -187,22 +187,28 @@ class ProcessPlanetRelocations extends Command
                 $relocation->to_position
             );
 
-            // Create deployment mission from old coordinates to new coordinates
-            // Mission type 4 = Deployment, speed 100%, no resources, no parent mission
-            // Note: createNewFromPlanet automatically removes ships from planet
-            $fleetMission = $fleetMissionService->createNewFromPlanet(
-                $planetService,
-                $newCoordinate,
-                PlanetType::Planet,
-                4, // Deployment mission
-                $stationedShips,
-                new Resources(0, 0, 0, 0),
-                10, // 100% speed (10 = max speed, slowest ship will determine actual speed)
-                0, // No holding time
-                0 // No parent mission
-            );
+            // Verify ships can actually fly (have speed > 0)
+            $slowestSpeed = $stationedShips->getSlowestUnitSpeed($planetService->getPlayer());
+            if ($slowestSpeed <= 0) {
+                $this->warn('Ships have no speed (missing drive technology?). Ships will not be relocated.');
+            } else {
+                // Create deployment mission from old coordinates to new coordinates
+                // Mission type 4 = Deployment, speed 100%, no resources, no parent mission
+                // Note: createNewFromPlanet automatically removes ships from planet
+                $fleetMission = $fleetMissionService->createNewFromPlanet(
+                    $planetService,
+                    $newCoordinate,
+                    PlanetType::Planet,
+                    4, // Deployment mission
+                    $stationedShips,
+                    new Resources(0, 0, 0, 0),
+                    10, // 100% speed (10 = max speed, slowest ship will determine actual speed)
+                    0, // No holding time
+                    0 // No parent mission
+                );
 
-            $this->info('Launched ' . $totalShips . ' ship(s) to new coordinates (mission ID: ' . $fleetMission->id . ')');
+                $this->info('Launched ' . $totalShips . ' ship(s) to new coordinates (mission ID: ' . $fleetMission->id . ')');
+            }
         }
 
         // Find and move moon if exists
