@@ -64,18 +64,27 @@
     </div>
 
     <script type="text/javascript">
-        // Prevent the global movePlanet function from interfering
-        var originalMovePlanet = window.movePlanet;
-
         $(document).ready(function() {
-            // Temporarily disable the global movePlanet function on this page
-            window.movePlanet = function() { return false; };
+            $('#relocateBtn').on('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
 
-            function executePlanetRelocation() {
                 var galaxy = $('#galaxy').val();
                 var system = $('#system').val();
                 var position = $('#position').val();
+                var cost = {{ $relocation_cost }};
+                var costFormatted = '{{ number_format($relocation_cost) }}';
 
+                // Use native confirm to avoid triggering movePlanet
+                var confirmMsg = 'Do you want to relocate your planet to ' + galaxy + ':' + system + ':' + position + ' for ' + costFormatted + ' Dark Matter?\n\n';
+                confirmMsg += '⚠️ Note: Your planet can only be relocated to position ' + position + ' in a different solar system.';
+
+                if (!confirm(confirmMsg)) {
+                    return false;
+                }
+
+                // Execute relocation
                 $.post('{{ route('planetMove.relocate') }}', {
                     _token: '{{ csrf_token() }}',
                     galaxy: galaxy,
@@ -98,24 +107,6 @@
                     }
                     fadeBox(message, true);
                 });
-            }
-
-            $('#relocateBtn').on('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-
-                var galaxy = $('#galaxy').val();
-                var system = $('#system').val();
-                var position = $('#position').val();
-                var cost = {{ $relocation_cost }};
-                var costFormatted = '{{ number_format($relocation_cost) }}';
-
-                // Build the question with position restriction info
-                var question = 'Do you want to relocate your planet to <strong>' + galaxy + ':' + system + ':' + position + '</strong> for <span style="font-weight: bold; color: #ffd700;">' + costFormatted + ' Dark Matter</span>?<br><br>';
-                question += '<span style="color: #ff9800; font-size: 0.9em;"><strong>⚠️ Note:</strong> Your planet can only be relocated to position <strong>' + position + '</strong> in a different solar system.</span>';
-
-                errorBoxDecision('@lang('Relocate Planet')', question, '@lang('Yes')', '@lang('No')', executePlanetRelocation);
 
                 return false;
             });
