@@ -65,7 +65,26 @@
 
     <script type="text/javascript">
         $(document).ready(function() {
+            console.log('=== DM Relocate: Initializing ===');
+            console.log('Button element:', $('#dmRelocateButton'));
+
+            // Try to unbind any existing handlers
+            $('#dmRelocateButton').off('click');
+
+            // Override the global movePlanet function to prevent interference
+            if (typeof window.movePlanet !== 'undefined') {
+                console.log('=== DM Relocate: Disabling global movePlanet function ===');
+                var originalMovePlanet = window.movePlanet;
+                window.movePlanet = function() {
+                    console.log('=== DM Relocate: Global movePlanet called but blocked ===');
+                    return false;
+                };
+            }
+
             $('#dmRelocateButton').on('click', function(e) {
+                console.log('=== DM Relocate: Click handler fired ===');
+                console.log('Event:', e);
+
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
@@ -74,17 +93,18 @@
                 var system = $('#dmSystemInput').val();
                 var position = $('#dmPositionInput').val();
 
-                // Execute relocation immediately without confirmation (temporary workaround)
-                // TODO: Add proper confirmation dialog that doesn't trigger movePlanet
+                console.log('=== DM Relocate: Values ===', {galaxy: galaxy, system: system, position: position});
+                console.log('=== DM Relocate: Making AJAX call to {{ route('planetMove.relocate') }} ===');
+
                 $.post('{{ route('planetMove.relocate') }}', {
                     _token: '{{ csrf_token() }}',
                     galaxy: galaxy,
                     system: system,
                     position: position
                 }, function(data) {
+                    console.log('=== DM Relocate: Success response ===', data);
                     if (data.success) {
                         fadeBox(data.message, false);
-                        // Reload after successful relocation
                         setTimeout(function() {
                             window.location.href = '{{ route('overview.index') }}';
                         }, 2000);
@@ -92,6 +112,7 @@
                         fadeBox(data.message, true);
                     }
                 }).fail(function(xhr) {
+                    console.log('=== DM Relocate: Error response ===', xhr);
                     var message = 'An error occurred.';
                     if (xhr.responseJSON && xhr.responseJSON.message) {
                         message = xhr.responseJSON.message;
@@ -101,6 +122,8 @@
 
                 return false;
             });
+
+            console.log('=== DM Relocate: Initialization complete ===');
         });
     </script>
 @endsection
