@@ -2,12 +2,14 @@
 
 namespace OGame\Http\Controllers;
 
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use OGame\Models\Enums\PlanetType;
 use OGame\Models\Planet;
+use OGame\Models\PlanetRelocation;
 use OGame\Services\PlayerService;
 
 class PlanetMoveController extends OGameController
@@ -34,7 +36,7 @@ class PlanetMoveController extends OGameController
     }
 
     /**
-     * Relocate planet to new coordinates using Dark Matter
+     * Initiate planet relocation (starts 24-hour countdown)
      *
      * @param Request $request
      * @param PlayerService $player
@@ -72,9 +74,36 @@ class PlanetMoveController extends OGameController
                 throw new Exception('Planet is already at this location.');
             }
 
-            // IMPORTANT: Planet can only move to the same position number in a different solar system
-            if ($coordinates->position !== $position) {
-                throw new Exception('Planet can only be relocated to position ' . $coordinates->position . ' in a different solar system.');
+            // IMPORTANT: Position range restrictions (1-3, 4-12, 13-15)
+            $currentPos = $coordinates->position;
+            $targetPos = $position;
+
+            $positionRanges = [
+                [1, 3],
+                [4, 12],
+                [13, 15]
+            ];
+
+            $currentRange = null;
+            $targetRange = null;
+
+            foreach ($positionRanges as $range) {
+                if ($currentPos >= $range[0] && $currentPos <= $range[1]) {
+                    $currentRange = $range;
+                }
+                if ($targetPos >= $range[0] && $targetPos <= $range[1]) {
+                    $targetRange = $range;
+                }
+            }
+
+            if ($currentRange !== $targetRange) {
+                if ($currentRange[0] == 1) {
+                    throw new Exception('Planets at positions 1-3 can only move to positions 1-3.');
+                } elseif ($currentRange[0] == 4) {
+                    throw new Exception('Planets at positions 4-12 can only move to positions 4-12.');
+                } else {
+                    throw new Exception('Planets at positions 13-15 can only move to positions 13-15.');
+                }
             }
 
             // Check if target position is free (excluding the current planet and checking only for planets, not moons)
@@ -92,40 +121,52 @@ class PlanetMoveController extends OGameController
                 throw new Exception('Target position is already occupied.');
             }
 
-            // Calculate Dark Matter cost
+            // Check if player has enough Dark Matter (don't charge yet, just verify)
             $dm_cost = 240000;
-
-            // Check if player has enough Dark Matter
             if ($player->getDarkMatter() < $dm_cost) {
                 throw new Exception('Insufficient Dark Matter. Requires ' . number_format($dm_cost) . ' DM.');
             }
 
-            // Deduct Dark Matter
-            $player->deductDarkMatter($dm_cost);
+            // Check for 24-hour cooldown (any relocation attempt in last 24h)
+            $lastRelocation = PlanetRelocation::where('planet_id', $planet->id)
+                ->where('time_start', '>', Carbon::now()->subHours(24)->timestamp)
+                ->first();
 
-            // Find and move the moon if it exists at the same coordinates
-            $moon = Planet::where([
-                ['galaxy', $coordinates->galaxy],
-                ['system', $coordinates->system],
-                ['planet', $coordinates->position],
-                ['planet_type', PlanetType::Moon->value],
-                ['user_id', $player->getId()],
-                ['destroyed', 0],
-            ])->first();
-
-            // Move the planet
-            $planet->galaxy = $galaxy;
-            $planet->system = $system;
-            $planet->planet = $position;
-            $planet->save();
-
-            // Move the moon if it exists
-            if ($moon) {
-                $moon->galaxy = $galaxy;
-                $moon->system = $system;
-                $moon->planet = $position;
-                $moon->save();
+            if ($lastRelocation) {
+                $timeRemaining = $lastRelocation->time_start + (24 * 3600) - Carbon::now()->timestamp;
+                $hours = floor($timeRemaining / 3600);
+                $minutes = floor(($timeRemaining % 3600) / 60);
+                throw new Exception("You can only attempt to relocate a planet once per 24 hours. Time remaining: {$hours}h {$minutes}m");
             }
+
+            // Check if planet already has a pending relocation
+            $pendingRelocation = PlanetRelocation::where('planet_id', $planet->id)
+                ->where('processed', false)
+                ->where('cancelled', false)
+                ->first();
+
+            if ($pendingRelocation) {
+                throw new Exception('This planet already has a pending relocation.');
+            }
+
+            // Create relocation record (24-hour countdown)
+            $currentTime = Carbon::now()->timestamp;
+            $relocationTime = $currentTime + (24 * 3600); // 24 hours from now
+
+            PlanetRelocation::create([
+                'planet_id' => $planet->id,
+                'user_id' => $player->getId(),
+                'from_galaxy' => $coordinates->galaxy,
+                'from_system' => $coordinates->system,
+                'from_position' => $coordinates->position,
+                'to_galaxy' => $galaxy,
+                'to_system' => $system,
+                'to_position' => $position,
+                'time_start' => $currentTime,
+                'time_end' => $relocationTime,
+                'processed' => false,
+                'cancelled' => false,
+            ]);
 
             return response()->json([
                 'error' => '', // Empty string indicates success
