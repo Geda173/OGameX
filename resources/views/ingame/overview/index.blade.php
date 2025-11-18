@@ -197,6 +197,70 @@
                     </style>
                 @endif
 
+                @if ($pending_relocation)
+                    <div id="relocation_alert" class="relocation-notification" style="position: absolute; top: 70px; right: 10px; z-index: 100; max-width: 300px;">
+                        <div class="relocation-box" style="background: rgba(0,0,0,0.9); border: 2px solid #ff9800; border-radius: 8px; padding: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.7), 0 0 20px rgba(255,152,0,0.4); animation: pulse-relocation 2s infinite;">
+                            <div style="color: #ff9800; font-weight: bold; font-size: 14px; margin-bottom: 8px; display: flex; align-items: center;">
+                                <span style="font-size: 20px; margin-right: 6px;">⏱</span>
+                                <span>@lang('Planet Relocation In Progress')</span>
+                            </div>
+                            <div style="color: #fff; font-size: 12px; margin-bottom: 6px;">
+                                <strong>@lang('Target'):</strong> [{{ $pending_relocation->to_galaxy }}:{{ $pending_relocation->to_system }}:{{ $pending_relocation->to_position }}]
+                            </div>
+                            <div style="color: #fff; font-size: 12px; margin-bottom: 6px;">
+                                <strong>@lang('Time remaining'):</strong>
+                                <span id="relocationCountdown" data-end="{{ $pending_relocation->time_end }}">{{ gmdate('H:i:s', max(0, $pending_relocation->time_end - time())) }}</span>
+                            </div>
+                            <div style="color: #ffcc00; font-size: 11px; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,152,0,0.3); line-height: 1.4;">
+                                <strong>⚠ @lang('Warning'):</strong> @lang('Ensure no fleets, construction, research, or repairs are active when timer expires!')
+                            </div>
+                        </div>
+                    </div>
+                    <style>
+                        @keyframes pulse-relocation {
+                            0%, 100% {
+                                box-shadow: 0 4px 12px rgba(0,0,0,0.7), 0 0 20px rgba(255,152,0,0.4);
+                            }
+                            50% {
+                                box-shadow: 0 4px 12px rgba(0,0,0,0.7), 0 0 30px rgba(255,152,0,0.8);
+                            }
+                        }
+                    </style>
+                    <script type="text/javascript">
+                        function updateRelocationCountdown() {
+                            var countdownElement = document.getElementById('relocationCountdown');
+                            if (!countdownElement) return;
+
+                            var endTime = parseInt(countdownElement.getAttribute('data-end'));
+                            var now = Math.floor(Date.now() / 1000);
+                            var remaining = Math.max(0, endTime - now);
+
+                            if (remaining <= 0) {
+                                countdownElement.textContent = '00:00:00';
+                                clearInterval(window.relocationCountdownInterval);
+                                // Reload page after countdown expires to show updated status
+                                setTimeout(function() {
+                                    location.reload();
+                                }, 2000);
+                            } else {
+                                var hours = Math.floor(remaining / 3600);
+                                var minutes = Math.floor((remaining % 3600) / 60);
+                                var seconds = remaining % 60;
+
+                                countdownElement.textContent =
+                                    String(hours).padStart(2, '0') + ':' +
+                                    String(minutes).padStart(2, '0') + ':' +
+                                    String(seconds).padStart(2, '0');
+                            }
+                        }
+
+                        $(document).ready(function() {
+                            updateRelocationCountdown();
+                            window.relocationCountdownInterval = setInterval(updateRelocationCountdown, 1000);
+                        });
+                    </script>
+                @endif
+
                 <div id="header_text">
                     <h2>
                         <a href="javascript:void(0);" class="openPlanetRenameGiveupBox">

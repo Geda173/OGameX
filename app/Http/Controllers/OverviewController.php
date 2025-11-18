@@ -8,6 +8,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 use OGame\Facades\AppUtil;
 use OGame\Models\Highscore;
+use OGame\Models\PlanetRelocation;
 use OGame\Services\BuildingQueueService;
 use OGame\Services\HighscoreService;
 use OGame\Services\PlayerService;
@@ -152,6 +153,12 @@ class OverviewController extends OGameController
             $repairs_in_progress_count = $repairsInProgress->count();
         }
 
+        // Check for pending planet relocation
+        $pending_relocation = PlanetRelocation::where('planet_id', $planet->getPlanetId())
+            ->where('processed', false)
+            ->where('cancelled', false)
+            ->first();
+
         return view('ingame.overview.index')->with([
             'header_filename' => $planet->isMoon() ? 'moon/' . $planet->getPlanetImageType() : $planet->getPlanetBiomeType(),
             'planet_name' => $planet->getPlanetName(),
@@ -181,6 +188,7 @@ class OverviewController extends OGameController
             'ready_repairs_count' => $ready_repairs_count,
             'has_repairs_in_progress' => $has_repairs_in_progress,
             'repairs_in_progress_count' => $repairs_in_progress_count,
+            'pending_relocation' => $pending_relocation,
         ]);
     }
 }
