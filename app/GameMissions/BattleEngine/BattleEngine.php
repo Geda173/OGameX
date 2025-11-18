@@ -92,18 +92,10 @@ abstract class BattleEngine
         $result->defenderUnitsStart->addCollection($this->defenderPlanet->getDefenseUnits());
 
         // Get ACS Defend missions currently holding at this planet and add their units to the battle
-        // Note: We need a FleetMissionService to query defending missions, but the methods we're calling
-        // (getDefendingMissionsAtPlanet and getFleetUnits) don't actually use the player context.
-        // We use the defender's player if available, otherwise create a minimal service.
-        $defenderPlayer = $this->defenderPlanet->getPlayer();
-        if ($defenderPlayer !== null) {
-            $fleetMissionService = resolve(\OGame\Services\FleetMissionService::class, ['player' => $defenderPlayer]);
-        } else {
-            // For destroyed planets with no owner, create a dummy player service for querying missions
-            // The methods we're calling don't actually use the player property
-            $dummyPlayer = resolve(\OGame\Services\PlayerService::class, ['player_id' => 0]);
-            $fleetMissionService = resolve(\OGame\Services\FleetMissionService::class, ['player' => $dummyPlayer]);
-        }
+        // Note: We use the attacker's player context for FleetMissionService. The methods we're calling
+        // (getDefendingMissionsAtPlanet and getFleetUnits) only query missions by planet ID and don't
+        // actually use the player property, so using attacker's player is safe.
+        $fleetMissionService = resolve(\OGame\Services\FleetMissionService::class, ['player' => $this->attackerPlayer]);
         $result->defendingMissions = $fleetMissionService->getDefendingMissionsAtPlanet($this->defenderPlanet->getPlanetId());
 
         \Log::debug('Battle: Found ' . $result->defendingMissions->count() . ' defending missions at planet ' . $this->defenderPlanet->getPlanetId());
