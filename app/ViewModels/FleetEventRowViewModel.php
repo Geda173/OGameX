@@ -21,6 +21,11 @@ class FleetEventRowViewModel
     public bool $is_recallable;
 
     /**
+     * @var int The return time if the fleet is recalled
+     */
+    public int $recall_return_time;
+
+    /**
      * @var string Whether the mission is friendly, hostile, or neutral (friendly/hostile/neutral)
      */
     public string $mission_status = 'neutral';

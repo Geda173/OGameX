@@ -191,8 +191,13 @@ class FleetEventsController extends OGameController
 
             $eventRowViewModel->mission_status = $friendlyStatus;
             $eventRowViewModel->is_recallable = false;
+            $eventRowViewModel->recall_return_time = 0;
             if ($friendlyStatus === 'own') {
                 $eventRowViewModel->is_recallable = true;
+                // Calculate recall return time: current time + time already spent traveling
+                $currentTime = Carbon::now()->timestamp;
+                $timeSpentTraveling = $currentTime - $row->time_departure;
+                $eventRowViewModel->recall_return_time = $currentTime + $timeSpentTraveling;
             }
 
             if ($row->time_holding > 0 && $row->time_arrival <= Carbon::now()->timestamp && $row->time_arrival + $row->time_holding > Carbon::now()->timestamp) {
