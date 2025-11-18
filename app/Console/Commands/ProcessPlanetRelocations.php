@@ -187,11 +187,9 @@ class ProcessPlanetRelocations extends Command
                 $relocation->to_position
             );
 
-            // Remove ships from planet
-            $planetService->removeUnits($stationedShips, true);
-
             // Create deployment mission from old coordinates to new coordinates
             // Mission type 4 = Deployment, speed 100%, no resources, no parent mission
+            // Note: createNewFromPlanet automatically removes ships from planet
             $fleetMission = $fleetMissionService->createNewFromPlanet(
                 $planetService,
                 $newCoordinate,
