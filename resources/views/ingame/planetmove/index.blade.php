@@ -73,18 +73,9 @@
                 var galaxy = $('#galaxy').val();
                 var system = $('#system').val();
                 var position = $('#position').val();
-                var cost = {{ $relocation_cost }};
-                var costFormatted = '{{ number_format($relocation_cost) }}';
 
-                // Use native confirm to avoid triggering movePlanet
-                var confirmMsg = 'Do you want to relocate your planet to ' + galaxy + ':' + system + ':' + position + ' for ' + costFormatted + ' Dark Matter?\n\n';
-                confirmMsg += '⚠️ Note: Your planet can only be relocated to position ' + position + ' in a different solar system.';
-
-                if (!confirm(confirmMsg)) {
-                    return false;
-                }
-
-                // Execute relocation
+                // Execute relocation immediately without confirmation (temporary workaround)
+                // TODO: Add proper confirmation dialog that doesn't trigger movePlanet
                 $.post('{{ route('planetMove.relocate') }}', {
                     _token: '{{ csrf_token() }}',
                     galaxy: galaxy,
