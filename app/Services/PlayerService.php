@@ -208,23 +208,127 @@ class PlayerService
     }
 
     /**
-     * Checks if the player is a newbie.
+     * Checks if the player is a newbie (under noob protection).
      *
-     * @param PlayerService $comparedTo
-     * @return bool
+     * New noob protection rules:
+     * - Under 50,000 points: Can only be attacked by players with max 5x more points
+     * - 50,000 to 500,000 points: Can only be attacked by players with max 10x more points
+     * - Over 500,000 points: No noob protection
+     *
+     * @param PlayerService $comparedTo The player to compare against
+     * @return bool True if this player is protected from the compared player
      */
     public function isNewbie(PlayerService $comparedTo): bool
     {
-        // Sanity check: if player is inactive, then they cannot have the newbie status.
+        // Sanity check: if player is inactive (7+ days), they lose noob protection
         if ($this->isInactive()) {
+            return false;
+        }
+
+        // Sanity check: if player is outlaw, they lose noob protection
+        if ($this->isOutlaw()) {
             return false;
         }
 
         $currentPlayerPoints = $this->getCachedGeneralScore();
         $comparedToPoints = $comparedTo->getCachedGeneralScore();
 
-        // If the current player has less than 20% of points compared to the provided player, then they are considered weak / newbie.
-        if ($currentPlayerPoints < ($comparedToPoints * 0.2)) {
+        // No noob protection for players with 500,000+ points
+        if ($currentPlayerPoints >= 500000) {
+            return false;
+        }
+
+        // Under 50,000 points: protected from players with 5x or more points
+        if ($currentPlayerPoints < 50000) {
+            return $comparedToPoints > ($currentPlayerPoints * 5);
+        }
+
+        // 50,000 to 500,000 points: protected from players with 10x or more points
+        if ($currentPlayerPoints < 500000) {
+            return $comparedToPoints > ($currentPlayerPoints * 10);
+        }
+
+        return false;
+    }
+
+    /**
+     * Checks if the player is strong compared to another player.
+     * A player is "strong" if the other player would be under noob protection from them.
+     *
+     * @param PlayerService $comparedTo The player to compare against
+     * @return bool True if this player is too strong to attack the compared player
+     */
+    public function isStrong(PlayerService $comparedTo): bool
+    {
+        // Simply check if the compared player is a newbie relative to us
+        return $comparedTo->isNewbie($this);
+    }
+
+    /**
+     * Checks if the player is currently outlaw (vogelfrei).
+     * A player becomes outlaw for 7 days when they attack or spy on a strong player while under noob protection.
+     *
+     * @return bool True if the player is currently outlaw
+     */
+    public function isOutlaw(): bool
+    {
+        if (!$this->user->outlaw_until) {
+            return false;
+        }
+
+        $outlawUntil = Carbon::parse($this->user->outlaw_until);
+
+        // If the outlaw period has expired, clear it
+        if ($outlawUntil->isPast()) {
+            $this->user->outlaw_until = null;
+            $this->user->save();
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Marks the player as outlaw (vogelfrei) for 7 days.
+     * This happens when a player under noob protection attacks or spies on a strong player.
+     *
+     * @return void
+     */
+    public function makeOutlaw(): void
+    {
+        $this->user->outlaw_until = now()->addDays(7);
+        $this->user->save();
+    }
+
+    /**
+     * Checks if military highscore exception applies between this player and another.
+     * Exception applies if:
+     * - Players are within 100 places on military highscore, OR
+     * - This player has more than 50% of the other player's military points
+     *
+     * @param PlayerService $comparedTo The player to compare against
+     * @return bool True if military exception allows bypassing noob protection
+     */
+    public function hasMilitaryHighscoreException(PlayerService $comparedTo): bool
+    {
+        $thisHighscore = \OGame\Models\Highscore::where('player_id', $this->getId())->first();
+        $otherHighscore = \OGame\Models\Highscore::where('player_id', $comparedTo->getId())->first();
+
+        if (!$thisHighscore || !$otherHighscore) {
+            return false;
+        }
+
+        // Check if within 100 places on military highscore
+        $rankDifference = abs($thisHighscore->military_rank - $otherHighscore->military_rank);
+        if ($rankDifference <= 100) {
+            return true;
+        }
+
+        // Check if this player has more than 50% of the other player's military points
+        $thisMilitaryPoints = $thisHighscore->military ?? 0;
+        $otherMilitaryPoints = $otherHighscore->military ?? 0;
+
+        if ($otherMilitaryPoints > 0 && $thisMilitaryPoints > ($otherMilitaryPoints * 0.5)) {
             return true;
         }
 
@@ -232,27 +336,32 @@ class PlayerService
     }
 
     /**
-     * Checks if the player is strong.
+     * Checks if this player can attack another player, considering all noob protection rules and exceptions.
      *
-     * @param PlayerService $comparedTo
-     * @return bool
+     * @param PlayerService $target The target player
+     * @return bool True if attack is allowed
      */
-    public function isStrong(PlayerService $comparedTo): bool
+    public function canAttack(PlayerService $target): bool
     {
-        // Sanity check: if player is inactive, then they cannot have the newbie status.
-        if ($this->isInactive()) {
+        // Can't attack yourself
+        if ($this->equals($target)) {
             return false;
         }
 
-        $currentPlayerPoints = $this->getCachedGeneralScore();
-        $comparedToPoints = $comparedTo->getCachedGeneralScore();
-
-        // If the current player has more than 500% of points compared to the provided player, then they are considered strong.
-        if ($currentPlayerPoints > ($comparedToPoints * 5)) {
+        // Military highscore exception bypasses noob protection
+        if ($this->hasMilitaryHighscoreException($target)) {
             return true;
         }
 
-        return false;
+        // Check if target is protected from us (they are a newbie relative to us)
+        if ($target->isNewbie($this)) {
+            return false;
+        }
+
+        // Check if we are protected from them (we are a newbie relative to them)
+        // In this case, attacking them would make us outlaw, but it's still allowed
+        // The outlaw status will be applied when the attack is sent
+        return true;
     }
 
     /**

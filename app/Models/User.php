@@ -61,8 +61,10 @@ use Spatie\Permission\Traits\HasRoles;
  * @method static \Illuminate\Database\Eloquent\Builder|User withoutRole($roles, $guard = null)
  * @property string|null $username_updated_at
  * @property int $espionage_probes_amount
+ * @property string|null $outlaw_until
  * @method static \Illuminate\Database\Eloquent\Builder|User whereUsernameUpdatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder|User whereEspionageProbesAmount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder|User whereOutlawUntil($value)
  * @mixin \Eloquent
  */
 class User extends Authenticatable

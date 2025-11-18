@@ -53,6 +53,14 @@ class EspionageMission extends GameMission
             return new MissionPossibleStatus(false);
         }
 
+        // Check noob protection: strong players cannot spy on protected players
+        $spy = $planet->getPlayer();
+        $target = $targetPlanet->getPlayer();
+
+        if ($target->isNewbie($spy)) {
+            return new MissionPossibleStatus(false, __('The target player is under noob protection and cannot be spied on.'));
+        }
+
         // If all checks pass, the mission is possible.
         return new MissionPossibleStatus(true);
     }
@@ -68,6 +76,15 @@ class EspionageMission extends GameMission
 
         // Trigger target planet update to make sure the espionage report is accurate.
         $target_planet->update();
+
+        $spy = $origin_planet->getPlayer();
+        $target = $target_planet->getPlayer();
+
+        // Check if spy should become outlaw (vogelfrei)
+        // This happens when a player under noob protection spies on a strong player
+        if ($spy->isNewbie($target) && $target->isStrong($spy)) {
+            $spy->makeOutlaw();
+        }
 
         // Calculate counter-espionage chance
         $counterEspionageChance = $this->calculateCounterEspionageChance($mission, $origin_planet, $target_planet);
