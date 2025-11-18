@@ -42,7 +42,9 @@ class AttackMission extends GameMission
         }
 
         // If planet belongs to current player, the mission is not possible.
-        if ($planet->getPlayer()->equals($targetPlanet->getPlayer())) {
+        // Allow attacking destroyed planets (which have null player)
+        $targetPlayer = $targetPlanet->getPlayer();
+        if ($targetPlayer !== null && $planet->getPlayer()->equals($targetPlayer)) {
             return new MissionPossibleStatus(false);
         }
 
@@ -69,6 +71,19 @@ class AttackMission extends GameMission
 
         $attackerPlayer = $origin_planet->getPlayer();
         $attackerUnits = $this->fleetMissionService->getFleetUnits($mission);
+
+        // If attacker planet was abandoned/destroyed after sending the attack,
+        // the fleet is lost and cannot complete the battle
+        if ($attackerPlayer === null) {
+            \Log::info('Attack mission cancelled: attacker planet was abandoned', [
+                'mission_id' => $mission->id,
+                'origin_planet' => $mission->planet_id_from,
+            ]);
+            // Mark mission as processed without battle
+            $mission->processed = 1;
+            $mission->save();
+            return;
+        }
 
         // Execute the battle logic using configured battle engine
         switch ($this->settings->battleEngine()) {
@@ -199,6 +214,7 @@ class AttackMission extends GameMission
         $reportId = $this->createBattleReport($attackerPlayer, $defenderPlanet, $battleResult, $repairedDefenses, $origin_planet);
 
         // Send appropriate messages based on battle outcome
+        $defenderPlayer = $defenderPlanet->getPlayer();
         if ($attackerDestroyedFirstRound) {
             // Send simplified "fleet lost contact" message to attacker (no fleet or tech info)
             $coordinates = '[coordinates]' . $defenderPlanet->getPlanetCoordinates()->asString() . '[/coordinates]';
@@ -207,17 +223,23 @@ class AttackMission extends GameMission
             ]);
 
             // Send full battle report only to defender (not to attacker who lost in first round)
-            $this->messageService->sendBattleReportMessageToPlayer($defenderPlanet->getPlayer(), $reportId);
+            // Only send if defender has a player (not destroyed planet)
+            if ($defenderPlayer !== null) {
+                $this->messageService->sendBattleReportMessageToPlayer($defenderPlayer, $reportId);
+            }
         } else {
             // Normal behavior: send battle report to both attacker and defender
             // Send to attacker.
             $this->messageService->sendBattleReportMessageToPlayer($attackerPlayer, $reportId);
-            // Send to defender.
-            $this->messageService->sendBattleReportMessageToPlayer($defenderPlanet->getPlayer(), $reportId);
+            // Send to defender (if planet has an owner).
+            if ($defenderPlayer !== null) {
+                $this->messageService->sendBattleReportMessageToPlayer($defenderPlayer, $reportId);
+            }
         }
 
         // Send battle report to all ACS Defend fleet owners (only once per player)
-        $reportedDefenders = [$defenderPlanet->getPlayer()->getId()]; // Planet owner already reported
+        // Start with defender player ID if planet has an owner
+        $reportedDefenders = $defenderPlayer !== null ? [$defenderPlayer->getId()] : [];
         foreach ($battleResult->defendingMissions as $defendingMission) {
             $defendingPlayer = resolve(\OGame\Services\PlayerService::class, ['player_id' => $defendingMission->user_id]);
 
@@ -254,7 +276,11 @@ class AttackMission extends GameMission
         }
 
         // Send message to player that the return mission has arrived.
-        $this->sendFleetReturnMessage($mission, $target_planet->getPlayer());
+        // Only send if planet has a player (not destroyed)
+        $targetPlayer = $target_planet->getPlayer();
+        if ($targetPlayer !== null) {
+            $this->sendFleetReturnMessage($mission, $targetPlayer);
+        }
 
         // Mark the return mission as processed
         $mission->processed = 1;
@@ -279,7 +305,8 @@ class AttackMission extends GameMission
         $report->planet_position = $defenderPlanet->getPlanetCoordinates()->position;
         $report->planet_type = $defenderPlanet->getPlanetType()->value;
 
-        $report->planet_user_id = $defenderPlanet->getPlayer()->getId();
+        $defenderPlayer = $defenderPlanet->getPlayer();
+        $report->planet_user_id = $defenderPlayer !== null ? $defenderPlayer->getId() : null;
 
         $report->general = [
             'moon_existed' => $battleResult->moonExisted,
@@ -308,7 +335,7 @@ class AttackMission extends GameMission
         $report->attacker = $attackerData;
 
         $report->defender = [
-            'player_id' => $defenderPlanet->getPlayer()->getId(),
+            'player_id' => $defenderPlayer !== null ? $defenderPlayer->getId() : null,
             'resource_loss' => $battleResult->defenderResourceLoss->sum(),
             'units' => $battleResult->defenderUnitsStart->toArray(),
             'weapon_technology' => $battleResult->defenderWeaponLevel,

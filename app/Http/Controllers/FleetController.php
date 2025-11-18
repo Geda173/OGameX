@@ -178,24 +178,40 @@ class FleetController extends OGameController
         $galaxy = request()->input('galaxy');
         $system = request()->input('system');
         $position = request()->input('position');
-        $targetType = (int)request()->input('type');
-        $planetType = PlanetType::from($targetType);
+
+        // Validate required parameters
+        if ($galaxy === null || $system === null || $position === null) {
+            return response()->json([
+                'success' => false,
+                'errors' => ['Missing required parameters: galaxy, system, or position'],
+            ]);
+        }
+
+        $targetType = (int)request()->input('type', 1); // Default to Planet type (1) if not specified
+        $planetType = $targetType > 0 ? PlanetType::from($targetType) : PlanetType::Planet;
 
         // Load the target planet
-        $targetCoordinates = new Coordinate($galaxy, $system, $position);
+        $targetCoordinates = new Coordinate((int)$galaxy, (int)$system, (int)$position);
         $targetPlanet = $planetServiceFactory->makeForCoordinate($targetCoordinates, true, $planetType);
         if ($targetPlanet !== null) {
             $targetPlayer = $targetPlanet->getPlayer();
 
-            $targetPlayerId = $targetPlayer->getId();
+            // Handle destroyed planets with no owner
+            if ($targetPlayer !== null) {
+                $targetPlayerId = $targetPlayer->getId();
+                $targetPlayerName = $targetPlayer->getUsername(false);
+            } else {
+                // Destroyed planet
+                $targetPlayerId = 99999;
+                $targetPlayerName = __('Destroyed Planet');
+            }
             $targetPlanetName = $targetPlanet->getPlanetName();
-            $targetPlayerName = $targetPlayer->getUsername(false);
             $targetCoordinates = $targetPlanet->getPlanetCoordinates();
         } else {
             $targetPlayerId = 99999;
             $targetPlanetName = '?';
             $targetPlayerName = 'Deep space';
-            $targetCoordinates = new Coordinate($galaxy, $system, $position);
+            // targetCoordinates was already created above, just reuse it
         }
 
         // Determine enabled/available missions based on the current user, planet and target planet's properties.

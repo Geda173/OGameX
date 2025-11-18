@@ -91,6 +91,12 @@ class PlayerService
     {
         // Fetch user from model
         $user = User::where('id', $id)->first();
+
+        // Handle case where user doesn't exist (e.g., deleted account)
+        if ($user === null) {
+            throw new RuntimeException('User not found with ID: ' . $id);
+        }
+
         $this->user = $user;
 
         // Fetch user tech from model
@@ -596,6 +602,11 @@ class PlayerService
     public function updateFleetMissions(): void
     {
         DB::transaction(function () {
+            // Ensure planets are loaded before accessing
+            if ($this->planets === null) {
+                throw new RuntimeException('PlayerService planets not initialized for player ID: ' . $this->getId());
+            }
+
             // Attempt to acquire a lock on the row for this planet. This is to prevent
             // race conditions when multiple requests are updating the fleet missions for the
             // same planet and potentially doing double insertions or overwriting each other's changes.
@@ -630,7 +641,14 @@ class PlayerService
                         $this->load($this->getId());
                     }
                 } catch (Exception $e) {
-                    throw new RuntimeException('Fleet mission service process error: ' . $e->getMessage());
+                    \Log::error('Fleet mission processing error - full details', [
+                        'player_id' => $this->getId(),
+                        'error_message' => $e->getMessage(),
+                        'error_file' => $e->getFile(),
+                        'error_line' => $e->getLine(),
+                        'error_trace' => $e->getTraceAsString(),
+                    ]);
+                    throw new RuntimeException('Fleet mission service process error: ' . $e->getMessage(), 0, $e);
                 }
             } else {
                 throw new Exception('Could not acquire update fleet mission planet lock.');

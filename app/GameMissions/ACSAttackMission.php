@@ -453,10 +453,15 @@ class ACSAttackMission extends GameMission
         }
 
         // Send battle report to defender (same report, not a duplicate)
-        $this->messageService->sendBattleReportMessageToPlayer($defenderPlanet->getPlayer(), $reportId);
+        // Skip if planet is destroyed (no owner to send report to)
+        $defenderPlayer = $defenderPlanet->getPlayer();
+        $reportedDefenders = [];
+        if ($defenderPlayer !== null) {
+            $this->messageService->sendBattleReportMessageToPlayer($defenderPlayer, $reportId);
+            $reportedDefenders = [$defenderPlayer->getId()]; // Planet owner already reported
+        }
 
         // Send battle report to all ACS Defend fleet owners (only once per player)
-        $reportedDefenders = [$defenderPlanet->getPlayer()->getId()]; // Planet owner already reported
         foreach ($battleResult->defendingMissions as $defendingMission) {
             $defendingPlayer = resolve(\OGame\Services\PlayerService::class, ['player_id' => $defendingMission->user_id]);
 
@@ -727,7 +732,8 @@ class ACSAttackMission extends GameMission
         $report->planet_position = $defenderPlanet->getPlanetCoordinates()->position;
         $report->planet_type = $defenderPlanet->getPlanetType()->value;
 
-        $report->planet_user_id = $defenderPlanet->getPlayer()->getId();
+        $defenderPlayer = $defenderPlanet->getPlayer();
+        $report->planet_user_id = $defenderPlayer !== null ? $defenderPlayer->getId() : null;
 
         $report->general = [
             'moon_existed' => $battleResult->moonExisted,
@@ -762,7 +768,7 @@ class ACSAttackMission extends GameMission
         $report->attacker = $attackerData;
 
         $report->defender = [
-            'player_id' => $defenderPlanet->getPlayer()->getId(),
+            'player_id' => $defenderPlayer !== null ? $defenderPlayer->getId() : null,
             'resource_loss' => $battleResult->defenderResourceLoss->sum(),
             'units' => $battleResult->defenderUnitsStart->toArray(),
             'weapon_technology' => $battleResult->defenderWeaponLevel,
@@ -856,8 +862,8 @@ class ACSAttackMission extends GameMission
 
             // Store planet owner as primary defender with only their planet's units
             $acsParticipants['defenders'][] = [
-                'player_id' => $defenderPlanet->getPlayer()->getId(),
-                'player_name' => $defenderPlanet->getPlayer()->getUsername(false),
+                'player_id' => $defenderPlayer !== null ? $defenderPlayer->getId() : null,
+                'player_name' => $defenderPlayer !== null ? $defenderPlayer->getUsername(false) : __('Destroyed Planet'),
                 'units' => $planetUnitsStart->toArray(),
                 'weapon_technology' => $battleResult->defenderWeaponLevel,
                 'shielding_technology' => $battleResult->defenderShieldLevel,

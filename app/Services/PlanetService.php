@@ -41,10 +41,11 @@ class PlanetService
 
     /**
      * The player object who owns this planet.
+     * Null for destroyed/abandoned planets.
      *
-     * @var PlayerService
+     * @var PlayerService|null
      */
-    private PlayerService $player;
+    private PlayerService|null $player;
 
     /**
      * @var SettingsService $settingsService
@@ -77,8 +78,15 @@ class PlanetService
 
         if ($player === null) {
             // If no player has been provided, we load it ourselves here.
-            $playerService = $playerServiceFactory->make($this->planet->user_id);
-            $this->player = $playerService;
+            // However, destroyed planets have null user_id and no owner.
+            // Only load player if user_id is a valid positive integer
+            if ($this->planet->user_id !== null && $this->planet->user_id > 0) {
+                $playerService = $playerServiceFactory->make($this->planet->user_id);
+                $this->player = $playerService;
+            } else {
+                // Destroyed planet with no owner
+                $this->player = null;
+            }
         } else {
             $this->player = $player;
         }
@@ -174,7 +182,8 @@ class PlanetService
     }
 
     /**
-     * Abandon (delete) the current planet. Careful: this action is irreversible!
+     * Abandon (mark as destroyed) the current planet. The planet will be unusable for 24-48 hours.
+     * Moons are permanently deleted instead of being marked as destroyed.
      *
      * @return void
      */
@@ -218,10 +227,22 @@ class PlanetService
             $this->getPlayer()->setCurrentPlanetId(0);
         }
 
-        // TODO: add feature test to check that abandoning a planet works correctly in various scenarios.
+        // Moons are permanently deleted, planets are marked as destroyed
+        if ($this->isMoon()) {
+            // Delete the moon from the database permanently
+            $this->planet->delete();
+        } else {
+            // Mark the planet as destroyed instead of deleting it
+            // Set destroyed flag to 1 and record the destruction timestamp
+            // Destruction time is random between 24-48 hours (86400-172800 seconds)
+            $destructionDuration = rand(86400, 172800);
+            $this->planet->destroyed = 1;
+            $this->planet->destroyed_at = Carbon::now()->timestamp + $destructionDuration;
+            $this->planet->user_id = null; // Remove ownership (NULL instead of 0 for FK constraint)
+            $this->save();
+        }
 
-        // Delete the planet from the database
-        $this->planet->delete();
+        // TODO: add feature test to check that abandoning a planet works correctly in various scenarios.
     }
 
     /**
@@ -316,6 +337,50 @@ class PlanetService
     public function isPlanet(): bool
     {
         return $this->getPlanetType() === PlanetType::Planet;
+    }
+
+    /**
+     * Returns true if the current planet is destroyed/abandoned.
+     *
+     * @return bool
+     */
+    public function isDestroyed(): bool
+    {
+        return $this->planet->destroyed == 1;
+    }
+
+    /**
+     * Returns true if the destroyed planet is ready for recolonization.
+     * This checks if the destruction timer has expired.
+     *
+     * @return bool
+     */
+    public function canBeRecolonized(): bool
+    {
+        if (!$this->isDestroyed()) {
+            return false;
+        }
+
+        // If destroyed_at is null or in the past, the planet can be recolonized
+        if ($this->planet->destroyed_at === null || $this->planet->destroyed_at <= Carbon::now()->timestamp) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Get the timestamp when the destroyed planet can be recolonized.
+     *
+     * @return int|null
+     */
+    public function getDestroyedUntil(): int|null
+    {
+        if (!$this->isDestroyed()) {
+            return null;
+        }
+
+        return $this->planet->destroyed_at;
     }
 
     /**
@@ -898,13 +963,19 @@ class PlanetService
     {
         $research_lab_level = $this->getObjectLevel('research_lab');
 
+        // Destroyed planets have no owner and cannot use research network
+        $player = $this->getPlayer();
+        if ($player === null) {
+            return $research_lab_level;
+        }
+
         // The Intergalactic Research Network technology enables multiple research labs
         // across different planets to collaborate, significantly reducing research times.
-        $irn_level = $this->getPlayer()->getResearchLevel('intergalactic_research_network');
+        $irn_level = $player->getResearchLevel('intergalactic_research_network');
         if ($irn_level > 0) {
             // Get the research lab levels of all planets in the player's possession.
             $research_lab_levels = [];
-            foreach ($this->getPlayer()->planets->allPlanets() as $planet) {
+            foreach ($player->planets->allPlanets() as $planet) {
                 // Check if the object's requirements are met on the planet;
                 // otherwise, the planet's research lab cannot be included in the research network.
                 if (!ObjectService::objectRequirementsMet($machine_name, $planet)) {
@@ -1219,8 +1290,13 @@ class PlanetService
         }
 
         // Access all players planets and see if there is a moon with the same coordinates
-        // as this planet.
-        if ($this->getPlayer()->planets->getMoonByCoordinates($this->getPlanetCoordinates()) !== null) {
+        // as this planet. Destroyed planets have no owner and cannot have moons.
+        $player = $this->getPlayer();
+        if ($player === null) {
+            return false;
+        }
+
+        if ($player->planets->getMoonByCoordinates($this->getPlanetCoordinates()) !== null) {
             return true;
         }
 
@@ -1234,7 +1310,12 @@ class PlanetService
      */
     public function moon(): PlanetService
     {
-        $moon = $this->getPlayer()->planets->getMoonByCoordinates($this->getPlanetCoordinates());
+        $player = $this->getPlayer();
+        if ($player === null) {
+            throw new RuntimeException('Cannot get moon for destroyed planet with no owner.');
+        }
+
+        $moon = $player->planets->getMoonByCoordinates($this->getPlanetCoordinates());
 
         if ($moon === null) {
             throw new RuntimeException('No moon found for this planet.');
@@ -1256,8 +1337,13 @@ class PlanetService
         }
 
         // Access all players planets and see if there is a moon with the same coordinates
-        // as this planet.
-        if ($this->getPlayer()->planets->getPlanetByCoordinates($this->getPlanetCoordinates()) !== null) {
+        // as this planet. Destroyed moons have no owner.
+        $player = $this->getPlayer();
+        if ($player === null) {
+            return false;
+        }
+
+        if ($player->planets->getPlanetByCoordinates($this->getPlanetCoordinates()) !== null) {
             return true;
         }
 
@@ -1271,7 +1357,12 @@ class PlanetService
      */
     public function planet(): PlanetService
     {
-        $moon = $this->getPlayer()->planets->getPlanetByCoordinates($this->getPlanetCoordinates());
+        $player = $this->getPlayer();
+        if ($player === null) {
+            throw new RuntimeException('Cannot get planet for destroyed moon with no owner.');
+        }
+
+        $moon = $player->planets->getPlanetByCoordinates($this->getPlanetCoordinates());
 
         if ($moon === null) {
             throw new RuntimeException('No planet found for this moon.');
@@ -1719,6 +1810,11 @@ class PlanetService
         $building_percentage = $this->getBuildingPercent($object->machine_name) / 10;
 
         $object->production->planetService = $this;
+        // Destroyed planets have no owner, so we can't calculate production
+        // Return zero production index for destroyed planets
+        if ($this->player === null) {
+            return new ProductionIndex(0, 0, 0, 0);
+        }
         $object->production->playerService = $this->player;
         $object->production->universe_speed = $this->settingsService->economySpeed();
 

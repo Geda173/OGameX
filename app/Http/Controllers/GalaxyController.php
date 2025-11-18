@@ -127,7 +127,10 @@ class GalaxyController extends OGameController
         $availableMissions = $this->getAvailableMissions($galaxy, $system, $position, $planet);
         $planets_array = $this->createPlanetsArray($planet, $availableMissions);
         $actions = $this->getPlanetActions($planet);
-        $playerInfo = $this->getPlayerInfo($planet->getPlayer());
+
+        // Get player info, handling destroyed planets with no owner
+        $player = $planet->getPlayer();
+        $playerInfo = $player ? $this->getPlayerInfo($player) : $this->getEmptyPlayerInfo();
 
         // Add phalanx data to player info (expected by JavaScript)
         if (isset($actions['phalanx'])) {
@@ -156,19 +159,32 @@ class GalaxyController extends OGameController
      */
     private function createPlanetsArray(PlanetService $planet, array $availableMissions): array
     {
-        $planets_array = [
-            [
-                'activity' => $this->getPlanetActivityStatus($planet),
-                'availableMissions' => $availableMissions,
-                'fleet' => [],
-                'imageInformation' => $planet->getPlanetBiomeType() . '_' . $planet->getPlanetImageType(),
-                'isDestroyed' => false,
-                'planetId' => $planet->getPlanetId(),
-                'planetName' => $planet->getPlanetName(),
-                'playerId' => $planet->getPlayer()?->getId(),
-                'planetType' => 1,
-            ]
+        $isDestroyed = $planet->isDestroyed();
+        $coordinates = $planet->getPlanetCoordinates();
+
+        $planetData = [
+            'activity' => $isDestroyed ? [] : $this->getPlanetActivityStatus($planet),
+            'availableMissions' => $availableMissions,
+            'fleet' => [],
+            'imageInformation' => $planet->getPlanetBiomeType() . '_' . $planet->getPlanetImageType(),
+            'isDestroyed' => $isDestroyed,
+            'planetId' => $planet->getPlanetId(),
+            'planetName' => $isDestroyed ? __('Destroyed Planet') : $planet->getPlanetName(),
+            'playerId' => $isDestroyed ? null : $planet->getPlayer()?->getId(),
+            'planetType' => 1,
+            // Add coordinate fields for destroyed planets so JavaScript can extract them
+            'galaxy' => $coordinates->galaxy,
+            'system' => $coordinates->system,
+            'position' => $coordinates->position,
         ];
+
+        // Add destruction timer info if planet is destroyed
+        if ($isDestroyed) {
+            $planetData['destroyedUntil'] = $planet->getDestroyedUntil();
+            $planetData['canBeRecolonized'] = $planet->canBeRecolonized();
+        }
+
+        $planets_array = [$planetData];
 
         $debrisField = app(DebrisFieldService::class);
         $debrisFieldExists = $debrisField->loadForCoordinates($planet->getPlanetCoordinates());
@@ -176,7 +192,7 @@ class GalaxyController extends OGameController
             $planets_array[] = $this->createDebrisFieldArray($debrisField);
         }
 
-        if ($planet->hasMoon()) {
+        if (!$isDestroyed && $planet->hasMoon()) {
             $planets_array[] = $this->createMoonArray($planet->moon());
         }
 
@@ -270,14 +286,21 @@ class GalaxyController extends OGameController
     {
         $availableMissions = [];
 
-        // Transport.
-        $availableMissions[] = [
-            'missionType' => 3,
-            'link' => route('fleet.index', ['galaxy' => $galaxy, 'system' => $system, 'position' => $position, 'type' => $planet->getPlanetType()->value, 'mission' => 3]),
-            'name' => __('Transport'),
-        ];
+        // Get planet owner (may be null for destroyed planets)
+        $planetOwner = $planet->getPlayer();
+        $isForeignPlanet = $planetOwner === null || $planetOwner->getId() !== $this->playerService->getId();
+        $isDestroyed = $planetOwner === null;
 
-        if ($planet->getPlayer()->getId() !== $this->playerService->getId()) {
+        // Transport (not available for destroyed planets - no owner to receive resources)
+        if (!$isDestroyed) {
+            $availableMissions[] = [
+                'missionType' => 3,
+                'link' => route('fleet.index', ['galaxy' => $galaxy, 'system' => $system, 'position' => $position, 'type' => $planet->getPlanetType()->value, 'mission' => 3]),
+                'name' => __('Transport'),
+            ];
+        }
+
+        if ($isForeignPlanet) {
             // Espionage (only if foreign planet).
             $availableMissions[] = [
                 'missionType' => 6,
@@ -336,8 +359,10 @@ class GalaxyController extends OGameController
         $distance = abs($currentPlanet->getPlanetCoordinates()->system - $planet->getPlanetCoordinates()->system);
         $inRange = ($currentPlanet->getPlanetCoordinates()->galaxy === $planet->getPlanetCoordinates()->galaxy) && ($distance <= $missileRange);
 
-        // Can only attack other players' planets
-        $canMissileAttack = $hasMissiles && $inRange && !$planet->getPlayer()->equals($this->playerService);
+        // Can only attack other players' planets (destroyed planets with no owner can be attacked)
+        $planetOwner = $planet->getPlayer();
+        $isOwnPlanet = $planetOwner !== null && $planetOwner->equals($this->playerService);
+        $canMissileAttack = $hasMissiles && $inRange && !$isOwnPlanet;
 
         // Build missile attack link with all necessary parameters
         $coords = $planet->getPlanetCoordinates();
@@ -353,8 +378,8 @@ class GalaxyController extends OGameController
         $phalanxLink = '';
         $phalanxInactive = false;
 
-        // Can only phalanx planets (not own planets)
-        if (!$planet->getPlayer()->equals($this->playerService)) {
+        // Can only phalanx planets (not own planets, destroyed planets can be phalanxed)
+        if (!$isOwnPlanet) {
             // Prefer current moon if it has phalanx in range
             $currentPlanet = $this->playerService->planets->current();
             $phalanxMoon = null;
@@ -526,6 +551,35 @@ class GalaxyController extends OGameController
             //'isOutlaw' => $player->isOutlaw(),
             //'isBanned' => $player->isBanned(),
             //'isOnVacation' => $player->isOnVacation(),
+        ];
+    }
+
+    /**
+     * Gets empty player information for destroyed planets with no owner.
+     *
+     * @return array<string, mixed>
+     */
+    private function getEmptyPlayerInfo(): array
+    {
+        return [
+            'actions' => [
+                'alliance' => ['available' => false],
+                'buddies' => ['available' => false],
+                'highscore' => ['available' => false],
+                'ignore' => ['available' => false],
+                'message' => ['available' => false],
+            ],
+            'playerId' => null,
+            'playerName' => '',
+            'allianceId' => null,
+            'allianceTag' => null,
+            'allianceName' => null,
+            'isAllianceMember' => false,
+            'isAdmin' => false,
+            'isInactive' => false,
+            'isLongInactive' => false,
+            'isNewbie' => false,
+            'isStrong' => false,
         ];
     }
 
@@ -723,7 +777,7 @@ class GalaxyController extends OGameController
         if ($targetPlanet === null) {
             $canAttack = false;
             $errorMessage = 'Target planet does not exist';
-        } elseif ($targetPlanet->getPlayer()->equals($player)) {
+        } elseif ($targetPlanet->getPlayer() !== null && $targetPlanet->getPlayer()->equals($player)) {
             $canAttack = false;
             $errorMessage = 'Cannot attack own planet';
         } elseif ($currentPlanet->getPlanetCoordinates()->galaxy !== $targetCoordinate->galaxy) {
@@ -795,8 +849,8 @@ class GalaxyController extends OGameController
                 ], 400);
             }
 
-            // Check if target is own planet
-            if ($targetPlanet->getPlayer()->equals($player)) {
+            // Check if target is own planet (destroyed planets have no owner, so can be attacked)
+            if ($targetPlanet->getPlayer() !== null && $targetPlanet->getPlayer()->equals($player)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Cannot attack own planet',

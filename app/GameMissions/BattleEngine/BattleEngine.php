@@ -73,13 +73,17 @@ abstract class BattleEngine
 
         // Initialize the battle result object with the attacker and defender information.
         $result->lootPercentage = $this->lootPercentage;
-        $result->attackerWeaponLevel = $this->attackerPlayer->getResearchLevel('weapon_technology');
-        $result->attackerShieldLevel = $this->attackerPlayer->getResearchLevel('shielding_technology');
-        $result->attackerArmorLevel = $this->attackerPlayer->getResearchLevel('armor_technology');
 
-        $result->defenderWeaponLevel = $this->defenderPlanet->getPlayer()->getResearchLevel('weapon_technology');
-        $result->defenderShieldLevel = $this->defenderPlanet->getPlayer()->getResearchLevel('shielding_technology');
-        $result->defenderArmorLevel = $this->defenderPlanet->getPlayer()->getResearchLevel('armor_technology');
+        // Attacker research levels (0 if attacker planet was destroyed/abandoned after sending attack)
+        $result->attackerWeaponLevel = $this->attackerPlayer !== null ? $this->attackerPlayer->getResearchLevel('weapon_technology') : 0;
+        $result->attackerShieldLevel = $this->attackerPlayer !== null ? $this->attackerPlayer->getResearchLevel('shielding_technology') : 0;
+        $result->attackerArmorLevel = $this->attackerPlayer !== null ? $this->attackerPlayer->getResearchLevel('armor_technology') : 0;
+
+        // Defender research levels (0 for destroyed planets with no owner)
+        $defenderPlayer = $this->defenderPlanet->getPlayer();
+        $result->defenderWeaponLevel = $defenderPlayer !== null ? $defenderPlayer->getResearchLevel('weapon_technology') : 0;
+        $result->defenderShieldLevel = $defenderPlayer !== null ? $defenderPlayer->getResearchLevel('shielding_technology') : 0;
+        $result->defenderArmorLevel = $defenderPlayer !== null ? $defenderPlayer->getResearchLevel('armor_technology') : 0;
 
         $result->attackerUnitsStart = clone $this->attackerFleet;
         $result->attackerUnitsResult = clone $this->attackerFleet;
@@ -88,7 +92,10 @@ abstract class BattleEngine
         $result->defenderUnitsStart->addCollection($this->defenderPlanet->getDefenseUnits());
 
         // Get ACS Defend missions currently holding at this planet and add their units to the battle
-        $fleetMissionService = resolve(\OGame\Services\FleetMissionService::class);
+        // Note: We use the attacker's player context for FleetMissionService. The methods we're calling
+        // (getDefendingMissionsAtPlanet and getFleetUnits) only query missions by planet ID and don't
+        // actually use the player property, so using attacker's player is safe.
+        $fleetMissionService = resolve(\OGame\Services\FleetMissionService::class, ['player' => $this->attackerPlayer]);
         $result->defendingMissions = $fleetMissionService->getDefendingMissionsAtPlanet($this->defenderPlanet->getPlanetId());
 
         \Log::debug('Battle: Found ' . $result->defendingMissions->count() . ' defending missions at planet ' . $this->defenderPlanet->getPlanetId());

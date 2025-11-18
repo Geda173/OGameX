@@ -38,7 +38,8 @@ class EspionageMission extends GameMission
         }
 
         // If planet belongs to current player, the mission is not possible.
-        if ($planet->getPlayer()->equals($targetPlanet->getPlayer())) {
+        // Allow spying on destroyed planets (which have null player)
+        if ($targetPlanet->getPlayer() !== null && $planet->getPlayer()->equals($targetPlanet->getPlayer())) {
             return new MissionPossibleStatus(false);
         }
 
@@ -75,33 +76,37 @@ class EspionageMission extends GameMission
 
         // --- Defender notification (mirror official OGame "you were spied" message)
         // Defender is the owner of the target planet
-        $defenderUserId = $target_planet->getPlayer()->getId();
+        // Only send notification if the target planet has a player (not destroyed/abandoned)
+        $defenderPlayer = $target_planet->getPlayer();
+        if ($defenderPlayer !== null) {
+            $defenderUserId = $defenderPlayer->getId();
 
-        if ($defenderUserId) {
-            // Params expected by t_messages.espionage_detected.*
-            $attackerName = $origin_planet->getPlayer()->getUsername();
+            if ($defenderUserId) {
+                // Params expected by t_messages.espionage_detected.*
+                $attackerName = $origin_planet->getPlayer()->getUsername();
 
-            $params = [
+                $params = [
 // IMPORTANT: pass the raw mission planet id inside [planet]...[/planet]
-                'planet'        => '[planet]' . $mission->planet_id_from . '[/planet]',
-                'attacker_name' => $attackerName,
+                    'planet'        => '[planet]' . $mission->planet_id_from . '[/planet]',
+                    'attacker_name' => $attackerName,
 
 // NEW:
-    'defender'       => '[planet]' . $mission->planet_id_to . '[/planet]',   // defender planet
-    'defender_name'  => $target_planet->getPlayer()->getUsername(),          // defender player name
+        'defender'       => '[planet]' . $mission->planet_id_to . '[/planet]',   // defender planet
+        'defender_name'  => $defenderPlayer->getUsername(),          // defender player name
 
-                'chance'        => $counterEspionageChance,
-            ];
+                    'chance'        => $counterEspionageChance,
+                ];
 
-            $playerServiceFactory = resolve(\OGame\Factories\PlayerServiceFactory::class);
-            $defenderService      = $playerServiceFactory->make($defenderUserId);
+                $playerServiceFactory = resolve(\OGame\Factories\PlayerServiceFactory::class);
+                $defenderService      = $playerServiceFactory->make($defenderUserId);
 
-            (new \OGame\Services\MessageService($defenderService))
-                ->sendSystemMessageToPlayer(
-                    $defenderService,
-                    \OGame\GameMessages\DefenderEspionageDetected::class,
-                    $params
-                );
+                (new \OGame\Services\MessageService($defenderService))
+                    ->sendSystemMessageToPlayer(
+                        $defenderService,
+                        \OGame\GameMessages\DefenderEspionageDetected::class,
+                        $params
+                    );
+            }
         }
 
         // Send a message to the player with a reference to the espionage report.
@@ -166,12 +171,14 @@ class EspionageMission extends GameMission
         $report->planet_position = $targetPlanet->getPlanetCoordinates()->position;
         $report->planet_type = $targetPlanet->getPlanetType()->value;
 
-        $report->planet_user_id = $targetPlanet->getPlayer()->getId();
+        // Handle destroyed planets with no player
+        $defenderPlayer = $targetPlanet->getPlayer();
+        $report->planet_user_id = $defenderPlayer !== null ? $defenderPlayer->getId() : null;
         $report->counter_espionage_chance = $counterEspionageChance;
 
         $report->player_info = [
-            'player_id' => (string)$targetPlanet->getPlayer()->getId(),
-            'player_name' => $targetPlanet->getPlayer()->getUsername(),
+            'player_id' => $defenderPlayer !== null ? (string)$defenderPlayer->getId() : null,
+            'player_name' => $defenderPlayer !== null ? $defenderPlayer->getUsername() : __('Destroyed Planet'),
         ];
 
         // Resources
@@ -196,7 +203,8 @@ class EspionageMission extends GameMission
 
         // TODO: Validate this does not cause issues when probing slot 16
         $attackerEspionageLevel = $originPlanet->getPlayer()->getResearchLevel('espionage_technology');
-        $defenderEspionageLevel = $targetPlanet->getPlayer()->getResearchLevel('espionage_technology');
+        // Destroyed planets have no player, so espionage level is 0
+        $defenderEspionageLevel = $defenderPlayer !== null ? $defenderPlayer->getResearchLevel('espionage_technology') : 0;
         $techDifference = $defenderEspionageLevel - $attackerEspionageLevel;
         $levelDifference = max(0, $techDifference);
         $extraProbesRequired = pow($levelDifference, 2);
@@ -227,9 +235,9 @@ class EspionageMission extends GameMission
             $report->buildings = $targetPlanet->getBuildingArray();
         }
 
-        // Research
-        if ($this->canRevealData($remainingProbes, $attackerEspionageLevel, $defenderEspionageLevel, 7, 4)) {
-            $report->research = $targetPlanet->getPlayer()->getResearchArray();
+        // Research (only if planet has a player)
+        if ($defenderPlayer !== null && $this->canRevealData($remainingProbes, $attackerEspionageLevel, $defenderEspionageLevel, 7, 4)) {
+            $report->research = $defenderPlayer->getResearchArray();
         }
 
         $report->save();
@@ -270,7 +278,9 @@ class EspionageMission extends GameMission
     private function calculateCounterEspionageChance(FleetMission $mission, PlanetService $attackerPlanet, PlanetService $defenderPlanet): int
     {
         // Get espionage technology levels
-        $defenderEspionageLevel = $defenderPlanet->getPlayer()->getResearchLevel('espionage_technology');
+        // Destroyed planets have no player, so espionage level is 0
+        $defenderPlayer = $defenderPlanet->getPlayer();
+        $defenderEspionageLevel = $defenderPlayer !== null ? $defenderPlayer->getResearchLevel('espionage_technology') : 0;
         $attackerEspionageLevel = $attackerPlanet->getPlayer()->getResearchLevel('espionage_technology');
 
         // Number of probes sent by attacker
@@ -415,9 +425,12 @@ class EspionageMission extends GameMission
         }
 
         // Always send full battle report to defender (planet owner)
+        // Only send if the planet has a player (not destroyed/abandoned)
         $defenderPlayer = $defenderPlanet->getPlayer();
-        $defenderMessageService = new \OGame\Services\MessageService($defenderPlayer);
-        $defenderMessageService->sendBattleReportMessageToPlayer($defenderPlayer, $reportId);
+        if ($defenderPlayer !== null) {
+            $defenderMessageService = new \OGame\Services\MessageService($defenderPlayer);
+            $defenderMessageService->sendBattleReportMessageToPlayer($defenderPlayer, $reportId);
+        }
 
         // Return the surviving attacker units (probes that survived counter-espionage)
         return $battleResult->attackerUnitsResult;
@@ -439,7 +452,8 @@ class EspionageMission extends GameMission
         $report->planet_system = $defenderPlanet->getPlanetCoordinates()->system;
         $report->planet_position = $defenderPlanet->getPlanetCoordinates()->position;
         $report->planet_type = $defenderPlanet->getPlanetType()->value;
-        $report->planet_user_id = $defenderPlanet->getPlayer()->getId();
+        $defenderPlayer = $defenderPlanet->getPlayer();
+        $report->planet_user_id = $defenderPlayer !== null ? $defenderPlayer->getId() : null;
 
         $report->general = [
             'moon_existed' => $battleResult->moonExisted,
@@ -458,7 +472,7 @@ class EspionageMission extends GameMission
         ];
 
         $report->defender = [
-            'player_id' => $defenderPlanet->getPlayer()->getId(),
+            'player_id' => $defenderPlayer !== null ? $defenderPlayer->getId() : null,
             'resource_loss' => $battleResult->defenderResourceLoss->sum(),
             'units' => $battleResult->defenderUnitsStart->toArray(),
             'weapon_technology' => $battleResult->defenderWeaponLevel,

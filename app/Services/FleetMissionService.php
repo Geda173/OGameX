@@ -257,6 +257,11 @@ class FleetMissionService
     {
         $query = $this->model;
 
+        // Ensure player has planets loaded
+        if ($this->player === null || $this->player->planets === null) {
+            throw new \RuntimeException('FleetMissionService: player or player planets not initialized');
+        }
+
         // Query returns:
         // 1. All missions sent by current user.
         // - AND -
@@ -314,6 +319,11 @@ class FleetMissionService
      */
     public function currentPlayerUnderAttack(): bool
     {
+        // Ensure player has planets loaded
+        if ($this->player === null || $this->player->planets === null) {
+            throw new \RuntimeException('FleetMissionService: player or player planets not initialized');
+        }
+
         $planetIds = [];
         foreach ($this->player->planets->all() as $planet) {
             $planetIds[] = $planet->getPlanetId();
