@@ -196,10 +196,14 @@
                 <div class="resource_tile darkmatter">
                     <div id="darkmatter_box" class="darkmatter tooltipHTML resource ipiHintable tpd-hideOnClickOutside"
                          title="@lang('Dark Matter')|<table class=&quot;resourceTooltip&quot;><tr><th>@lang('Available'):</th><td><span class=&quot;&quot;>{!! $resources['darkmatter']['amount_formatted'] !!}</span></td></tr></table>"
+                         data-tooltip-button="Purchase Dark Matter"
                          data-ipi-hint="ipiResourcedarkmatter">
-                        <div class="resourceIcon darkmatter"></div>
+                        <a href="#TODO_page=payment" class="overlay">
+                            <img src="/img/icons/401d1a91ff40dc7c8acfa4377d3d65.gif">
+                            <div class="resourceIcon darkmatter"></div>
+                        </a>
                         <span class="value">
-                        <span id="resources_darkmatter"
+                        <span id="resources_darkmatter" class="overlay"
                               data-raw="{!! $resources['darkmatter']['amount'] !!}">{!! $resources['darkmatter']['amount_formatted'] !!}</span>
                     </span>
                     </div>
