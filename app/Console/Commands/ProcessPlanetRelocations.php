@@ -194,6 +194,14 @@ class ProcessPlanetRelocations extends Command
             $this->info('Removed ' . $totalShips . ' ship(s) from planet for relocation');
         }
 
+        // Store old and new coordinates BEFORE planet moves (for fleet mission calculation)
+        $oldGalaxy = $relocation->from_galaxy;
+        $oldSystem = $relocation->from_system;
+        $oldPosition = $relocation->from_position;
+        $newGalaxy = $relocation->to_galaxy;
+        $newSystem = $relocation->to_system;
+        $newPosition = $relocation->to_position;
+
         // Find and move moon if exists
         $moon = Planet::where([
             ['galaxy', $relocation->from_galaxy],
@@ -222,33 +230,40 @@ class ProcessPlanetRelocations extends Command
         // Now that planet has moved, create fleet mission for ships if any
         if ($shipFleetData !== null) {
             try {
-                // Calculate travel time based on distance and slowest ship speed
-                $player = $planetService->getPlayer();
-                $slowestSpeed = $shipFleetData['ships']->getSlowestUnitSpeed($player);
+                // Calculate distance manually using old coordinates (planet has already moved in DB)
+                $diffGalaxy = abs($oldGalaxy - $newGalaxy);
+                $diffSystem = abs($oldSystem - $newSystem);
+                $diffPlanet = abs($oldPosition - $newPosition);
 
-                // Calculate distance between old and new coordinates
-                $oldGalaxy = $relocation->from_galaxy;
-                $oldSystem = $relocation->from_system;
-                $oldPosition = $relocation->from_position;
-                $newGalaxy = $relocation->to_galaxy;
-                $newSystem = $relocation->to_system;
-                $newPosition = $relocation->to_position;
-
-                // Distance calculation based on OGame formula
-                if ($oldGalaxy != $newGalaxy) {
-                    $distance = abs($oldGalaxy - $newGalaxy) * 20000;
-                } elseif ($oldSystem != $newSystem) {
-                    $distance = abs($oldSystem - $newSystem) * 5 * 19 + 2700;
-                } elseif ($oldPosition != $newPosition) {
-                    $distance = abs($oldPosition - $newPosition) * 5 + 1000;
+                // Distance calculation using same logic as FleetMissionService
+                $settingsService = app(\OGame\Services\SettingsService::class);
+                if ($diffGalaxy != 0) {
+                    // Different galaxy - check for donut galaxy shortcut
+                    $diff2 = abs($diffGalaxy - $settingsService->numberOfGalaxies());
+                    $distance = ($diff2 < $diffGalaxy) ? ($diff2 * 20000) : ($diffGalaxy * 20000);
+                } elseif ($diffSystem != 0) {
+                    // Different system - check for donut system shortcut
+                    $diff2 = abs($diffSystem - 499);
+                    $deltaSystem = ($diff2 < $diffSystem) ? $diff2 : $diffSystem;
+                    $deltaSystem = max($deltaSystem, 1);
+                    $distance = $deltaSystem * 5 * 19 + 2700;
+                } elseif ($diffPlanet != 0) {
+                    // Different planet position
+                    $distance = $diffPlanet * 5 + 1000;
                 } else {
-                    $distance = 0;
+                    // Same coordinates (shouldn't happen, but just in case)
+                    $distance = 5;
                 }
 
                 // Calculate flight time: (35000 / speed_percent * sqrt(distance * 10 / slowest_speed) + 10) / game_speed
-                $speed_percent = 100; // 100% speed
-                $fleetSpeed = app(\OGame\Services\SettingsService::class)->fleetSpeed();
-                $travelTime = (int)((35000 / $speed_percent * sqrt($distance * 10 / $slowestSpeed) + 10) / $fleetSpeed);
+                $player = $planetService->getPlayer();
+                $slowestSpeed = $shipFleetData['ships']->getSlowestUnitSpeed($player);
+                $speedPercent = 10; // 100% speed (OGame uses 1-10 scale, where 10 = 100%)
+                $fleetSpeed = $settingsService->fleetSpeed();
+                $travelTime = (int)max(
+                    round((35000 / $speedPercent * sqrt($distance * 10 / $slowestSpeed) + 10) / $fleetSpeed),
+                    1
+                );
 
                 $currentTime = time();
                 $arrivalTime = $currentTime + $travelTime;
@@ -261,15 +276,14 @@ class ProcessPlanetRelocations extends Command
                 $fleetMission->galaxy_from = $oldGalaxy;
                 $fleetMission->system_from = $oldSystem;
                 $fleetMission->position_from = $oldPosition;
-                $fleetMission->planet_type_from = PlanetType::Planet->value;
+                $fleetMission->type_from = PlanetType::Planet->value;
                 $fleetMission->galaxy_to = $newGalaxy;
                 $fleetMission->system_to = $newSystem;
                 $fleetMission->position_to = $newPosition;
-                $fleetMission->planet_type_to = PlanetType::Planet->value;
+                $fleetMission->type_to = PlanetType::Planet->value;
                 $fleetMission->mission_type = 4; // Deployment
-                $fleetMission->time_start = $currentTime;
+                $fleetMission->time_departure = $currentTime;
                 $fleetMission->time_arrival = $arrivalTime;
-                $fleetMission->time_return = 0; // One-way mission
 
                 // Add ships to mission
                 foreach ($shipFleetData['ships']->units as $unit) {
