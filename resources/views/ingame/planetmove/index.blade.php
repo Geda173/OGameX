@@ -33,8 +33,7 @@
                         </p>
                     </div>
 
-                    <form id="relocateForm" style="margin-top: 20px;">
-                        @csrf
+                    <div id="relocateForm" style="margin-top: 20px;">
                         <div style="margin-bottom: 15px;">
                             <label for="galaxy" style="display: inline-block; width: 100px;">@lang('Galaxy'):</label>
                             <input type="number" id="galaxy" name="galaxy" min="1" max="9" value="{{ $current_galaxy }}" required
@@ -54,11 +53,11 @@
                         </div>
 
                         <div style="margin-top: 20px;">
-                            <button type="submit" class="btn btn-primary" style="padding: 10px 20px;">
+                            <button type="button" id="relocateBtn" class="btn btn-primary" style="padding: 10px 20px;">
                                 @lang('Relocate Planet')
                             </button>
                         </div>
-                    </form>
+                    </div>
                 </div>
             </div>
         </div>
@@ -66,10 +65,7 @@
 
     <script type="text/javascript">
         $(document).ready(function() {
-            // Remove any existing event handlers to prevent conflicts
-            $('#relocateForm').off('submit');
-
-            $('#relocateForm').on('submit', function(e) {
+            $('#relocateBtn').on('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
@@ -80,7 +76,9 @@
                 var cost = {{ $relocation_cost }};
                 var costFormatted = '{{ number_format($relocation_cost) }}';
 
-                var question = 'Do you want to relocate your planet to <strong>' + galaxy + ':' + system + ':' + position + '</strong> for <span style="font-weight: bold; color: #ffd700;">' + costFormatted + ' Dark Matter</span>?';
+                // Build the question with position restriction info
+                var question = 'Do you want to relocate your planet to <strong>' + galaxy + ':' + system + ':' + position + '</strong> for <span style="font-weight: bold; color: #ffd700;">' + costFormatted + ' Dark Matter</span>?<br><br>';
+                question += '<span style="color: #ff9800; font-size: 0.9em;"><strong>⚠️ Note:</strong> Your planet can only be relocated to position <strong>' + position + '</strong> in a different solar system.</span>';
 
                 errorBoxDecision('@lang('Relocate Planet')', question, '@lang('Yes')', '@lang('No')', function() {
                     $.post('{{ route('planetMove.relocate') }}', {
