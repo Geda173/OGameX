@@ -869,6 +869,44 @@ class PlayerService
         return false;
     }
 
+    /**
+     * Get the player's current dark matter amount.
+     *
+     * @return float
+     */
+    public function getDarkMatter(): float
+    {
+        return $this->user->dark_matter ?? 0;
+    }
+
+    /**
+     * Add dark matter to the player's account.
+     *
+     * @param float $amount
+     * @return void
+     */
+    public function addDarkMatter(float $amount): void
+    {
+        $this->user->dark_matter = ($this->user->dark_matter ?? 0) + $amount;
+        $this->user->save();
+    }
+
+    /**
+     * Deduct dark matter from the player's account.
+     *
+     * @param float $amount
+     * @return void
+     * @throws Exception
+     */
+    public function deductDarkMatter(float $amount): void
+    {
+        if ($this->getDarkMatter() < $amount) {
+            throw new Exception('Insufficient dark matter');
+        }
+        $this->user->dark_matter = $this->user->dark_matter - $amount;
+        $this->user->save();
+    }
+
     public function hasCommander(): bool
     {
         // TODO: add logic

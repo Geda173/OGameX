@@ -194,8 +194,22 @@
                     </span>
                     </div>
                 </div>
-                {{-- Population resource commented out --}}
-                {{--
+                <div class="resource_tile darkmatter">
+                    <div id="darkmatter_box" class="darkmatter tooltipHTML resource ipiHintable tpd-hideOnClickOutside"
+                         title="@lang('Dark Matter')|<table class=&quot;resourceTooltip&quot;><tr><th>@lang('Available'):</th><td><span class=&quot;&quot;>{!! $resources['darkmatter']['amount_formatted'] !!}</span></td></tr></table>"
+                         data-tooltip-button="Purchase Dark Matter"
+                         data-ipi-hint="ipiResourcedarkmatter">
+                        <a href="#TODO_page=payment" class="overlay">
+                            <img src="/img/icons/401d1a91ff40dc7c8acfa4377d3d65.gif">
+                            <div class="resourceIcon darkmatter"></div>
+                        </a>
+                        <span class="value">
+                        <span id="resources_darkmatter" class="overlay"
+                              data-raw="{!! $resources['darkmatter']['amount'] !!}">{!! $resources['darkmatter']['amount_formatted'] !!}</span>
+                    </span>
+                    </div>
+                </div>
+                {{-- Population resource (lifeforms - not implemented yet)
                 <div class="resource_tile population">
                     <div id="population_box" class="population tooltipHTML resource ipiHintable tpd-hideOnClickOutside"
                          title="Population|<table class=&quot;resourceTooltip&quot;><tr><th>Available:</th><td><span class=&quot;overmark&quot;>100</span></td></tr><tr><th>Living Space
@@ -208,8 +222,7 @@
                     </div>
                 </div>
                 --}}
-                {{-- Food resource commented out --}}
-                {{--
+                {{-- Food resource (lifeforms - not implemented yet)
                 <div class="resource_tile food">
                     <div id="food_box" class="food tooltipHTML resource ipiHintable tpd-hideOnClickOutside"
                          title="Food|<table class=&quot;resourceTooltip&quot;><tr><th>Available:</th><td><span class=&quot;overmark&quot;>0</span></td></tr><tr><th>Storage capacity</th><td><span class=&quot;overmark&quot;>0</span></td></tr><tr><th>Overproduction</th><td><span class=&quot;undermark&quot;>0</span></td></tr><tr><th>Consumption</th><td><span class=&quot;overmark&quot;>0</span></td></tr><tr><th>Consumed in</th><td><span class=&quot;overmark timeTillFoodRunsOut&quot;>~</span></td></tr></table>"
@@ -221,8 +234,7 @@
                     </div>
                 </div>
                 --}}
-                {{-- Dark Matter resource commented out --}}
-                {{--
+                {{-- Old hardcoded Dark Matter (replaced with dynamic version above)
                 <div class="resource_tile darkmatter">
                     <div id="darkmatter_box" class="darkmatter tooltipHTML resource ipiHintable tpd-hideOnClickOutside"
                          title="@lang('Dark Matter')|<table class=&quot;resourceTooltip&quot;><tr><th>Available:</th><td><span class=&quot;&quot;>19,890</span></td></tr><tr><th>Purchased</th><td><span class=&quot;&quot;>225</span></td></tr><tr><th>Found</th><td><span class=&quot;&quot;>19,665</span></td></tr></table>"

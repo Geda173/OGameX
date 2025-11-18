@@ -190,4 +190,29 @@ class ResearchController extends OGameController
             'message' => 'Building construction canceled.',
         ]);
     }
+
+    /**
+     * Halve the time of the currently researching item using Dark Matter.
+     *
+     * @param Request $request
+     * @param PlayerService $player
+     * @return JsonResponse
+     * @throws Exception
+     */
+    public function halveTime(Request $request, PlayerService $player): JsonResponse
+    {
+        try {
+            $this->queue->halveTime($player, $player->planets->current());
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Research time halved successfully.',
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 400);
+        }
+    }
 }
