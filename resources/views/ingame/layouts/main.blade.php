@@ -807,8 +807,8 @@ Combat simulation save slots +20">
                             "classesListItem": ""
                         },
                         "darkmatter": {
-                            "amount": 22500,
-                            "tooltip": "Dark Matter|<table class=\"resourceTooltip\"><tr><th>Available:<\/th><td><span class=\"\">22,500<\/span><\/td><\/tr><tr><th>Purchased<\/th><td><span class=\"\">0<\/span><\/td><\/tr><tr><th>Found<\/th><td><span class=\"\">22,500<\/span><\/td><\/tr><\/table>",
+                            "amount": {!! $resources['darkmatter']['amount'] !!},
+                            "tooltip": "@lang('Dark Matter')|<table class=\"resourceTooltip\"><tr><th>@lang('Available'):<\/th><td><span class=\"\">{!! $resources['darkmatter']['amount_formatted'] !!}<\/span><\/td><\/tr><tr><th>@lang('Purchased')<\/th><td><span class=\"\">0<\/span><\/td><\/tr><tr><th>@lang('Found')<\/th><td><span class=\"\">{!! $resources['darkmatter']['amount_formatted'] !!}<\/span><\/td><\/tr><\/table>",
                             "classesListItem": "",
                             "classes": "overlay",
                             "link": "#TODO_page=payment",
