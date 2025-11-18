@@ -198,7 +198,7 @@
                 @endif
 
                 @if ($pending_relocation)
-                    <div id="relocation_alert" class="relocation-notification" style="position: absolute; top: 10px; left: 10px; z-index: 100; max-width: 220px;">
+                    <div id="relocation_alert" class="relocation-notification" style="position: absolute; top: 10px; right: 10px; z-index: 100; max-width: 220px;">
                         <div class="relocation-box" style="background: rgba(0,0,0,0.95); border: 2px solid #ff9800; border-radius: 6px; padding: 8px 10px; box-shadow: 0 3px 10px rgba(0,0,0,0.8), 0 0 15px rgba(255,152,0,0.4); animation: pulse-relocation 2s infinite;">
                             <div style="color: #ff9800; font-weight: bold; font-size: 11px; margin-bottom: 5px; display: flex; align-items: center;">
                                 <span style="font-size: 14px; margin-right: 4px;">⏱</span>
