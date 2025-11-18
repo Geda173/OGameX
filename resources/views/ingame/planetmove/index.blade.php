@@ -66,8 +66,13 @@
 
     <script type="text/javascript">
         $(document).ready(function() {
+            // Remove any existing event handlers to prevent conflicts
+            $('#relocateForm').off('submit');
+
             $('#relocateForm').on('submit', function(e) {
                 e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
 
                 var galaxy = $('#galaxy').val();
                 var system = $('#system').val();
@@ -101,6 +106,8 @@
                         fadeBox(message, true);
                     });
                 });
+
+                return false;
             });
         });
     </script>
