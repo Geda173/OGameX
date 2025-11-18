@@ -64,7 +64,42 @@
     </div>
 
     <script type="text/javascript">
+        // Prevent the global movePlanet function from interfering
+        var originalMovePlanet = window.movePlanet;
+
         $(document).ready(function() {
+            // Temporarily disable the global movePlanet function on this page
+            window.movePlanet = function() { return false; };
+
+            function executePlanetRelocation() {
+                var galaxy = $('#galaxy').val();
+                var system = $('#system').val();
+                var position = $('#position').val();
+
+                $.post('{{ route('planetMove.relocate') }}', {
+                    _token: '{{ csrf_token() }}',
+                    galaxy: galaxy,
+                    system: system,
+                    position: position
+                }, function(data) {
+                    if (data.success) {
+                        fadeBox(data.message, false);
+                        // Reload after successful relocation
+                        setTimeout(function() {
+                            window.location.href = '{{ route('overview.index') }}';
+                        }, 2000);
+                    } else {
+                        fadeBox(data.message, true);
+                    }
+                }).fail(function(xhr) {
+                    var message = 'An error occurred.';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        message = xhr.responseJSON.message;
+                    }
+                    fadeBox(message, true);
+                });
+            }
+
             $('#relocateBtn').on('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -80,30 +115,7 @@
                 var question = 'Do you want to relocate your planet to <strong>' + galaxy + ':' + system + ':' + position + '</strong> for <span style="font-weight: bold; color: #ffd700;">' + costFormatted + ' Dark Matter</span>?<br><br>';
                 question += '<span style="color: #ff9800; font-size: 0.9em;"><strong>⚠️ Note:</strong> Your planet can only be relocated to position <strong>' + position + '</strong> in a different solar system.</span>';
 
-                errorBoxDecision('@lang('Relocate Planet')', question, '@lang('Yes')', '@lang('No')', function() {
-                    $.post('{{ route('planetMove.relocate') }}', {
-                        _token: '{{ csrf_token() }}',
-                        galaxy: galaxy,
-                        system: system,
-                        position: position
-                    }, function(data) {
-                        if (data.success) {
-                            fadeBox(data.message, false);
-                            // Reload after successful relocation
-                            setTimeout(function() {
-                                window.location.href = '{{ route('overview.index') }}';
-                            }, 2000);
-                        } else {
-                            fadeBox(data.message, true);
-                        }
-                    }).fail(function(xhr) {
-                        var message = 'An error occurred.';
-                        if (xhr.responseJSON && xhr.responseJSON.message) {
-                            message = xhr.responseJSON.message;
-                        }
-                        fadeBox(message, true);
-                    });
-                });
+                errorBoxDecision('@lang('Relocate Planet')', question, '@lang('Yes')', '@lang('No')', executePlanetRelocation);
 
                 return false;
             });
