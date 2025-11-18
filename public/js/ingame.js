@@ -76239,6 +76239,8 @@ FleetDispatcher.prototype.selectShips = function (ships) {
 };
 
 FleetDispatcher.prototype.selectStandardFleet = function (standardFleetId) {
+  this.resetShips();
+
   let standardFleet = this.standardFleets.find(function (item) {
     return item.id === standardFleetId;
   });
