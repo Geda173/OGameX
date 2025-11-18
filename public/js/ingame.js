@@ -75974,7 +75974,7 @@ FleetDispatcher.prototype.initFleet1 = function () {
     initStandardFleet();
   });
   elem.on('change', '#standardfleet', function (e) {
-    let standardFleetId = getValue($('select.combatunits').val());
+    let standardFleetId = getValue($('#standardfleet').val());
     that.selectStandardFleet(standardFleetId);
     that.refresh();
   });
@@ -76239,8 +76239,10 @@ FleetDispatcher.prototype.selectShips = function (ships) {
 };
 
 FleetDispatcher.prototype.selectStandardFleet = function (standardFleetId) {
+  this.resetShips();
+
   let standardFleet = this.standardFleets.find(function (item) {
-    return item.id === standardFleetId;
+    return item.id == standardFleetId;
   });
 
   if (standardFleet === undefined || standardFleet.ships === undefined) {
@@ -83976,7 +83978,7 @@ function initStandardFleet() {
     $(this).parents('form')[0].reset();
   });
   $('.changeFleet').unbind('click').bind('click', function () {
-    $('.combatunits').val($(this).attr('rel')).trigger('change');
+    $('#standardfleet').val($(this).attr('rel')).trigger('change');
     $(this).parents('.ui-dialog').find('.ui-dialog-titlebar-close').click();
   });
 }
@@ -83984,6 +83986,9 @@ function initStandardFleet() {
 function setShipsFleet(ships, tempName, techId) {
   $("#template_id").val(techId);
   $("#template_name").val(tempName);
+
+  // Clear all ship inputs first
+  $('input[name^="ship["]').val('');
 
   for (var techID in ships) {
     $("#ship" + techID).val(ships[techID]);

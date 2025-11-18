@@ -255,7 +255,7 @@
                 "type": {{ $planet->getPlanetType() }},
                 "name": "{{ $planet->getPlanetName() }}"
             }];
-            var standardFleets = [];
+            var standardFleets = @json($standardFleets ?? []);
             var unions = @json($acsGroups ?? []);
 
             // Debug: Log target coordinates and ACS query info
@@ -512,23 +512,47 @@
                                     <th class="fleet_name">Name</th>
                                     <th class="fleet_actions">Actions</th>
                                 </tr>
+                                @php
+                                    $chunks = array_chunk($standardFleets, 2);
+                                @endphp
+                                @foreach($chunks as $chunk)
                                 <tr>
+                                    @foreach($chunk as $fleet)
+                                    <td class="textCenter">{{ $fleet['id'] }}</td>
+                                    <td class="fleet_name">{{ $fleet['name'] }}</td>
+                                    <td>
+                                        <a href="javascript:void(0);" class="changeFleet" rel="{{ $fleet['id'] }}">Load</a> |
+                                        <a href="javascript:void(0);" onclick="setShipsFleet(@json($fleet['ships']), '{{ addslashes($fleet['name']) }}', {{ $fleet['id'] }})" class="overlay" data-overlay-inline="#fleetTemplatesEdit" data-overlay-title="Edit template">Edit</a> |
+                                        <form method="POST" action="{{ route('fleet.save-standard-fleet') }}" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this template?');">
+                                            @csrf
+                                            <input type="hidden" name="mode" value="delete">
+                                            <input type="hidden" name="template_id" value="{{ $fleet['id'] }}">
+                                            <button type="submit" style="background:none;border:none;color:#6f9fc8;cursor:pointer;padding:0;">Delete</button>
+                                        </form>
+                                    </td>
+                                    @endforeach
+                                    @for($i = count($chunk); $i < 2; $i++)
                                     <td colspan="3"></td>
-
-                                    <td colspan="3"></td>
-
+                                    @endfor
                                 </tr>
+                                @endforeach
+                                @if(empty($standardFleets))
+                                <tr>
+                                    <td colspan="6" class="textCenter">No saved templates</td>
+                                </tr>
+                                @endif
                                 </tbody>
                             </table>
                             <a href="javascript: void(0);" class="btn_blue float_right overlay" id="addNewTpl"
-                               onclick="setShipsFleet({&quot;202&quot;:0,&quot;203&quot;:0,&quot;204&quot;:0,&quot;205&quot;:0,&quot;206&quot;:0,&quot;207&quot;:0,&quot;208&quot;:0,&quot;209&quot;:0,&quot;210&quot;:0,&quot;211&quot;:0,&quot;212&quot;:0,&quot;213&quot;:0,&quot;214&quot;:0,&quot;215&quot;:0,&quot;218&quot;:0,&quot;219&quot;:0}, &quot;&quot;, 0)"
+                               onclick="setShipsFleet({}, '', 0)"
                                data-overlay-inline="#fleetTemplatesEdit" data-overlay-title="Add new template">
                                 Add new template
                             </a>
                             <br class="clearfloat">
                         </div><!-- #fleetzOverview -->
                         <div id="fleetTemplatesEdit" style="display:none;">
-                            <form method="POST" action="#" name="submit_std" id="submit_std" value="1">
+                            <form method="POST" action="{{ route('fleet.save-standard-fleet') }}" name="submit_std" id="submit_std" value="1">
+                                @csrf
                                 <input type="hidden" name="open_std" value="1">
                                 <input type="hidden" name="template_id" id="template_id" value="0">
                                 <input type="hidden" name="mode" value="save">
@@ -989,12 +1013,14 @@ The &amp;#96;tactical retreat&amp;#96; option ends with 500,000 points.">
                                             <span class="icon icon_combatunits"></span>
                                             @lang('Standard fleets')
                                         </a>
-                                        <select class="combatunits dropdownInitialized" size="1" id="standardfleet"
+                                        <select class="standardfleet-select dropdownInitialized" size="1" id="standardfleet"
                                                 style="display: none;">
-                                            <option>-</option>
-                                            <option value="954">20 battleships</option>
-                                        </select><span class="dropdown currentlySelected combatunits" rel="dropdown484"
-                                                       style="width: 144px;"><a class="undefined" data-value="-"
+                                            <option value="">-</option>
+                                            @foreach($standardFleets as $fleet)
+                                                <option value="{{ $fleet['id'] }}">{{ $fleet['name'] }}</option>
+                                            @endforeach
+                                        </select><span class="dropdown currentlySelected standardfleet-select" rel="dropdown484"
+                                                       style="width: 144px;"><a class="undefined" data-value=""
                                                                                 rel="dropdown484"
                                                                                 href="javascript:void(0);">-</a></span>
                                     </div>

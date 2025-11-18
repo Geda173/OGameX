@@ -105,6 +105,7 @@ Route::middleware(['auth', 'globalgame', 'locale'])->group(function () {
 
     // Fleet
     Route::get('/fleet', [FleetController::class, 'index'])->name('fleet.index');
+    Route::post('/fleet', [FleetController::class, 'saveStandardFleet'])->name('fleet.save-standard-fleet');
     Route::get('/fleet/movement', [FleetController::class, 'movement'])->name('fleet.movement');
 
     Route::match(['get', 'post'], '/ajax/fleet/dispatch/check-target', [FleetController::class, 'dispatchCheckTarget'])->name('fleet.dispatch.checktarget');
