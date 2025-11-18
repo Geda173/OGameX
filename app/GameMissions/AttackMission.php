@@ -54,10 +54,11 @@ class AttackMission extends GameMission
         }
 
         // Check noob protection: can the attacker attack the target?
+        // Only check if target planet has an owner (not destroyed/abandoned)
         $attacker = $planet->getPlayer();
         $target = $targetPlanet->getPlayer();
 
-        if (!$attacker->canAttack($target)) {
+        if ($target !== null && !$attacker->canAttack($target)) {
             return new MissionPossibleStatus(false, __('The target player is under noob protection and cannot be attacked.'));
         }
 

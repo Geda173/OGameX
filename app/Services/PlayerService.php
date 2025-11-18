@@ -338,11 +338,16 @@ class PlayerService
     /**
      * Checks if this player can attack another player, considering all noob protection rules and exceptions.
      *
-     * @param PlayerService $target The target player
+     * @param PlayerService|null $target The target player
      * @return bool True if attack is allowed
      */
-    public function canAttack(PlayerService $target): bool
+    public function canAttack(?PlayerService $target): bool
     {
+        // Can't attack null/destroyed planets with no owner
+        if ($target === null) {
+            return true; // Allow attacking destroyed planets
+        }
+
         // Can't attack yourself
         if ($this->equals($target)) {
             return false;
