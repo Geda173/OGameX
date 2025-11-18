@@ -602,6 +602,11 @@ class PlayerService
     public function updateFleetMissions(): void
     {
         DB::transaction(function () {
+            // Ensure planets are loaded before accessing
+            if ($this->planets === null) {
+                throw new RuntimeException('PlayerService planets not initialized for player ID: ' . $this->getId());
+            }
+
             // Attempt to acquire a lock on the row for this planet. This is to prevent
             // race conditions when multiple requests are updating the fleet missions for the
             // same planet and potentially doing double insertions or overwriting each other's changes.
