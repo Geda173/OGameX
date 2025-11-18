@@ -301,22 +301,30 @@ class GalaxyController extends OGameController
         }
 
         if ($isForeignPlanet) {
-            // Espionage (only if foreign planet).
-            $availableMissions[] = [
-                'missionType' => 6,
-                'canSpy' => true,
-                'reportId' => '',
-                'reportLink' => '',
-                'link' => route('fleet.dispatch.sendfleet', ['galaxy' => $galaxy, 'system' => $system, 'position' => $position, 'type' => $planet->getPlanetType()->value, 'mission' => 6, 'am210' => 1]),
-                'name' => __('Espionage'),
-            ];
+            // Check if we can attack this player (considering noob protection)
+            $canAttack = $planetOwner !== null ? $this->playerService->canAttack($planetOwner) : true;
+            $canSpy = $planetOwner !== null ? !$planetOwner->isNewbie($this->playerService) : true;
 
-            // Attack (only if foreign planet).
-            $availableMissions[] = [
-                'missionType' => 1,
-                'link' => route('fleet.index', ['galaxy' => $galaxy, 'system' => $system, 'position' => $position, 'type' => $planet->getPlanetType()->value, 'mission' => 1]),
-                'name' => __('Attack'),
-            ];
+            // Espionage (only if foreign planet and not protected).
+            if ($canSpy) {
+                $availableMissions[] = [
+                    'missionType' => 6,
+                    'canSpy' => true,
+                    'reportId' => '',
+                    'reportLink' => '',
+                    'link' => route('fleet.dispatch.sendfleet', ['galaxy' => $galaxy, 'system' => $system, 'position' => $position, 'type' => $planet->getPlanetType()->value, 'mission' => 6, 'am210' => 1]),
+                    'name' => __('Espionage'),
+                ];
+            }
+
+            // Attack (only if foreign planet and not under noob protection).
+            if ($canAttack) {
+                $availableMissions[] = [
+                    'missionType' => 1,
+                    'link' => route('fleet.index', ['galaxy' => $galaxy, 'system' => $system, 'position' => $position, 'type' => $planet->getPlanetType()->value, 'mission' => 1]),
+                    'name' => __('Attack'),
+                ];
+            }
 
             // Moon destruction (only if planet is a moon).
             if ($planet->isMoon()) {
