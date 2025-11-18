@@ -727,7 +727,8 @@ class ACSAttackMission extends GameMission
         $report->planet_position = $defenderPlanet->getPlanetCoordinates()->position;
         $report->planet_type = $defenderPlanet->getPlanetType()->value;
 
-        $report->planet_user_id = $defenderPlanet->getPlayer()->getId();
+        $defenderPlayer = $defenderPlanet->getPlayer();
+        $report->planet_user_id = $defenderPlayer !== null ? $defenderPlayer->getId() : null;
 
         $report->general = [
             'moon_existed' => $battleResult->moonExisted,
@@ -762,7 +763,7 @@ class ACSAttackMission extends GameMission
         $report->attacker = $attackerData;
 
         $report->defender = [
-            'player_id' => $defenderPlanet->getPlayer()->getId(),
+            'player_id' => $defenderPlayer !== null ? $defenderPlayer->getId() : null,
             'resource_loss' => $battleResult->defenderResourceLoss->sum(),
             'units' => $battleResult->defenderUnitsStart->toArray(),
             'weapon_technology' => $battleResult->defenderWeaponLevel,
