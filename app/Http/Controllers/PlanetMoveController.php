@@ -76,13 +76,15 @@ class PlanetMoveController extends OGameController
                 throw new Exception('Planet can only be relocated to position ' . $coordinates->position . ' in a different solar system.');
             }
 
-            // Check if target position is free
+            // Check if target position is free (excluding the current planet)
             $existing_planet = Planet::where([
                 ['galaxy', $galaxy],
                 ['system', $system],
                 ['planet', $position],
                 ['destroyed', 0],
-            ])->first();
+            ])
+            ->where('id', '!=', $planet->id)
+            ->first();
 
             if ($existing_planet) {
                 throw new Exception('Target position is already occupied.');
