@@ -64,66 +64,102 @@
     </div>
 
     <script type="text/javascript">
-        $(document).ready(function() {
-            console.log('=== DM Relocate: Initializing ===');
-            console.log('Button element:', $('#dmRelocateButton'));
+        // Override movePlanet IMMEDIATELY before anything else can use it
+        console.log('=== DM Relocate: Script loading ===');
+        if (typeof window.movePlanet !== 'undefined') {
+            console.log('=== DM Relocate: Blocking global movePlanet ===');
+        }
+        window.movePlanet = function() {
+            console.log('=== DM Relocate: movePlanet() was called but blocked ===');
+            return false;
+        };
 
-            // Try to unbind any existing handlers
-            $('#dmRelocateButton').off('click');
+        // Use vanilla JS with capturing phase to intercept clicks FIRST
+        (function() {
+            console.log('=== DM Relocate: Setting up immediate handler ===');
 
-            // Override the global movePlanet function to prevent interference
-            if (typeof window.movePlanet !== 'undefined') {
-                console.log('=== DM Relocate: Disabling global movePlanet function ===');
-                var originalMovePlanet = window.movePlanet;
-                window.movePlanet = function() {
-                    console.log('=== DM Relocate: Global movePlanet called but blocked ===');
-                    return false;
-                };
-            }
-
-            $('#dmRelocateButton').on('click', function(e) {
-                console.log('=== DM Relocate: Click handler fired ===');
-                console.log('Event:', e);
+            function handleRelocate(e) {
+                console.log('=== DM Relocate: Click captured! ===');
+                console.log('Target:', e.target);
+                console.log('CurrentTarget:', e.currentTarget);
 
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
 
-                var galaxy = $('#dmGalaxyInput').val();
-                var system = $('#dmSystemInput').val();
-                var position = $('#dmPositionInput').val();
+                var galaxy = document.getElementById('dmGalaxyInput').value;
+                var system = document.getElementById('dmSystemInput').value;
+                var position = document.getElementById('dmPositionInput').value;
 
                 console.log('=== DM Relocate: Values ===', {galaxy: galaxy, system: system, position: position});
-                console.log('=== DM Relocate: Making AJAX call to {{ route('planetMove.relocate') }} ===');
+                console.log('=== DM Relocate: Making fetch call ===');
 
-                $.post('{{ route('planetMove.relocate') }}', {
-                    _token: '{{ csrf_token() }}',
-                    galaxy: galaxy,
-                    system: system,
-                    position: position
-                }, function(data) {
+                fetch('{{ route('planetMove.relocate') }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        galaxy: galaxy,
+                        system: system,
+                        position: position
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
                     console.log('=== DM Relocate: Success response ===', data);
                     if (data.success) {
-                        fadeBox(data.message, false);
+                        if (typeof fadeBox !== 'undefined') {
+                            fadeBox(data.message, false);
+                        } else {
+                            alert(data.message);
+                        }
                         setTimeout(function() {
                             window.location.href = '{{ route('overview.index') }}';
                         }, 2000);
                     } else {
-                        fadeBox(data.message, true);
+                        if (typeof fadeBox !== 'undefined') {
+                            fadeBox(data.message, true);
+                        } else {
+                            alert(data.message);
+                        }
                     }
-                }).fail(function(xhr) {
-                    console.log('=== DM Relocate: Error response ===', xhr);
-                    var message = 'An error occurred.';
-                    if (xhr.responseJSON && xhr.responseJSON.message) {
-                        message = xhr.responseJSON.message;
+                })
+                .catch(error => {
+                    console.log('=== DM Relocate: Error ===', error);
+                    var message = 'An error occurred: ' + error.message;
+                    if (typeof fadeBox !== 'undefined') {
+                        fadeBox(message, true);
+                    } else {
+                        alert(message);
                     }
-                    fadeBox(message, true);
                 });
 
                 return false;
-            });
+            }
 
-            console.log('=== DM Relocate: Initialization complete ===');
-        });
+            // Wait for button to exist, then bind with capture phase
+            function bindButton() {
+                var button = document.getElementById('dmRelocateButton');
+                if (button) {
+                    console.log('=== DM Relocate: Button found, binding handler with CAPTURE phase ===');
+                    // Use capture phase (true) to intercept before other handlers
+                    button.addEventListener('click', handleRelocate, true);
+                    console.log('=== DM Relocate: Handler bound ===');
+                } else {
+                    console.log('=== DM Relocate: Button not found yet, retrying... ===');
+                    setTimeout(bindButton, 100);
+                }
+            }
+
+            // Start immediately
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', bindButton);
+            } else {
+                bindButton();
+            }
+        })();
     </script>
 @endsection
