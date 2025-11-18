@@ -20,12 +20,13 @@ class PlanetMoveController extends OGameController
     public function index(PlayerService $player): View
     {
         $planet = $player->planets->current();
+        $coordinates = $planet->getPlanetCoordinates();
 
         return view('ingame.planetmove.index')->with([
             'planet' => $planet,
-            'current_galaxy' => $planet->galaxy,
-            'current_system' => $planet->system,
-            'current_position' => $planet->planet,
+            'current_galaxy' => $coordinates->galaxy,
+            'current_system' => $coordinates->system,
+            'current_position' => $coordinates->position,
             'dark_matter' => $player->getDarkMatter(),
             'relocation_cost' => 240000,
         ]);
@@ -45,7 +46,14 @@ class PlanetMoveController extends OGameController
             $system = (int)$request->input('system');
             $position = (int)$request->input('position');
 
-            $planet = $player->planets->current();
+            $planetService = $player->planets->current();
+            $coordinates = $planetService->getPlanetCoordinates();
+
+            // Get the actual Planet model
+            $planet = Planet::find($planetService->getPlanetId());
+            if (!$planet) {
+                throw new Exception('Planet not found.');
+            }
 
             // Validate coordinates
             if ($galaxy < 1 || $galaxy > 9) {
@@ -59,13 +67,13 @@ class PlanetMoveController extends OGameController
             }
 
             // Check if same location
-            if ($planet->galaxy === $galaxy && $planet->system === $system && $planet->planet === $position) {
+            if ($coordinates->galaxy === $galaxy && $coordinates->system === $system && $coordinates->position === $position) {
                 throw new Exception('Planet is already at this location.');
             }
 
             // IMPORTANT: Planet can only move to the same position number in a different solar system
-            if ($planet->planet !== $position) {
-                throw new Exception('Planet can only be relocated to position ' . $planet->planet . ' in a different solar system.');
+            if ($coordinates->position !== $position) {
+                throw new Exception('Planet can only be relocated to position ' . $coordinates->position . ' in a different solar system.');
             }
 
             // Check if target position is free
