@@ -11,6 +11,7 @@ use OGame\Models\Planet;
 use OGame\Models\PlanetRelocation;
 use OGame\Models\RepairQueue;
 use OGame\Models\ResearchQueue;
+use OGame\Models\User;
 use OGame\Services\PlayerService;
 
 class ProcessPlanetRelocations extends Command
@@ -135,7 +136,15 @@ class ProcessPlanetRelocations extends Command
         }
 
         // Check 6: Player still has enough Dark Matter
-        $user = $planet->user;
+        $user = User::find($relocation->user_id);
+        if (!$user) {
+            $relocation->cancelled = true;
+            $relocation->cancel_reason = 'User not found';
+            $relocation->save();
+            $this->warn('Relocation cancelled for planet ' . $planet->id . ': user not found');
+            return;
+        }
+
         $dm_cost = 240000;
         if ($user->dark_matter < $dm_cost) {
             $relocation->cancelled = true;
