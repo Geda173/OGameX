@@ -107,6 +107,24 @@ class User extends Authenticatable
     ];
 
     /**
+     * Bootstrap the model and its traits.
+     *
+     * @return void
+     */
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        // Set the 'time' field to current timestamp when creating a new user
+        // This ensures newly created users are not immediately marked as inactive
+        static::creating(function (User $user) {
+            if (empty($user->time)) {
+                $user->time = time();
+            }
+        });
+    }
+
+    /**
      * Get the user tech record associated with the user.
      *
      * @return HasOne
