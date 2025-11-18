@@ -830,7 +830,6 @@ class ExpeditionMission extends GameMission
             // TODO: Remove this filter once outcomes are fully implemented
             // For now, skip unimplemented outcomes
             if (in_array($outcome, [
-                ExpeditionOutcomeType::GainDarkMatter,
                 ExpeditionOutcomeType::GainItems,
                 ExpeditionOutcomeType::GainMerchantTrade,
                 ExpeditionOutcomeType::Battle,

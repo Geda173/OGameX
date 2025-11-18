@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('planet_relocations', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('planet_id');
+            $table->unsignedInteger('planet_id');
             $table->unsignedBigInteger('user_id');
             $table->integer('from_galaxy');
             $table->integer('from_system');
