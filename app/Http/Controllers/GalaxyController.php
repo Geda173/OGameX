@@ -602,6 +602,8 @@ class GalaxyController extends OGameController
                 'missionType' => 0,
                 'planetMovePossible' => true,
                 'moveAction' => 'prepareMove',
+                'moveLink' => route('planetMove.relocate'),
+                'galaxyLink' => route('galaxy.index'),
                 'title' => 'Relocate'
             ],
             [
