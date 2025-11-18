@@ -35,6 +35,11 @@ class TransportMission extends GameMission
             return new MissionPossibleStatus(false);
         }
 
+        // Transport missions to destroyed planets (no owner) are not possible
+        if ($targetPlanet->getPlayer() === null) {
+            return new MissionPossibleStatus(false);
+        }
+
         // If mission from and to coordinates and types are the same, the mission is not possible.
         if ($planet->getPlanetCoordinates()->equals($targetCoordinate) && $planet->getPlanetType() === $targetType) {
             return new MissionPossibleStatus(false);
