@@ -33,27 +33,27 @@
                         </p>
                     </div>
 
-                    <div id="relocateForm" style="margin-top: 20px;">
+                    <div id="dmRelocateContainer" style="margin-top: 20px;">
                         <div style="margin-bottom: 15px;">
-                            <label for="galaxy" style="display: inline-block; width: 100px;">@lang('Galaxy'):</label>
-                            <input type="number" id="galaxy" name="galaxy" min="1" max="9" value="{{ $current_galaxy }}" required
+                            <label for="dmGalaxyInput" style="display: inline-block; width: 100px;">@lang('Galaxy'):</label>
+                            <input type="number" id="dmGalaxyInput" name="dmGalaxyInput" min="1" max="9" value="{{ $current_galaxy }}" required
                                    style="width: 100px; padding: 5px;">
                         </div>
                         <div style="margin-bottom: 15px;">
-                            <label for="system" style="display: inline-block; width: 100px;">@lang('System'):</label>
-                            <input type="number" id="system" name="system" min="1" max="499" value="{{ $current_system }}" required
+                            <label for="dmSystemInput" style="display: inline-block; width: 100px;">@lang('System'):</label>
+                            <input type="number" id="dmSystemInput" name="dmSystemInput" min="1" max="499" value="{{ $current_system }}" required
                                    style="width: 100px; padding: 5px;">
                         </div>
                         <div style="margin-bottom: 15px;">
-                            <label for="position" style="display: inline-block; width: 100px;">@lang('Position'):</label>
-                            <input type="number" id="position" name="position" value="{{ $current_position }}" readonly
+                            <label for="dmPositionInput" style="display: inline-block; width: 100px;">@lang('Position'):</label>
+                            <input type="number" id="dmPositionInput" name="dmPositionInput" value="{{ $current_position }}" readonly
                                    style="width: 100px; padding: 5px; background: #333; color: #999; cursor: not-allowed;"
                                    title="@lang('Position cannot be changed - planets can only relocate to the same position in a different system')">
                             <span style="margin-left: 10px; color: #999;">(@lang('Fixed'))</span>
                         </div>
 
                         <div style="margin-top: 20px;">
-                            <button type="button" id="relocateBtn" class="btn btn-primary" style="padding: 10px 20px;">
+                            <button type="button" id="dmRelocateButton" class="btn btn-primary" style="padding: 10px 20px;">
                                 @lang('Relocate Planet')
                             </button>
                         </div>
@@ -65,14 +65,14 @@
 
     <script type="text/javascript">
         $(document).ready(function() {
-            $('#relocateBtn').on('click', function(e) {
+            $('#dmRelocateButton').on('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
 
-                var galaxy = $('#galaxy').val();
-                var system = $('#system').val();
-                var position = $('#position').val();
+                var galaxy = $('#dmGalaxyInput').val();
+                var system = $('#dmSystemInput').val();
+                var position = $('#dmPositionInput').val();
 
                 // Execute relocation immediately without confirmation (temporary workaround)
                 // TODO: Add proper confirmation dialog that doesn't trigger movePlanet
