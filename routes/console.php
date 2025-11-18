@@ -2,6 +2,7 @@
 
 use OGame\Console\Commands\GenerateHighscores;
 use OGame\Console\Commands\GenerateHighscoreRanks;
+use OGame\Console\Commands\ProcessPlanetRelocations;
 
 /*
 |--------------------------------------------------------------------------
@@ -16,3 +17,4 @@ use OGame\Console\Commands\GenerateHighscoreRanks;
 
 Schedule::command(GenerateHighscores::class)->everyFiveMinutes();
 Schedule::command(GenerateHighscoreRanks::class)->everyFiveMinutes();
+Schedule::command(ProcessPlanetRelocations::class)->everyMinute();
