@@ -19,21 +19,9 @@ class RustBattleEngineTest extends BattleEngineTestAbstract
     {
         return new RustBattleEngine(
             $attackerFleet,
-            $this->playerService,
+            $this->planetService->getPlayer(),
             $this->planetService,
-            $this->settingsService
+            resolve(\OGame\Services\SettingsService::class)
         );
-    }
-
-    /**
-     * Set up common test components.
-     */
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        // Initialize the planet and user tech models with empty data to avoid errors.
-        $this->createAndSetPlanetModel([]);
-        $this->createAndSetUserTechModel([]);
     }
 }

@@ -3,6 +3,7 @@
 namespace Tests;
 
 use Illuminate\Contracts\Container\BindingResolutionException;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use OGame\GameObjects\Models\Units\UnitCollection;
 use OGame\Models\Enums\PlanetType;
 use OGame\Models\Planet\Coordinate;
@@ -15,6 +16,7 @@ use OGame\Services\PlanetService;
  */
 abstract class FleetDispatchTestCase extends MoonTestCase
 {
+    use RefreshDatabase;
     /**
      * @var int The mission type for the test.
      */

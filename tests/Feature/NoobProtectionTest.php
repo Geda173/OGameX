@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use OGame\GameObjects\Models\Units\UnitCollection;
 use OGame\Models\Enums\PlanetType;
 use OGame\Models\Highscore;
@@ -15,8 +14,6 @@ use Tests\AccountTestCase;
  */
 class NoobProtectionTest extends AccountTestCase
 {
-    use RefreshDatabase;
-
     /**
      * Set up common test components.
      */

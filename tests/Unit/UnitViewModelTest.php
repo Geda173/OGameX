@@ -3,9 +3,9 @@
 namespace Tests\Unit;
 
 use OGame\ViewModels\UnitViewModel;
-use Tests\UnitTestCase;
+use Tests\AccountTestCase;
 
-class UnitViewModelTest extends UnitTestCase
+class UnitViewModelTest extends AccountTestCase
 {
     public function test_formatted_amount(): void
     {

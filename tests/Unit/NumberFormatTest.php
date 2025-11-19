@@ -3,9 +3,9 @@
 namespace Tests\Unit;
 
 use OGame\Facades\AppUtil;
-use PHPUnit\Framework\TestCase;
+use Tests\UnitTestCase;
 
-class NumberFormatTest extends TestCase
+class NumberFormatTest extends UnitTestCase
 {
     /**
      * Test that number formatting works as expected.

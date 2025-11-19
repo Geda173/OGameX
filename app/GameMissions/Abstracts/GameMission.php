@@ -214,6 +214,19 @@ abstract class GameMission
 
         $this->startMissionSanityChecks($planet, $targetCoordinate, $targetType, $units, $deduct_resources);
 
+        $totalCargoCapacity = $units->getTotalCargoCapacity($planet->getPlayer());
+
+        // Check if the player has sufficient deuterium storage capacity for the fleet.
+        if ($totalCargoCapacity < $consumption) {
+            throw new Exception(__('You don\'t have sufficient storage capacity!'));
+        }
+
+        // Check if the fleet will exceed the fleet cargo capacity.
+        $total_resources = $resources->sum();
+        if ($total_resources > $totalCargoCapacity) {
+            throw new Exception('Resources exceed fleet cargo capacity.');
+        }
+
         // Time this fleet mission will depart (now).
         $time_start = (int)Carbon::now()->timestamp;
 
@@ -355,7 +368,7 @@ abstract class GameMission
 
         // If planet_id_to is not set, it can mean that the target planet was colonized or the mission was canceled.
         // In this case, we keep planet_id_from as null.
-        if ($mission->type_to === PlanetType::Planet->value) {
+        if ($mission->type_to === PlanetType::Planet->value || $mission->type_to === PlanetType::Moon->value) {
             if ($parentMission->planet_id_to === null) {
                 // Attempt to load it from the target coordinates.
                 $targetPlanet = $this->planetServiceFactory->makeForCoordinate(new Coordinate($parentMission->galaxy_to, $parentMission->system_to, $parentMission->position_to));

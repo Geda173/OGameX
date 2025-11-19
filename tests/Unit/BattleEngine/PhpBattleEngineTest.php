@@ -23,9 +23,9 @@ class PhpBattleEngineTest extends BattleEngineTestAbstract
     {
         return new PhpBattleEngine(
             $attackerFleet,
-            $this->playerService,
+            $this->planetService->getPlayer(),
             $this->planetService,
-            $this->settingsService
+            resolve(\OGame\Services\SettingsService::class)
         );
     }
 }

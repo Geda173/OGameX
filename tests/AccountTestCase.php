@@ -5,6 +5,7 @@ namespace Tests;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Contracts\Container\BindingResolutionException;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use OGame\Factories\GameMessageFactory;
@@ -25,6 +26,7 @@ use OGame\Services\SettingsService;
  */
 abstract class AccountTestCase extends TestCase
 {
+    use RefreshDatabase;
     protected int $currentUserId = 0;
     protected string $currentUsername = '';
     protected int $userPlanetAmount = 2;
@@ -201,10 +203,13 @@ abstract class AccountTestCase extends TestCase
      */
     protected function getNearbyForeignPlanet(): PlanetService
     {
+        // Store the original user ID before potentially creating a new user
+        $originalUserId = $this->currentUserId;
+
         // Find a planet of another player that is close to the current player by checking the same galaxy
         // and up to 15 systems away.
         $planet_id = \DB::table('planets')
-            ->where('user_id', '!=', $this->currentUserId)
+            ->where('user_id', '!=', $originalUserId)
             ->where('galaxy', $this->planetService->getPlanetCoordinates()->galaxy)
             ->where('planet_type', PlanetType::Planet)
             ->whereBetween('system', [$this->planetService->getPlanetCoordinates()->system - 15, $this->planetService->getPlanetCoordinates()->system + 15])
@@ -212,14 +217,20 @@ abstract class AccountTestCase extends TestCase
             ->limit(1)
             ->pluck('id');
 
-        if ($planet_id === null) {
+        if ($planet_id === null || count($planet_id) === 0) {
             // No planets found, attempt to create a new user to see if this fixes it.
             $this->createAndLoginUser();
+            $newUserId = $this->currentUserId;
+
+            // Restore original user context
+            $this->be(User::find($originalUserId));
+            $this->currentUserId = $originalUserId;
+
+            // Now query for the newly created user's planet
             $planet_id = \DB::table('planets')
-                ->where('user_id', '!=', $this->currentUserId)
+                ->where('user_id', $newUserId)
                 ->where('galaxy', $this->planetService->getPlanetCoordinates()->galaxy)
                 ->where('planet_type', PlanetType::Planet)
-                ->whereBetween('system', [$this->planetService->getPlanetCoordinates()->system - 15, $this->planetService->getPlanetCoordinates()->system + 15])
                 ->inRandomOrder()
                 ->limit(1)
                 ->pluck('id');
@@ -355,6 +366,9 @@ abstract class AccountTestCase extends TestCase
     {
         // Update resources.
         $this->planetService->addResources($resources);
+
+        // Recalculate production stats after adding resources (fusion plants depend on deuterium storage)
+        $this->planetService->updateResourceProductionStats();
     }
 
     /**
@@ -381,7 +395,25 @@ abstract class AccountTestCase extends TestCase
     {
         // Update the object level on the planet.
         $object = ObjectService::getObjectByMachineName($machine_name);
-        $this->planetService->setObjectLevel($object->id, $object_level, true);
+        $this->planetService->setObjectLevel($object->id, $object_level, false);
+
+        // Ensure the building percentage is set to 100% (10) for production calculations
+        // Only set percent column if this building has production
+        $updateData = [$object->machine_name => $object_level];
+        if (isset($object->production)) {
+            $percentColumn = $machine_name . '_percent';
+            $updateData[$percentColumn] = 10;
+        }
+
+        \DB::table('planets')->where('id', $this->currentPlanetId)->update($updateData);
+
+        // Reload to pick up the updated values
+        $planetServiceFactory = resolve(\OGame\Factories\PlanetServiceFactory::class);
+        $this->planetService = $planetServiceFactory->make($this->currentPlanetId, true);
+        $this->planetService->reloadPlanet();
+
+        // Update production stats
+        $this->planetService->updateResourceProductionStats();
     }
 
     /**
@@ -393,8 +425,54 @@ abstract class AccountTestCase extends TestCase
      */
     protected function planetAddUnit(string $machine_name, int $amount): void
     {
-        // Update the object level on the planet.
-        $this->planetService->addUnit($machine_name, $amount);
+        $object = ObjectService::getUnitObjectByMachineName($machine_name);
+
+        // Check if this unit has production (like solar_satellite) and set percent column
+        $updateData = [$object->machine_name => $amount];
+        if (isset($object->production)) {
+            $percentColumn = $machine_name . '_percent';
+            $updateData[$percentColumn] = 10;
+        }
+
+        \DB::table('planets')->where('id', $this->currentPlanetId)->update($updateData);
+
+        // Reload to pick up the updated values
+        $planetServiceFactory = resolve(\OGame\Factories\PlanetServiceFactory::class);
+        $this->planetService = $planetServiceFactory->make($this->currentPlanetId, true);
+        $this->planetService->reloadPlanet();
+
+        // Update production stats
+        $this->planetService->updateResourceProductionStats();
+    }
+
+    /**
+     * Reload the planet service and recalculate production stats.
+     * Call this after setting multiple buildings/units to ensure production is calculated correctly.
+     *
+     * @return void
+     */
+    protected function planetReloadAndRecalculateProduction(): void
+    {
+        $planetServiceFactory = resolve(\OGame\Factories\PlanetServiceFactory::class);
+        $this->planetService = $planetServiceFactory->make($this->currentPlanetId, true);
+        $this->planetService->reloadPlanet();
+        $this->planetService->updateResourceProductionStats();
+    }
+
+    /**
+     * Reset resources on current planet to zero. Useful when you need exact resource amounts
+     * rather than accumulated amounts from starting resources.
+     *
+     * @return void
+     */
+    protected function planetResetResources(): void
+    {
+        $this->planetService->deductResources(new \OGame\Models\Resources(
+            $this->planetService->metal()->get(),
+            $this->planetService->crystal()->get(),
+            $this->planetService->deuterium()->get(),
+            0
+        ));
     }
 
     /**
