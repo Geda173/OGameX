@@ -81,12 +81,6 @@ class AttackMission extends GameMission
         $attackerPlayer = $origin_planet->getPlayer();
         $defenderPlayer = $defenderPlanet->getPlayer();
 
-        // Check if attacker should become outlaw (vogelfrei)
-        // This happens when a player under noob protection attacks a strong player
-        if ($attackerPlayer->isNewbie($defenderPlayer) && $defenderPlayer->isStrong($attackerPlayer)) {
-            $attackerPlayer->makeOutlaw();
-        }
-
         $attackerUnits = $this->fleetMissionService->getFleetUnits($mission);
 
         // If attacker planet was abandoned/destroyed after sending the attack,
@@ -100,6 +94,24 @@ class AttackMission extends GameMission
             $mission->processed = 1;
             $mission->save();
             return;
+        }
+
+        // If defender planet was abandoned/destroyed, cancel the attack
+        if ($defenderPlayer === null) {
+            \Log::info('Attack mission cancelled: defender planet was abandoned', [
+                'mission_id' => $mission->id,
+                'target_planet' => $mission->planet_id_to,
+            ]);
+            // Mark mission as processed without battle
+            $mission->processed = 1;
+            $mission->save();
+            return;
+        }
+
+        // Check if attacker should become outlaw (vogelfrei)
+        // This happens when a player under noob protection attacks a strong player
+        if ($attackerPlayer->isNewbie($defenderPlayer) && $defenderPlayer->isStrong($attackerPlayer)) {
+            $attackerPlayer->makeOutlaw();
         }
 
         // Execute the battle logic using configured battle engine

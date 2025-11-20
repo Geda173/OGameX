@@ -7,10 +7,12 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Carbon\Carbon;
 use OGame\Factories\GameMissionFactory;
 use OGame\Factories\PlanetServiceFactory;
 use OGame\GameObjects\Models\Units\UnitCollection;
 use OGame\Models\Enums\PlanetType;
+use OGame\Models\FleetMission;
 use OGame\Models\Planet\Coordinate;
 use OGame\Models\Resources;
 use OGame\Models\StandardFleet;
@@ -20,6 +22,7 @@ use OGame\Services\ObjectService;
 use OGame\Services\PlanetService;
 use OGame\Services\PlayerService;
 use OGame\Services\SettingsService;
+use OGame\ViewModels\FleetEventRowViewModel;
 use OGame\ViewModels\UnitViewModel;
 
 class FleetController extends OGameController
@@ -158,11 +161,180 @@ class FleetController extends OGameController
     /**
      * Shows the fleet movement page
      *
+     * @param PlayerService $player
+     * @param FleetMissionService $fleetMissionService
+     * @param PlanetServiceFactory $planetServiceFactory
      * @return View
      */
-    public function movement(): View
+    public function movement(PlayerService $player, FleetMissionService $fleetMissionService, PlanetServiceFactory $planetServiceFactory): View
     {
-        return view('ingame.fleet.movement');
+        // Get all the fleet movements for the current user.
+        $friendlyMissionRows = $fleetMissionService->getActiveFleetMissionsForCurrentPlayer();
+
+        $fleet_events = [];
+        foreach ($friendlyMissionRows as $row) {
+            // Planet from service
+            $eventRowViewModel = new FleetEventRowViewModel();
+            $eventRowViewModel->id = $row->id;
+            $eventRowViewModel->mission_type = $row->mission_type;
+            $eventRowViewModel->mission_label = $fleetMissionService->missionTypeToLabel($row->mission_type);
+            $eventRowViewModel->mission_time_arrival = $row->time_arrival;
+            $eventRowViewModel->mission_time_departure = $row->time_departure;
+            $eventRowViewModel->mission_time_holding = $row->time_holding ?? 0;
+            $eventRowViewModel->is_return_trip = !empty($row->parent_id); // If mission has a parent, it is a return trip
+
+            $eventRowViewModel->origin_planet_name = '';
+            $eventRowViewModel->origin_planet_coords = new Coordinate($row->galaxy_from, $row->system_from, $row->position_from);
+            $eventRowViewModel->origin_planet_type = PlanetType::from($row->type_from);
+
+            // Check if this is an expedition return trip (mission type 15 with parent_id)
+            if ($row->mission_type == 15 && !empty($row->parent_id)) {
+                // Expedition return trip: origin is deep space
+                $eventRowViewModel->origin_planet_name = __('Deep space');
+                $eventRowViewModel->origin_planet_type = PlanetType::DeepSpace;
+            } elseif ($row->planet_id_from !== null) {
+                $planetFromService = $planetServiceFactory->make($row->planet_id_from);
+                if ($planetFromService !== null) {
+                    $eventRowViewModel->origin_planet_name = $planetFromService->getPlanetName();
+                    $eventRowViewModel->origin_planet_coords = $planetFromService->getPlanetCoordinates();
+                }
+            }
+
+            $eventRowViewModel->destination_planet_name = '';
+            $eventRowViewModel->destination_planet_coords = new Coordinate($row->galaxy_to, $row->system_to, $row->position_to);
+            $eventRowViewModel->destination_planet_type = PlanetType::from($row->type_to);
+
+            // Check if this is an outbound expedition (mission type 15 without parent_id)
+            if ($row->mission_type == 15 && empty($row->parent_id)) {
+                // Outbound expedition: destination is deep space
+                $eventRowViewModel->destination_planet_name = __('Deep space');
+                $eventRowViewModel->destination_planet_type = PlanetType::DeepSpace;
+            } elseif ($row->planet_id_to !== null) {
+                $planetToService = $planetServiceFactory->make($row->planet_id_to);
+                if ($planetToService !== null) {
+                    $eventRowViewModel->destination_planet_name = $planetToService->getPlanetName();
+                    $eventRowViewModel->destination_planet_coords = $planetToService->getPlanetCoordinates();
+                }
+            }
+
+            $eventRowViewModel->fleet_unit_count = $fleetMissionService->getFleetUnitCount($row);
+            $eventRowViewModel->fleet_units = $fleetMissionService->getFleetUnits($row);
+            $eventRowViewModel->resources = $fleetMissionService->getResources($row);
+
+            // Initialize ACS properties with defaults
+            $eventRowViewModel->is_acs_group_creator = false;
+
+            // Check if this fleet is part of an ACS group
+            $acsFleetMember = \OGame\Models\AcsFleetMember::where('fleet_mission_id', $row->id)->first();
+            if ($acsFleetMember) {
+                $acsGroup = $acsFleetMember->acsGroup;
+                $eventRowViewModel->acs_group_id = $acsGroup->id;
+                $eventRowViewModel->acs_group_name = $acsGroup->name;
+                $eventRowViewModel->acs_fleet_count = $acsGroup->fleetMembers()->count();
+                $eventRowViewModel->is_acs_group_creator = ($acsGroup->creator_id === $player->getId());
+
+                // Get all participants in the ACS group and calculate total ship count
+                $participants = [];
+                $totalACSShipCount = 0;
+                $allFleetMembers = $acsGroup->fleetMembers()->with('fleetMission')->get();
+                foreach ($allFleetMembers as $member) {
+                    $fleetMission = $member->fleetMission;
+
+                    // Skip if fleet mission no longer exists (was recalled or deleted)
+                    if (!$fleetMission) {
+                        continue;
+                    }
+
+                    $originPlanet = $planetServiceFactory->make($fleetMission->planet_id_from);
+                    $fleetUnits = $fleetMissionService->getFleetUnits($fleetMission);
+                    $unitCount = $fleetMissionService->getFleetUnitCount($fleetMission);
+
+                    $participants[] = [
+                        'planet_name' => $originPlanet ? $originPlanet->getPlanetName() : 'Unknown',
+                        'coordinates' => $originPlanet ? $originPlanet->getPlanetCoordinates()->asString() : '',
+                        'player_id' => $fleetMission->user_id,
+                        'fleet_units' => $fleetUnits,
+                        'unit_count' => $unitCount,
+                    ];
+
+                    $totalACSShipCount += $unitCount;
+                }
+                $eventRowViewModel->acs_participants = $participants;
+
+                // Override fleet_unit_count with total ACS ship count for display
+                $eventRowViewModel->fleet_unit_count = $totalACSShipCount;
+            }
+
+            $friendlyStatus = $this->determineFriendly($row, $player);
+
+            $eventRowViewModel->mission_status = $friendlyStatus;
+            $eventRowViewModel->is_recallable = false;
+            $eventRowViewModel->recall_return_time = 0;
+            if ($friendlyStatus === 'own') {
+                $eventRowViewModel->is_recallable = true;
+                // Calculate recall return time: current time + time already spent traveling
+                $currentTime = Carbon::now()->timestamp;
+                $timeSpentTraveling = $currentTime - $row->time_departure;
+                $eventRowViewModel->recall_return_time = $currentTime + $timeSpentTraveling;
+            }
+
+            if ($row->time_holding > 0 && $row->time_arrival <= Carbon::now()->timestamp && $row->time_arrival + $row->time_holding > Carbon::now()->timestamp) {
+                // Do not include this parent mission in the list if the "main mission" has already arrived but the time_holding is still active.
+                // This applies to e.g. expedition mission that shows two rows:
+                // 1. The main mission that shows the fleet arriving.
+                // 2. A second main mission that shows the fleet arriving again after the time_holding --> this is the point at which the mission is actually processed.
+            } else {
+                $fleet_events[] = $eventRowViewModel;
+            }
+
+            // For the movement page, we don't add separate rows for return trips
+            // Instead, we'll display the return information on the same row in the template
+        }
+
+        // Order the fleet events by mission time arrival.
+        usort($fleet_events, function ($a, $b) {
+            return $a->mission_time_arrival - $b->mission_time_arrival;
+        });
+
+        return view('ingame.fleet.movement')->with([
+            'fleet_events' => $fleet_events,
+        ]);
+    }
+
+    /**
+     * Returns whether the fleet mission is own, friendly, neutral or hostile.
+     *
+     * @param FleetMission $mission
+     * @param PlayerService $player
+     *
+     * @return string ('own', 'friendly', 'neutral' or 'hostile')
+     */
+    private function determineFriendly(FleetMission $mission, PlayerService $player): string
+    {
+        // Check if mission belongs to current player
+        if ($mission->user_id == $player->getId()) {
+            return 'own';
+        }
+
+        // Not from the current player, check mission type.
+        switch ($mission->mission_type) {
+            case 1:
+            case 2:
+            case 6:
+            case 9:
+            case 10: // Missile Attack
+                // Hostile
+                return 'hostile';
+            case 3:
+                // Neutral
+                return 'neutral';
+            case 5: // ACS Defend
+                // Friendly - another player defending our planet
+                return 'friendly';
+            default:
+                // Default to friendly for transport and other peaceful missions
+                return 'friendly';
+        }
     }
 
     /**
