@@ -303,9 +303,10 @@ class GalaxyController extends OGameController
         if ($isForeignPlanet) {
             // Check if we can attack this player (considering noob protection)
             $canAttack = $planetOwner !== null ? $this->playerService->canAttack($planetOwner) : true;
-            $canSpy = $planetOwner !== null ? !$planetOwner->isNewbie($this->playerService) : true;
+            // Admin-tagged players can always be spied on (show espionage button)
+            $canSpy = $planetOwner !== null ? (!$planetOwner->isNewbie($this->playerService) || $planetOwner->isAdmin()) : true;
 
-            // Espionage (only if foreign planet and not protected).
+            // Espionage (only if foreign planet and not protected, or if admin).
             if ($canSpy) {
                 $availableMissions[] = [
                     'missionType' => 6,
@@ -368,8 +369,10 @@ class GalaxyController extends OGameController
         $inRange = ($currentPlanet->getPlanetCoordinates()->galaxy === $planet->getPlanetCoordinates()->galaxy) && ($distance <= $missileRange);
 
         // Can only attack other players' planets (destroyed planets with no owner can be attacked)
+        // Exception: Admin-tagged players can always be attacked with missiles (even if normally protected)
         $planetOwner = $planet->getPlayer();
         $isOwnPlanet = $planetOwner !== null && $planetOwner->equals($this->playerService);
+        $isAdminTarget = $planetOwner !== null && $planetOwner->isAdmin();
         $canMissileAttack = $hasMissiles && $inRange && !$isOwnPlanet;
 
         // Build missile attack link with all necessary parameters

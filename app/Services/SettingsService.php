@@ -415,6 +415,46 @@ class SettingsService
     }
 
     /**
+     * Returns the expedition resource rewards multiplier.
+     *
+     * @return float
+     */
+    public function expeditionRewardMultiplierResources(): float
+    {
+        return (float)$this->get('expedition_reward_multiplier_resources', 1.0);
+    }
+
+    /**
+     * Returns the expedition ship rewards multiplier.
+     *
+     * @return float
+     */
+    public function expeditionRewardMultiplierShips(): float
+    {
+        return (float)$this->get('expedition_reward_multiplier_ships', 1.0);
+    }
+
+    /**
+     * Returns the expedition dark matter rewards multiplier.
+     *
+     * @return float
+     */
+    public function expeditionRewardMultiplierDarkMatter(): float
+    {
+        return (float)$this->get('expedition_reward_multiplier_dark_matter', 1.0);
+    }
+
+    /**
+     * Returns the expedition item rewards multiplier.
+     *
+     * @return float
+     */
+    public function expeditionRewardMultiplierItems(): float
+    {
+        return (float)$this->get('expedition_reward_multiplier_items', 1.0);
+    }
+
+    /**
      * Returns the expedition outcome weight for ships (0-100 scale, relative).
      *
      * @return float

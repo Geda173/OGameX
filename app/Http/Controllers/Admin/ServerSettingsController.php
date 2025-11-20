@@ -41,7 +41,10 @@ class ServerSettingsController extends OGameController
             'number_of_galaxies' => $settingsService->numberOfGalaxies(),
             'battle_engine' => $settingsService->battleEngine(),
             'bonus_expedition_slots' => $settingsService->bonusExpeditionSlots(),
-            'expedition_rewards_multiplier' => $settingsService->expeditionRewardsMultiplier(),
+            'expedition_reward_multiplier_resources' => $settingsService->expeditionRewardMultiplierResources(),
+            'expedition_reward_multiplier_ships' => $settingsService->expeditionRewardMultiplierShips(),
+            'expedition_reward_multiplier_dark_matter' => $settingsService->expeditionRewardMultiplierDarkMatter(),
+            'expedition_reward_multiplier_items' => $settingsService->expeditionRewardMultiplierItems(),
             'expedition_weight_ships' => $settingsService->expeditionWeightShips(),
             'expedition_weight_resources' => $settingsService->expeditionWeightResources(),
             'expedition_weight_delay' => $settingsService->expeditionWeightDelay(),
@@ -90,7 +93,10 @@ class ServerSettingsController extends OGameController
 
         // Expedition event settings
         $settingsService->set('bonus_expedition_slots', request('bonus_expedition_slots', 0));
-        $settingsService->set('expedition_rewards_multiplier', request('expedition_rewards_multiplier', 1.0));
+        $settingsService->set('expedition_reward_multiplier_resources', request('expedition_reward_multiplier_resources', 1.0));
+        $settingsService->set('expedition_reward_multiplier_ships', request('expedition_reward_multiplier_ships', 1.0));
+        $settingsService->set('expedition_reward_multiplier_dark_matter', request('expedition_reward_multiplier_dark_matter', 1.0));
+        $settingsService->set('expedition_reward_multiplier_items', request('expedition_reward_multiplier_items', 1.0));
         $settingsService->set('expedition_weight_ships', request('expedition_weight_ships', 24));
         $settingsService->set('expedition_weight_resources', request('expedition_weight_resources', 34));
         $settingsService->set('expedition_weight_delay', request('expedition_weight_delay', 9));

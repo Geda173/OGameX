@@ -443,9 +443,9 @@ class ExpeditionMission extends GameMission
         $units = $this->fleetMissionService->getFleetUnits(mission: $mission);
         $maxCargoCapacity = $units->getTotalCargoCapacity($player);
 
-        // Determine the max resource find.
-        $maxResourceFind = $this->determineMaxResourceFind();
-        $cargoCapacityConstrainedAmount = min($maxCargoCapacity, $maxResourceFind);
+        // Determine the max ship find (uses ships multiplier).
+        $maxShipFind = $this->determineMaxShipFind();
+        $cargoCapacityConstrainedAmount = min($maxCargoCapacity, $maxShipFind);
 
         // Select 1-6 random ship types from possible ships.
         $num_ship_types = min(random_int(1, 6), count($possibleShips));
@@ -531,6 +531,11 @@ class ExpeditionMission extends GameMission
         // Determine dark matter amount based on rank 1 player score
         $darkMatterAmount = $this->determineDarkMatterFind();
 
+        // Apply dark matter rewards multiplier (for timed events)
+        $settingsService = app(SettingsService::class);
+        $darkMatterMultiplier = $settingsService->expeditionRewardMultiplierDarkMatter();
+        $darkMatterAmount = (int)($darkMatterAmount * $darkMatterMultiplier);
+
         // Add dark matter to player
         $player->addDarkMatter($darkMatterAmount);
 
@@ -564,6 +569,7 @@ class ExpeditionMission extends GameMission
         $player = $this->playerServiceFactory->make($mission->user_id, true);
 
         // TODO: Implement actual item giving logic when items themselves are implemented.
+        // TODO: Apply item rewards multiplier using $settingsService->expeditionRewardMultiplierItems()
 
         // Send a message to the player with the item found outcome.
         $message_variation_id = ExpeditionGainItem::getRandomMessageVariationId();
@@ -926,10 +932,62 @@ class ExpeditionMission extends GameMission
 
         // TODO: when pathfinder unit is added to the game and included in the fleet, the max find should be doubled.
 
-        // Apply expedition rewards multiplier (for timed events)
+        // Apply expedition resource rewards multiplier (for timed events)
         $settingsService = app(SettingsService::class);
-        $rewardsMultiplier = $settingsService->expeditionRewardsMultiplier();
-        $resourceAmount = $resourceAmount * $rewardsMultiplier;
+        $resourcesMultiplier = $settingsService->expeditionRewardMultiplierResources();
+        $resourceAmount = $resourceAmount * $resourcesMultiplier;
+
+        return (int)$resourceAmount;
+    }
+
+    /**
+     * Determine the max resource find for ships based on the rank 1 player highscore points.
+     * Similar to determineMaxResourceFind() but applies the ships multiplier instead.
+     *
+     * @return int
+     */
+    private function determineMaxShipFind(): int
+    {
+        // Use the same base calculation as determineMaxResourceFind()
+        $rank_1_highscore_points = Highscore::orderByDesc(HighscoreTypeEnum::general->name)->first()->general;
+
+        if ($rank_1_highscore_points < 10000) {
+            $max = 40000;
+        } elseif ($rank_1_highscore_points < 100000) {
+            $max = 500000;
+        } elseif ($rank_1_highscore_points < 1000000) {
+            $max = 1200000;
+        } elseif ($rank_1_highscore_points < 5000000) {
+            $max = 1800000;
+        } elseif ($rank_1_highscore_points < 25000000) {
+            $max = 2400000;
+        } elseif ($rank_1_highscore_points < 50000000) {
+            $max = 3000000;
+        } elseif ($rank_1_highscore_points < 75000000) {
+            $max = 3600000;
+        } elseif ($rank_1_highscore_points < 100000000) {
+            $max = 4200000;
+        } else {
+            $max = 5000000;
+        }
+
+        // Set min to at least 10% of the max.
+        $min = max(1, (int)floor($max * 0.1));
+
+        // Pick a random amount between min and max.
+        $resourceAmount = random_int($min, $max);
+
+        // TODO: when actual player classes such as discoverer, collector etc. are implemented, make this modifier apply only if class is "discoverer".
+        // For now we apply it anyway so the economy speed is applied to the resource find.
+        $economySpeed = $this->settings->economySpeed();
+        $resourceAmount = $resourceAmount * ($economySpeed * 1.5);
+
+        // TODO: when pathfinder unit is added to the game and included in the fleet, the max find should be doubled.
+
+        // Apply expedition ship rewards multiplier (for timed events)
+        $settingsService = app(SettingsService::class);
+        $shipsMultiplier = $settingsService->expeditionRewardMultiplierShips();
+        $resourceAmount = $resourceAmount * $shipsMultiplier;
 
         return (int)$resourceAmount;
     }

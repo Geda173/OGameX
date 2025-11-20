@@ -32,7 +32,9 @@ class EspionageMission extends GameMission
         }
 
         // If target planet does not exist, the mission is not possible.
-        $targetPlanet = $this->planetServiceFactory->makeForCoordinate($targetCoordinate, true, $targetType);
+        // Force reload from database (useCache=false) to ensure we get the latest planet state
+        // This is important for destroyed planets which may have been recently abandoned
+        $targetPlanet = $this->planetServiceFactory->makeForCoordinate($targetCoordinate, false, $targetType);
         if ($targetPlanet === null) {
             return new MissionPossibleStatus(false);
         }
@@ -57,7 +59,8 @@ class EspionageMission extends GameMission
         $spy = $planet->getPlayer();
         $target = $targetPlanet->getPlayer();
 
-        if ($target->isNewbie($spy)) {
+        // Skip noob protection check for destroyed planets (which have null player)
+        if ($target !== null && $target->isNewbie($spy)) {
             return new MissionPossibleStatus(false, __('The target player is under noob protection and cannot be spied on.'));
         }
 

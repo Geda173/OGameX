@@ -15,8 +15,8 @@ return new class () extends Migration {
         Schema::create('planets', function (Blueprint $table) {
             // Planet specific
             $table->increments('id');
-            $table->integer('user_id', false, true);
-            $table->foreign('user_id')->references('id')->on('users');
+            $table->integer('user_id', false, true)->nullable();
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('set null');
             $table->string('name');
             $table->integer('galaxy');
             $table->integer('system');

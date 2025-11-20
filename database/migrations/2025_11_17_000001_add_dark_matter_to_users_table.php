@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->float('dark_matter', 16)->default(0)->after('remember_token');
+            $table->float('dark_matter', 16)->default(0);
         });
     }
 

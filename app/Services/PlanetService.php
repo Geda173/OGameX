@@ -5,6 +5,7 @@ namespace OGame\Services;
 use Exception;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use OGame\Factories\PlanetServiceFactory;
 use OGame\Factories\PlayerServiceFactory;
 use OGame\GameObjects\Models\Abstracts\GameObject;
 use OGame\GameObjects\Models\Enums\GameObjectType;
@@ -202,8 +203,19 @@ class PlanetService
         }
 
         // If this is a planet and has a moon, delete the moon first
-        if ($this->isPlanet() && $this->hasMoon()) {
-            $this->moon()->abandonPlanet();
+        // Query database directly to avoid issues with cached player collection
+        if ($this->isPlanet()) {
+            $moon = Planet::where('galaxy', $this->getPlanetCoordinates()->galaxy)
+                ->where('system', $this->getPlanetCoordinates()->system)
+                ->where('planet', $this->getPlanetCoordinates()->position)
+                ->where('planet_type', PlanetType::Moon->value)
+                ->first();
+
+            if ($moon !== null) {
+                $planetServiceFactory = resolve(PlanetServiceFactory::class);
+                $moonService = $planetServiceFactory->make($moon->id, true);
+                $moonService->abandonPlanet();
+            }
         }
 
         // Anonymize the planet in all tables where it is referenced.
@@ -238,7 +250,7 @@ class PlanetService
             $destructionDuration = rand(86400, 172800);
             $this->planet->destroyed = 1;
             $this->planet->destroyed_at = Carbon::now()->timestamp + $destructionDuration;
-            $this->planet->user_id = null; // Remove ownership (NULL instead of 0 for FK constraint)
+            $this->planet->user_id = null; // Remove ownership
             $this->save();
         }
 
