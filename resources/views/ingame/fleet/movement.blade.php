@@ -16,7 +16,7 @@
         <div id="movement">
             <div id="inhalt">
                 <header id="planet" class="planet-header ">
-                    <h2>Fleet movement - MyBaseYo</h2>
+                    <h2>@lang('Fleet movement')</h2>
                     <a class="toggleHeader" data-name="movement">
                         <img alt="" src="/img/icons/3e567d6f16d040326c7a0ea29a4f41.gif" height="22" width="22">
                     </a>
@@ -27,14 +27,14 @@
             <span class="reload">
                 <a class="dark_highlight_tablet" href="javascript:void(0);" onclick="reloadPage();">
                     <span class="icon icon_reload"></span>
-                    <span>Reload</span>
+                    <span>@lang('Reload')</span>
                 </a>
             </span>
                     <span class="fleetSlots">
-                Fleets: <span class="current">3</span> / <span class="all">4</span>
+                @lang('Fleets:'): <span class="current">{{ count($fleet_events) }}</span> / <span class="all">{{ count($fleet_events) }}</span>
             </span>
                     <span class="expSlots">
-                Expeditions: <span class="current">0</span> / <span class="all">1</span>
+                @lang('Expeditions:'): <span class="current">0</span> / <span class="all">1</span>
             </span>
                     <span class="closeAll">
                 <a href="javascript:void(0);" class="all_open">
@@ -42,274 +42,93 @@
                 </a>
             </span>
                 </div>
-                <div id="fleet1827745" class="fleetDetails detailsOpened" data-mission-type="1" data-return-flight="1" data-arrival-time="1710806988">
-                    <span class="timer tooltip tpd-hideOnClickOutside" title="" id="timer_1827745">54m 45s</span>
-                    <span class="absTime">00:09:48  Clock</span>
-                    <span class="mission hostile textBeefy">Attack (R)</span>
+                @foreach($fleet_events as $fleet_event)
+                <div id="fleet{{ $fleet_event->id }}" class="fleetDetails detailsOpened" data-mission-type="{{ $fleet_event->mission_type }}" data-return-flight="{{ $fleet_event->is_return_trip ? '1' : '' }}" data-arrival-time="{{ $fleet_event->mission_time_arrival }}">
+                    <span class="timer tooltip tpd-hideOnClickOutside" title="{{ date('d.m.Y H:i:s', $fleet_event->mission_time_arrival) }}" id="timer_{{ $fleet_event->id }}">{{ gmdate('H\h i\m s\s', $fleet_event->mission_time_arrival - time()) }}</span>
+                    <span class="absTime">{{ date('H:i:s', $fleet_event->mission_time_arrival) }}  Clock</span>
+                    <span class="mission {{ $fleet_event->mission_status }} textBeefy">{{ $fleet_event->mission_label }}{{ $fleet_event->is_return_trip ? ' (R)' : '' }}</span>
                     <span class="allianceName"></span>
                     <span class="originData">
-                    <span class="originCoords tooltip" title="President Hati"><a href="{{ route('galaxy.index', ['galaxy' => 7, 'system' => 158])  }}">[7:158:10]</a></span>
+                    <span class="originCoords tooltip" title="{{ $fleet_event->origin_planet_name }}"><a href="{{ route('galaxy.index', ['galaxy' => $fleet_event->origin_planet_coords->galaxy, 'system' => $fleet_event->origin_planet_coords->system])  }}">[{{ $fleet_event->origin_planet_coords->galaxy }}:{{ $fleet_event->origin_planet_coords->system }}:{{ $fleet_event->origin_planet_coords->position }}]</a></span>
                     <span class="originPlanet">
-                                                    <figure class="planetIcon planet"></figure>MyBaseYo
-                                            </span>
+                        @if($fleet_event->origin_planet_type && $fleet_event->origin_planet_type->value === 1)
+                            <figure class="planetIcon planet"></figure>{{ $fleet_event->origin_planet_name }}
+                        @elseif($fleet_event->origin_planet_type && $fleet_event->origin_planet_type->value === 2)
+                            <figure class="planetIcon debris"></figure>{{ $fleet_event->origin_planet_name }}
+                        @elseif($fleet_event->origin_planet_type && $fleet_event->origin_planet_type->value === 3)
+                            <figure class="planetIcon moon"></figure>{{ $fleet_event->origin_planet_name }}
+                        @else
+                            {{ $fleet_event->origin_planet_name }}
+                        @endif
+                    </span>
                 </span>
                     <span class="marker01"></span>
                     <span class="marker02"></span>
                     <span class="fleetDetailButton">
-                    <a href="#bl1827745" rel="bl1827745" title="Fleet details" class="tooltipRel tooltipClose fleet_icon_reverse">
+                    <a href="#bl{{ $fleet_event->id }}" rel="bl{{ $fleet_event->id }}" title="@lang('Fleet details')" class="tooltipRel tooltipClose fleet_icon_{{ $fleet_event->is_return_trip ? 'reverse' : 'forward' }}">
                     </a>
                 </span>
-                    <span class="starStreak">
-                    <div style="position: relative;">
-                        <div class="origin fixed">
-                            <!-- TODO: actual (mini) planet icon should be rendered here instead of static one like now. -->
-                            <img class="tooltipHTML tpd-hideOnClickOutside" height="30" width="30" src="/img/icons/32926d2ee2884eab5015c14c73afa3.png" title="" alt="">
-                        </div>
-
-                        <div class="route fixed">
-
-                            <a href="#bl1827745" rel="bl1827745" title="Fleet details" class="tooltipRel tooltipClose basic2 fleet_icon_reverse" id="route_1827745" style="margin-left: 220px;"></a>
-
-                            <div style="display:none;" id="bl1827745">
-                                <div class="htmlTooltip">
-    <h1>Fleet details:</h1>
-    <div class="splitLine"></div>
-    <table cellpadding="0" cellspacing="0" class="fleetinfo">
-        <tbody><tr>
-            <th colspan="2">Ships:</th>
-        </tr>
-                <tr>
-            <td>Small Cargo:</td>
-            <td class="value">
-                            4                        </td>
-        </tr>
-                <tr>
-            <td colspan="2">&nbsp;</td>
-        </tr>
-        <tr>
-            <th colspan="2">Shipment:</th>
-        </tr>
-        <tr>
-            <td>Metal:</td>
-            <td class="value">
-                5,000            </td>
-        </tr>
-        <tr>
-            <td>Crystal:</td>
-            <td class="value">
-                5,000            </td>
-        </tr>
-        <tr>
-            <td>Deuterium:</td>
-            <td class="value">
-                0            </td>
-        </tr>
-                    <tr>
-                <td>Food:</td>
-                <td class="value">
-                    5                </td>
-            </tr>
-            </tbody></table>
-</div>
-
-                            </div>
-
-                        </div>
-
-                        <div class="destination fixed">
-                            <img class="tooltipHTML" height="30" width="30" src="/img/icons/0a0346dd4999bd04761fc6b086e7a1.png" title="Start time:| 18.03.2024<br>23:01:36" alt="">
-                        </div>
-                    </div>
-                </span><!-- Starstreak -->
-                    <span class="destinationData">
-                                            <span class="destinationPlanet status_abbr_inactive">
-
-                            <span>
-                                                                                                            <figure class="planetIcon planet"></figure>Homeworld
-                                                                                                </span>
-                        </span>
-
-                                            <span class="destinationCoords tooltip tpd-hideOnClickOutside" title=""><a href="{{ route('galaxy.index', ['galaxy' => 7, 'system' => 158])  }}">[7:158:6]</a></span>
-                                    </span>
-
-                    <a href="javascript:void(0)" class="sendMail js_openChat tooltip" data-playerid="113969" title="Send a message to Bandit Flame."><span class="icon icon_chat"></span></a>
-                    <span class="openDetails">
-                    <a href="javascript:void(0);" class="openCloseDetails" data-mission-id="1827745" data-end-time="1710806988">
-                                                    <img src="/img/icons/577565fadab7780b0997a76d0dca9b.gif" height="16" width="16">
-                                            </a>
-                </span>
-                </div>
-                <div id="fleet1827772" class="fleetDetails detailsOpened" data-mission-type="1" data-return-flight="1" data-arrival-time="1710807022">
-                    <span class="timer tooltip" title="19.03.2024 00:10:22" id="timer_1827772">55m 19s</span>
-                    <span class="absTime">00:10:22  Clock</span>
-                    <span class="mission hostile textBeefy">Attack (R)</span>
-                    <span class="allianceName"></span>
-                    <span class="originData">
-                    <span class="originCoords tooltip" title="President Hati"><a href="{{ route('galaxy.index', ['galaxy' => 7, 'system' => 158])  }}">[7:158:10]</a></span>
-                    <span class="originPlanet">
-                                                    <figure class="planetIcon planet"></figure>MyBaseYo
-                                            </span>
-                </span>
-                    <span class="marker01"></span>
-                    <span class="marker02"></span>
-                    <span class="fleetDetailButton">
-                    <a href="#bl1827772" rel="bl1827772" title="Fleet details" class="tooltipRel tooltipClose fleet_icon_reverse">
-                    </a>
-                </span>
-                    <span class="starStreak">
-                    <div style="position: relative;">
-                        <div class="origin fixed">
-                            <img class="tooltipHTML" height="30" width="30" src="/img/icons/32926d2ee2884eab5015c14c73afa3.png" title="Time of arrival:| 19.03.2024<br>00:10:22" alt="">
-                        </div>
-
-                        <div class="route fixed">
-
-                            <a href="#bl1827772" rel="bl1827772" title="Fleet details" class="tooltipRel tooltipClose basic2 fleet_icon_reverse" id="route_1827772" style="margin-left: 222px;"></a>
-
-                            <div style="display:none;" id="bl1827772">
-                                <div class="htmlTooltip">
-    <h1>Fleet details:</h1>
-    <div class="splitLine"></div>
-    <table cellpadding="0" cellspacing="0" class="fleetinfo">
-        <tbody><tr>
-            <th colspan="2">Ships:</th>
-        </tr>
-                <tr>
-            <td>Small Cargo:</td>
-            <td class="value">
-                            1                        </td>
-        </tr>
-                <tr>
-            <td>Light Fighter:</td>
-            <td class="value">
-                            8                        </td>
-        </tr>
-                <tr>
-            <td colspan="2">&nbsp;</td>
-        </tr>
-        <tr>
-            <th colspan="2">Shipment:</th>
-        </tr>
-        <tr>
-            <td>Metal:</td>
-            <td class="value">
-                2,501            </td>
-        </tr>
-        <tr>
-            <td>Crystal:</td>
-            <td class="value">
-                2,500            </td>
-        </tr>
-        <tr>
-            <td>Deuterium:</td>
-            <td class="value">
-                0            </td>
-        </tr>
-                    <tr>
-                <td>Food:</td>
-                <td class="value">
-                    0                </td>
-            </tr>
-            </tbody></table>
-</div>
-
-                            </div>
-
-                        </div>
-
-                        <div class="destination fixed">
-                            <img class="tooltipHTML" height="30" width="30" src="/img/icons/0a0346dd4999bd04761fc6b086e7a1.png" title="Start time:| 18.03.2024<br>23:02:10" alt="">
-                        </div>
-                    </div>
-                </span><!-- Starstreak -->
-                    <span class="destinationData">
-                                            <span class="destinationPlanet status_abbr_inactive">
-
-                            <span>
-                                                                                                            <figure class="planetIcon planet"></figure>Homeworld
-                                                                                                </span>
-                        </span>
-
-                                            <span class="destinationCoords tooltip" title="Bandit Flame"><a href="{{ route('galaxy.index', ['galaxy' => 7, 'system' => 158])  }}">[7:158:6]</a></span>
-                                    </span>
-
-                    <a href="javascript:void(0)" class="sendMail js_openChat tooltip" data-playerid="113969" title="Send a message to Bandit Flame."><span class="icon icon_chat"></span></a>
-                    <span class="openDetails">
-                    <a href="javascript:void(0);" class="openCloseDetails" data-mission-id="1827772" data-end-time="1710807022">
-                                                    <img src="/img/icons/577565fadab7780b0997a76d0dca9b.gif" height="16" width="16">
-                                            </a>
-                </span>
-                </div>
-                <div id="fleet1829594" class="fleetDetails detailsOpened" data-mission-type="7" data-return-flight="" data-arrival-time="1710900719">
-                    <span class="timer tooltip" title="19.03.2024 12:26:52" id="timer_1829594">13h 11m 49s</span>
-                    <span class="absTime">12:26:52  Clock</span>
-                    <span class="mission neutral textBeefy">Colonisation</span>
-                    <span class="allianceName"></span>
-                    <span class="originData">
-                    <span class="originCoords tooltip" title="President Hati"><a href="{{ route('galaxy.index', ['galaxy' => 7, 'system' => 158])  }}">[7:158:10]</a></span>
-                    <span class="originPlanet">
-                                                    <figure class="planetIcon planet"></figure>MyBaseYo
-                                            </span>
-                </span>
-                    <span class="marker01"></span>
-                    <span class="marker02"></span>
-                    <span class="fleetDetailButton">
-                    <a href="#bl1829594" rel="bl1829594" title="Fleet details" class="tooltipRel tooltipClose fleet_icon_forward">
-                    </a>
-                </span>
-                    <span class="reversal reversal_time ipiHintable" ref="1829594" data-ipi-hint="ipiFleetRecall">
-                        <a class="icon_link tooltipHTML" href="{{ route('fleet.movement', ['return' => 1829594])  }}&amp;token=85cb33c35cf4c438287916336573a3b3" title="Recall:| 18.03.2024<br>23:48:01">
+                    @if($fleet_event->is_recallable && !$fleet_event->is_return_trip)
+                    <span class="reversal reversal_time ipiHintable" ref="{{ $fleet_event->id }}" data-ipi-hint="ipiFleetRecall">
+                        <a class="icon_link tooltipHTML" href="{{ route('fleet.movement', ['return' => $fleet_event->id]) }}&amp;token={{ csrf_token() }}" title="@lang('Recall:')| {{ date('d.m.Y', $fleet_event->recall_return_time) }}<br>{{ date('H:i:s', $fleet_event->recall_return_time) }}">
                             <img src="/img/icons/89624964d4b06356842188dba05b1b.gif" height="16" width="16">
                         </a>
                     </span>
+                    @endif
                     <span class="starStreak">
                     <div style="position: relative;">
                         <div class="origin fixed">
-                            <img class="tooltipHTML" height="30" width="30" src="/img/icons/32926d2ee2884eab5015c14c73afa3.png" title="Start time:| 18.03.2024<br>22:41:45" alt="">
+                            <img class="tooltipHTML tpd-hideOnClickOutside" height="30" width="30" src="/img/icons/32926d2ee2884eab5015c14c73afa3.png" title="@lang('Start time:')| {{ date('d.m.Y', $fleet_event->mission_time_departure) }}<br>{{ date('H:i:s', $fleet_event->mission_time_departure) }}" alt="">
                         </div>
 
                         <div class="route fixed">
 
-                            <a href="#bl1829594" rel="bl1829594" title="Fleet details" class="tooltipRel tooltipClose basic2 fleet_icon_forward" id="route_1829594" style="margin-left: 11px;"></a>
+                            <a href="#bl{{ $fleet_event->id }}" rel="bl{{ $fleet_event->id }}" title="@lang('Fleet details')" class="tooltipRel tooltipClose basic2 fleet_icon_{{ $fleet_event->is_return_trip ? 'reverse' : 'forward' }}" id="route_{{ $fleet_event->id }}" style="margin-left: 11px;"></a>
 
-                            <div style="display:none;" id="bl1829594">
+                            <div style="display:none;" id="bl{{ $fleet_event->id }}">
                                 <div class="htmlTooltip">
-    <h1>Fleet details:</h1>
+    <h1>@lang('Fleet details'):</h1>
     <div class="splitLine"></div>
     <table cellpadding="0" cellspacing="0" class="fleetinfo">
         <tbody><tr>
-            <th colspan="2">Ships:</th>
+            <th colspan="2">@lang('Ships'):</th>
         </tr>
-                <tr>
-            <td>Colony Ship:</td>
-            <td class="value">
-                            1                        </td>
-        </tr>
+        @if($fleet_event->fleet_units && $fleet_event->fleet_units->units)
+            @foreach($fleet_event->fleet_units->units as $unit)
+                @if($unit && $unit->unitObject)
+                    <tr>
+                <td>{{ $unit->unitObject->title }}:</td>
+                <td class="value">
+                                {{ $unit->amount }}                        </td>
+            </tr>
+                @endif
+            @endforeach
+        @endif
                 <tr>
             <td colspan="2">&nbsp;</td>
         </tr>
         <tr>
-            <th colspan="2">Shipment:</th>
+            <th colspan="2">@lang('Shipment'):</th>
         </tr>
         <tr>
-            <td>Metal:</td>
+            <td>@lang('Metal'):</td>
             <td class="value">
-                4,000            </td>
+                {{ number_format($fleet_event->resources->metal->get(), 0, '.', ',') }}            </td>
         </tr>
         <tr>
-            <td>Crystal:</td>
+            <td>@lang('Crystal'):</td>
             <td class="value">
-                2,000            </td>
+                {{ number_format($fleet_event->resources->crystal->get(), 0, '.', ',') }}            </td>
         </tr>
         <tr>
-            <td>Deuterium:</td>
+            <td>@lang('Deuterium'):</td>
             <td class="value">
-                1,500            </td>
+                {{ number_format($fleet_event->resources->deuterium->get(), 0, '.', ',') }}            </td>
         </tr>
                     <tr>
-                <td>Food:</td>
+                <td>@lang('Food'):</td>
                 <td class="value">
-                    0                </td>
+                    {{ number_format($fleet_event->resources->energy->get(), 0, '.', ',') }}                </td>
             </tr>
             </tbody></table>
 </div>
@@ -319,29 +138,52 @@
                         </div>
 
                         <div class="destination fixed">
-                            <img class="tooltipHTML" height="30" width="30" src="/img/icons/9eed39ad582f6ad20e2e202a160739.png" title="Time of arrival:| 19.03.2024<br>12:26:52" alt="">
+                            <img class="tooltipHTML" height="30" width="30" src="/img/icons/0a0346dd4999bd04761fc6b086e7a1.png" title="@lang('Time of arrival:')| {{ date('d.m.Y', $fleet_event->mission_time_arrival) }}<br>{{ date('H:i:s', $fleet_event->mission_time_arrival) }}" alt="">
                         </div>
                     </div>
                 </span><!-- Starstreak -->
                     <span class="destinationData">
-                                            <span class="destinationPlanet">
+                        <span class="destinationPlanet">
                             <span>
-                                                                                                            <figure class="planetIcon planet"></figure>Deep space
-                                                                                                </span>
+                                @if($fleet_event->destination_planet_type && $fleet_event->destination_planet_type->value === 1)
+                                    <figure class="planetIcon planet"></figure>{{ $fleet_event->destination_planet_name }}
+                                @elseif($fleet_event->destination_planet_type && $fleet_event->destination_planet_type->value === 2)
+                                    <figure class="planetIcon debris"></figure>{{ $fleet_event->destination_planet_name }}
+                                @elseif($fleet_event->destination_planet_type && $fleet_event->destination_planet_type->value === 3)
+                                    <figure class="planetIcon moon"></figure>{{ $fleet_event->destination_planet_name }}
+                                @elseif($fleet_event->destination_planet_type && $fleet_event->destination_planet_type->value === 4)
+                                    <figure class="planetIcon planet"></figure>{{ $fleet_event->destination_planet_name }}
+                                @else
+                                    {{ $fleet_event->destination_planet_name }}
+                                @endif
+                            </span>
                         </span>
 
-                                            <span class="destinationCoords"><a href="{{ route('galaxy.index', ['galaxy' => 3, 'system' => 211])  }}">[3:211:8]</a></span>
-                                    </span>
-                    <span class="nextTimer tooltip" title="20.03.2024 02:11:59" id="timerNext_1829594">1d 2h 56m</span>
-                    <span class="nextabsTime">02:11:59 Clock</span>
-                    <span class="nextMission friendly textBeefy">Return</span>
+                        <span class="destinationCoords"><a href="{{ route('galaxy.index', ['galaxy' => $fleet_event->destination_planet_coords->galaxy, 'system' => $fleet_event->destination_planet_coords->system])  }}">[{{ $fleet_event->destination_planet_coords->galaxy }}:{{ $fleet_event->destination_planet_coords->system }}:{{ $fleet_event->destination_planet_coords->position }}]</a></span>
+                    </span>
+
+                    @if($fleet_event->mission_status === 'own' && !$fleet_event->is_return_trip)
+                        @php
+                            $fleetMissionServiceCheck = app(\OGame\Services\FleetMissionService::class);
+                            $hasReturnMission = $fleetMissionServiceCheck->missionHasReturnMission($fleet_event->mission_type);
+                            if ($hasReturnMission) {
+                                $returnArrivalTime = $fleet_event->mission_time_arrival + ($fleet_event->mission_time_arrival - $fleet_event->mission_time_departure) + $fleet_event->mission_time_holding;
+                            }
+                        @endphp
+                        @if($hasReturnMission)
+                    <span class="nextTimer tooltip" title="{{ date('d.m.Y H:i:s', $returnArrivalTime) }}" id="timerNext_{{ $fleet_event->id }}">{{ gmdate('H\h i\m s\s', $returnArrivalTime - time()) }}</span>
+                    <span class="nextabsTime">{{ date('H:i:s', $returnArrivalTime) }} Clock</span>
+                    <span class="nextMission friendly textBeefy">@lang('Return')</span>
+                        @endif
+                    @endif
 
                     <span class="openDetails">
-                    <a href="javascript:void(0);" class="openCloseDetails" data-mission-id="1829594" data-end-time="1710851212">
-                                                    <img src="/img/icons/577565fadab7780b0997a76d0dca9b.gif" height="16" width="16">
-                                            </a>
+                    <a href="javascript:void(0);" class="openCloseDetails" data-mission-id="{{ $fleet_event->id }}" data-end-time="{{ $fleet_event->mission_time_arrival }}">
+                        <img src="/img/icons/577565fadab7780b0997a76d0dca9b.gif" height="16" width="16">
+                    </a>
                 </span>
                 </div>
+                @endforeach
                 <div class="placeholder"></div>
             </div>
         </div>
@@ -361,7 +203,7 @@
                 openParentLocation("{{ route('fleet.movement') }}");
             }
 
-            var currentMovementTabExtensionStates = JSON.parse("{\"1827745\":[1,1710806988],\"1827772\":[1,1710807022],\"1829594\":[1,1710851212]}");
+            var currentMovementTabExtensionStates = JSON.parse("{}");
             var showInfos = 1;
 
             $(document).ready(function() {
@@ -375,62 +217,51 @@
                     $(".closeAll").children().removeClass('all_closed').addClass('all_open');
                 }
 
+                @foreach($fleet_events as $fleet_event)
+                @php
+                    $timeRemaining = $fleet_event->mission_time_arrival - time();
+                    $totalDuration = $fleet_event->mission_time_arrival - $fleet_event->mission_time_departure;
+                @endphp
                 new reloadCountdown(
-                    getElementByIdWithCache("timer_1827745"),
-                    2275,
-                    "{{ route('fleet.movement')  }}"
+                    getElementByIdWithCache("timer_{{ $fleet_event->id }}"),
+                    {{ $timeRemaining }},
+                    "{{ route('fleet.movement') }}"
                 );
 
                 new movementImageCountdown(
-                    getElementByIdWithCache("route_1827745"),
-                    2275,
-                    4092,
-                    1,
+                    getElementByIdWithCache("route_{{ $fleet_event->id }}"),
+                    {{ $timeRemaining }},
+                    {{ $totalDuration }},
+                    {{ $fleet_event->is_return_trip ? '1' : '0' }},
                     0,
                     274
                 );
 
-                new reloadCountdown(
-                    getElementByIdWithCache("timer_1827772"),
-                    2309,
-                    "{{ route('fleet.movement')  }}"
-                );
-
-                new movementImageCountdown(
-                    getElementByIdWithCache("route_1827772"),
-                    2309,
-                    4092,
-                    1,
-                    0,
-                    274
-                );
-
-
-                new reloadCountdown(
-                    getElementByIdWithCache("timer_1829594"),
-                    46499,
-                    "{{ route('fleet.movement')  }}"
-                );
-
-                new movementImageCountdown(
-                    getElementByIdWithCache("route_1829594"),
-                    46499,
-                    49507,
-                    0,
-                    0,
-                    274
-                );
-
-                new simpleCountdown(
-                    getElementByIdWithCache("timerNext_1829594"),
-                    96006
-                );
-
+                @if($fleet_event->is_recallable && !$fleet_event->is_return_trip)
                 new recallShipCountdown(
-                    1829594,
-                    1710807721
-                )
+                    {{ $fleet_event->id }},
+                    {{ $fleet_event->recall_return_time }}
+                );
+                @endif
 
+                @if($fleet_event->mission_status === 'own' && !$fleet_event->is_return_trip)
+                    @php
+                        $fleetMissionServiceCheck2 = app(\OGame\Services\FleetMissionService::class);
+                        $hasReturnMission2 = $fleetMissionServiceCheck2->missionHasReturnMission($fleet_event->mission_type);
+                        if ($hasReturnMission2) {
+                            $returnArrivalTime2 = $fleet_event->mission_time_arrival + ($fleet_event->mission_time_arrival - $fleet_event->mission_time_departure) + $fleet_event->mission_time_holding;
+                            $returnTimeRemaining = $returnArrivalTime2 - time();
+                        }
+                    @endphp
+                    @if($hasReturnMission2)
+                new simpleCountdown(
+                    getElementByIdWithCache("timerNext_{{ $fleet_event->id }}"),
+                    {{ $returnTimeRemaining }}
+                );
+                    @endif
+                @endif
+
+                @endforeach
 
                 initMovement();
             });
