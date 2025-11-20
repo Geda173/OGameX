@@ -2,10 +2,11 @@
 
 namespace Tests\Unit;
 
+use OGame\Models\Resources;
 use OGame\Services\SettingsService;
-use Tests\UnitTestCase;
+use Tests\AccountTestCase;
 
-class ResourceProductionTest extends UnitTestCase
+class ResourceProductionTest extends AccountTestCase
 {
     /**
      * Set up common test components.
@@ -13,9 +14,8 @@ class ResourceProductionTest extends UnitTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->setUpPlanetService();
 
-        // Set the universe speed to 1x for this test.
+        // Set the universe speed to 8x for this test.
         $settingsService = resolve(SettingsService::class);
         $settingsService->set('economy_speed', 8);
     }
@@ -25,16 +25,13 @@ class ResourceProductionTest extends UnitTestCase
      */
     public function testMineProduction(): void
     {
-        $this->createAndSetPlanetModel([
-            'metal_mine_percent' => 10,
-            'metal_mine' => 20,
-            'crystal_mine_percent' => 10,
-            'crystal_mine' => 20,
-            'deuterium_synthesizer_percent' => 10,
-            'deuterium_synthesizer' => 20,
-            'solar_plant' => 20,
-            'solar_plant_percent' => 10,
-        ]);
+        $this->planetSetObjectLevel('metal_mine', 20);
+        $this->planetSetObjectLevel('crystal_mine', 20);
+        $this->planetSetObjectLevel('deuterium_synthesizer', 20);
+        $this->planetSetObjectLevel('solar_plant', 20);
+
+        // Reload and recalculate production after setting all buildings
+        $this->planetReloadAndRecalculateProduction();
 
         // Assertions for production values with positive energy
         $this->assertGreaterThan(1000, $this->planetService->getMetalProductionPerHour());
@@ -47,16 +44,10 @@ class ResourceProductionTest extends UnitTestCase
      */
     public function testMineProductionNoEnergy(): void
     {
-        $this->createAndSetPlanetModel([
-            'metal_mine_percent' => 10,
-            'metal_mine' => 20,
-            'crystal_mine_percent' => 10,
-            'crystal_mine' => 20,
-            'deuterium_synthesizer_percent' => 10,
-            'deuterium_synthesizer' => 20,
-            'solar_plant' => 0,
-            'solar_plant_percent' => 10,
-        ]);
+        $this->planetSetObjectLevel('metal_mine', 20);
+        $this->planetSetObjectLevel('crystal_mine', 20);
+        $this->planetSetObjectLevel('deuterium_synthesizer', 20);
+        $this->planetSetObjectLevel('solar_plant', 0); // Explicitly set to 0 for no energy
 
         $position = $this->planetService->getPlanetCoordinates()->position;
 
@@ -74,11 +65,13 @@ class ResourceProductionTest extends UnitTestCase
      */
     public function testSolarSatelliteEnergyProduction(): void
     {
-        $this->createAndSetPlanetModel([
-            'solar_satellite' => 100,
-            'solar_satellite_percent' => 10,
-            'temp_max' => 100
-        ]);
+        $this->planetAddUnit('solar_satellite', 100);
+
+        // Set planet temperature
+        \DB::table('planets')->where('id', $this->currentPlanetId)->update(['temp_max' => 100]);
+
+        // Reload and recalculate production after setting units and temperature
+        $this->planetReloadAndRecalculateProduction();
 
         $this->assertEquals(4000, $this->planetService->energyProduction()->get());
     }
@@ -89,49 +82,33 @@ class ResourceProductionTest extends UnitTestCase
     public function testFusionPlantEnergyProductionScalesWithDeuterium(): void
     {
         // Test with positive deuterium production
-        $this->createAndSetPlanetModel([
-            'deuterium_synthesizer' => 20,
-            'deuterium_synthesizer_percent' => 10,
-            'fusion_plant' => 20,
-            'fusion_plant_percent' => 10,
-            'deuterium' => 1000, // Some deuterium in storage
-        ]);
+        $this->planetSetObjectLevel('deuterium_synthesizer', 20);
+        $this->planetSetObjectLevel('fusion_plant', 20);
+        $this->planetAddResources(new Resources(0, 0, 1000, 0)); // Some deuterium in storage
 
         $fullEnergy = $this->planetService->energyProduction()->get();
         $this->assertGreaterThan(0, $fullEnergy, 'Fusion plant should produce energy when deuterium storage is above 0');
 
         // Test with negative deuterium production but deuterium still in storage
-        $this->createAndSetPlanetModel([
-            'deuterium_synthesizer' => 0,
-            'deuterium_synthesizer_percent' => 10,
-            'fusion_plant' => 20,
-            'fusion_plant_percent' => 10,
-            'deuterium' => 500, // Some deuterium in storage
-        ]);
+        $this->planetSetObjectLevel('deuterium_synthesizer', 0);
+        $this->planetSetObjectLevel('fusion_plant', 20);
+        $this->planetAddResources(new Resources(0, 0, -500, 0)); // Adjust to 500 deuterium in storage
 
         $energyWithStorage = $this->planetService->energyProduction()->get();
         $this->assertEquals($fullEnergy, $energyWithStorage, 'Fusion plant should produce full energy when deuterium storage is above 0, regardless of production rate');
 
         // Test with positive deuterium production but no deuterium in storage
-        $this->createAndSetPlanetModel([
-            'deuterium_synthesizer' => 30,
-            'deuterium_synthesizer_percent' => 10,
-            'fusion_plant' => 20,
-            'fusion_plant_percent' => 10,
-            'deuterium' => 0, // No deuterium in storage
-        ]);
+        $this->planetSetObjectLevel('deuterium_synthesizer', 30);
+        $this->planetSetObjectLevel('fusion_plant', 20);
+        $this->planetAddResources(new Resources(0, 0, -500, 0)); // Remove remaining deuterium
 
         $noStorageEnergy = $this->planetService->energyProduction()->get();
         $this->assertGreaterThan(0, $noStorageEnergy, 'Fusion plant should produce energy when deuterium production is positive but deuterium storage is 0');
 
         // Test with negative deuterium production and no deuterium in storage
-        $this->createAndSetPlanetModel([
-            'deuterium_synthesizer' => 10,
-            'deuterium_synthesizer_percent' => 10,
-            'fusion_plant' => 20,
-            'fusion_plant_percent' => 10,
-            'deuterium' => 0, // No deuterium in storage
-        ]);
+        $this->planetSetObjectLevel('deuterium_synthesizer', 10);
+        $this->planetSetObjectLevel('fusion_plant', 20);
+        // deuterium storage already at 0
 
         $noStorageEnergy = $this->planetService->energyProduction()->get();
         $this->assertEquals(0, $noStorageEnergy, 'Fusion plant should produce no energy when deuterium storage is 0');
@@ -143,9 +120,7 @@ class ResourceProductionTest extends UnitTestCase
      */
     public function testPlanetSlotAndPlasmaProductionBonus(): void
     {
-        $this->createAndSetUserTechModel([
-            'plasma_technology' => 12,
-        ]);
+        $this->playerSetResearchLevel('plasma_technology', 12);
 
         // base values breakdown (8x speed)
         // basic: metal = 30 * 8 = 240, crystal = 15 * 8 = 120, deuterium = 0
@@ -155,38 +130,61 @@ class ResourceProductionTest extends UnitTestCase
         //      planet avg temp = (27 + 67) / 2 = 47
 
         // +35% metal production (basic + mine), +12% plasma tech
-        $this->createAndSetPlanetModel([
+        $this->planetSetObjectLevel('metal_mine', 20);
+        $this->planetSetObjectLevel('crystal_mine', 20);
+        $this->planetSetObjectLevel('deuterium_synthesizer', 20);
+        $this->planetSetObjectLevel('solar_plant', 50); // ensures 100% production factor
+
+        // Get current planet coordinates
+        $currentCoords = $this->planetService->getPlanetCoordinates();
+
+        // Remove any existing planet at position 8 to avoid UNIQUE constraint violation
+        \DB::table('planets')
+            ->where('galaxy', $currentCoords->galaxy)
+            ->where('system', $currentCoords->system)
+            ->where('planet', 8)
+            ->where('planet_type', $this->planetService->getPlanetType()->value)
+            ->where('id', '!=', $this->currentPlanetId)
+            ->delete();
+
+        // Set planet position and temperature
+        \DB::table('planets')->where('id', $this->currentPlanetId)->update([
             'planet' => 8,
-            'metal_mine_percent' => 10,
-            'metal_mine' => 20,
-            'crystal_mine_percent' => 10,
-            'crystal_mine' => 20,
-            'deuterium_synthesizer_percent' => 10,
-            'deuterium_synthesizer' => 20,
-            'solar_plant' => 50, // ensures 100% production factor
-            'solar_plant_percent' => 10,
             'temp_min' => 27,
             'temp_max' => 67,
         ]);
+
+        // Reload and recalculate production after updating position
+        $this->planetReloadAndRecalculateProduction();
 
         $this->assertEquals(49_149, $this->planetService->getMetalProductionPerHour());
         $this->assertEquals(23_353, $this->planetService->getCrystalProductionPerHour());
         $this->assertEquals(14_010, $this->planetService->getDeuteriumProductionPerHour());
 
         // +40% crystal production, +7.92% (1+0.0066*12) plasma tech
-        $this->createAndSetPlanetModel([
+        $this->planetSetObjectLevel('metal_mine', 20);
+        $this->planetSetObjectLevel('crystal_mine', 20);
+        $this->planetSetObjectLevel('deuterium_synthesizer', 20);
+        $this->planetSetObjectLevel('solar_plant', 50); // ensures 100% production factor
+
+        // Remove any existing planet at position 1 to avoid UNIQUE constraint violation
+        \DB::table('planets')
+            ->where('galaxy', $currentCoords->galaxy)
+            ->where('system', $currentCoords->system)
+            ->where('planet', 1)
+            ->where('planet_type', $this->planetService->getPlanetType()->value)
+            ->where('id', '!=', $this->currentPlanetId)
+            ->delete();
+
+        // Set planet position and temperature
+        \DB::table('planets')->where('id', $this->currentPlanetId)->update([
             'planet' => 1,
-            'metal_mine_percent' => 10,
-            'metal_mine' => 20,
-            'crystal_mine_percent' => 10,
-            'crystal_mine' => 20,
-            'deuterium_synthesizer_percent' => 10,
-            'deuterium_synthesizer' => 20,
-            'solar_plant' => 50, // ensures 100% production factor
-            'solar_plant_percent' => 10,
             'temp_min' => 27,
             'temp_max' => 67,
         ]);
+
+        // Reload and recalculate production after updating position
+        $this->planetReloadAndRecalculateProduction();
 
         $this->assertEquals(36_407, $this->planetService->getMetalProductionPerHour());
         $this->assertEquals(32_694, $this->planetService->getCrystalProductionPerHour());

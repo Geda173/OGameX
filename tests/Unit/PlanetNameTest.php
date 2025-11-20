@@ -2,22 +2,10 @@
 
 namespace Tests\Unit;
 
-use Illuminate\Contracts\Container\BindingResolutionException;
-use Tests\UnitTestCase;
+use Tests\AccountTestCase;
 
-class PlanetNameTest extends UnitTestCase
+class PlanetNameTest extends AccountTestCase
 {
-    /**
-     * Set up common test components.
-     * @throws BindingResolutionException
-     */
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        $this->setUpPlanetService();
-    }
-
     /**
      * Test valid planet names.
      */

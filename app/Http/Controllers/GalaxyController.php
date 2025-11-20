@@ -301,22 +301,31 @@ class GalaxyController extends OGameController
         }
 
         if ($isForeignPlanet) {
-            // Espionage (only if foreign planet).
-            $availableMissions[] = [
-                'missionType' => 6,
-                'canSpy' => true,
-                'reportId' => '',
-                'reportLink' => '',
-                'link' => route('fleet.dispatch.sendfleet', ['galaxy' => $galaxy, 'system' => $system, 'position' => $position, 'type' => $planet->getPlanetType()->value, 'mission' => 6, 'am210' => 1]),
-                'name' => __('Espionage'),
-            ];
+            // Check if we can attack this player (considering noob protection)
+            $canAttack = $planetOwner !== null ? $this->playerService->canAttack($planetOwner) : true;
+            // Admin-tagged players can always be spied on (show espionage button)
+            $canSpy = $planetOwner !== null ? (!$planetOwner->isNewbie($this->playerService) || $planetOwner->isAdmin()) : true;
 
-            // Attack (only if foreign planet).
-            $availableMissions[] = [
-                'missionType' => 1,
-                'link' => route('fleet.index', ['galaxy' => $galaxy, 'system' => $system, 'position' => $position, 'type' => $planet->getPlanetType()->value, 'mission' => 1]),
-                'name' => __('Attack'),
-            ];
+            // Espionage (only if foreign planet and not protected, or if admin).
+            if ($canSpy) {
+                $availableMissions[] = [
+                    'missionType' => 6,
+                    'canSpy' => true,
+                    'reportId' => '',
+                    'reportLink' => '',
+                    'link' => route('fleet.dispatch.sendfleet', ['galaxy' => $galaxy, 'system' => $system, 'position' => $position, 'type' => $planet->getPlanetType()->value, 'mission' => 6, 'am210' => 1]),
+                    'name' => __('Espionage'),
+                ];
+            }
+
+            // Attack (only if foreign planet and not under noob protection).
+            if ($canAttack) {
+                $availableMissions[] = [
+                    'missionType' => 1,
+                    'link' => route('fleet.index', ['galaxy' => $galaxy, 'system' => $system, 'position' => $position, 'type' => $planet->getPlanetType()->value, 'mission' => 1]),
+                    'name' => __('Attack'),
+                ];
+            }
 
             // Moon destruction (only if planet is a moon).
             if ($planet->isMoon()) {
@@ -360,8 +369,10 @@ class GalaxyController extends OGameController
         $inRange = ($currentPlanet->getPlanetCoordinates()->galaxy === $planet->getPlanetCoordinates()->galaxy) && ($distance <= $missileRange);
 
         // Can only attack other players' planets (destroyed planets with no owner can be attacked)
+        // Exception: Admin-tagged players can always be attacked with missiles (even if normally protected)
         $planetOwner = $planet->getPlayer();
         $isOwnPlanet = $planetOwner !== null && $planetOwner->equals($this->playerService);
+        $isAdminTarget = $planetOwner !== null && $planetOwner->isAdmin();
         $canMissileAttack = $hasMissiles && $inRange && !$isOwnPlanet;
 
         // Build missile attack link with all necessary parameters
@@ -545,10 +556,10 @@ class GalaxyController extends OGameController
             'isLongInactive' => $player->isLongInactive(),
             'isNewbie' => $player->isNewbie($this->playerService),
             'isStrong' => $player->isStrong($this->playerService),
+            'isOutlaw' => $player->isOutlaw(),
 
             // Not implemented yet:
             //'isHonorableTarget' => $player->isHonorableTarget(),
-            //'isOutlaw' => $player->isOutlaw(),
             //'isBanned' => $player->isBanned(),
             //'isOnVacation' => $player->isOnVacation(),
         ];

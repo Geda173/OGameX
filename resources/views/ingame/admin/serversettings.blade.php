@@ -218,18 +218,60 @@
                                 <div class="smallFont">@lang('Adds extra expedition slots for all players on top of their Astrophysics-based slots. Use for weekend events or special occasions. Set to 0 to disable.')</div>
                             </div>
                             <div class="fieldwrapper">
-                                <label class="styled textBeefy">@lang('Expedition rewards multiplier (for events):')</label>
+                                <label class="styled textBeefy">@lang('Expedition resource rewards multiplier (for events):')</label>
                                 <div class="thefield">
-                                    <select name="expedition_rewards_multiplier" class="w130" data-value="{{ $expedition_rewards_multiplier }}">
-                                        <option value="1.0"{{ $expedition_rewards_multiplier == 1.0 ? ' selected' : '' }}>1x (normal)</option>
-                                        <option value="1.5"{{ $expedition_rewards_multiplier == 1.5 ? ' selected' : '' }}>1.5x</option>
-                                        <option value="2.0"{{ $expedition_rewards_multiplier == 2.0 ? ' selected' : '' }}>2x</option>
-                                        <option value="3.0"{{ $expedition_rewards_multiplier == 3.0 ? ' selected' : '' }}>3x</option>
-                                        <option value="5.0"{{ $expedition_rewards_multiplier == 5.0 ? ' selected' : '' }}>5x</option>
-                                        <option value="10.0"{{ $expedition_rewards_multiplier == 10.0 ? ' selected' : '' }}>10x</option>
+                                    <select name="expedition_reward_multiplier_resources" class="w130" data-value="{{ $expedition_reward_multiplier_resources }}">
+                                        <option value="1.0"{{ $expedition_reward_multiplier_resources == 1.0 ? ' selected' : '' }}>1x (normal)</option>
+                                        <option value="1.5"{{ $expedition_reward_multiplier_resources == 1.5 ? ' selected' : '' }}>1.5x</option>
+                                        <option value="2.0"{{ $expedition_reward_multiplier_resources == 2.0 ? ' selected' : '' }}>2x</option>
+                                        <option value="3.0"{{ $expedition_reward_multiplier_resources == 3.0 ? ' selected' : '' }}>3x</option>
+                                        <option value="5.0"{{ $expedition_reward_multiplier_resources == 5.0 ? ' selected' : '' }}>5x</option>
+                                        <option value="10.0"{{ $expedition_reward_multiplier_resources == 10.0 ? ' selected' : '' }}>10x</option>
                                     </select>
                                 </div>
-                                <div class="smallFont">@lang('Multiplies all expedition resource and ship rewards. Great for weekend events! Set to 1x for normal rewards.')</div>
+                                <div class="smallFont">@lang('Multiplies metal, crystal, and deuterium rewards from expeditions. Set to 1x for normal rewards.')</div>
+                            </div>
+                            <div class="fieldwrapper">
+                                <label class="styled textBeefy">@lang('Expedition ship rewards multiplier (for events):')</label>
+                                <div class="thefield">
+                                    <select name="expedition_reward_multiplier_ships" class="w130" data-value="{{ $expedition_reward_multiplier_ships }}">
+                                        <option value="1.0"{{ $expedition_reward_multiplier_ships == 1.0 ? ' selected' : '' }}>1x (normal)</option>
+                                        <option value="1.5"{{ $expedition_reward_multiplier_ships == 1.5 ? ' selected' : '' }}>1.5x</option>
+                                        <option value="2.0"{{ $expedition_reward_multiplier_ships == 2.0 ? ' selected' : '' }}>2x</option>
+                                        <option value="3.0"{{ $expedition_reward_multiplier_ships == 3.0 ? ' selected' : '' }}>3x</option>
+                                        <option value="5.0"{{ $expedition_reward_multiplier_ships == 5.0 ? ' selected' : '' }}>5x</option>
+                                        <option value="10.0"{{ $expedition_reward_multiplier_ships == 10.0 ? ' selected' : '' }}>10x</option>
+                                    </select>
+                                </div>
+                                <div class="smallFont">@lang('Multiplies ship rewards from expeditions. Set to 1x for normal rewards.')</div>
+                            </div>
+                            <div class="fieldwrapper">
+                                <label class="styled textBeefy">@lang('Expedition dark matter rewards multiplier (for events):')</label>
+                                <div class="thefield">
+                                    <select name="expedition_reward_multiplier_dark_matter" class="w130" data-value="{{ $expedition_reward_multiplier_dark_matter }}">
+                                        <option value="1.0"{{ $expedition_reward_multiplier_dark_matter == 1.0 ? ' selected' : '' }}>1x (normal)</option>
+                                        <option value="1.5"{{ $expedition_reward_multiplier_dark_matter == 1.5 ? ' selected' : '' }}>1.5x</option>
+                                        <option value="2.0"{{ $expedition_reward_multiplier_dark_matter == 2.0 ? ' selected' : '' }}>2x</option>
+                                        <option value="3.0"{{ $expedition_reward_multiplier_dark_matter == 3.0 ? ' selected' : '' }}>3x</option>
+                                        <option value="5.0"{{ $expedition_reward_multiplier_dark_matter == 5.0 ? ' selected' : '' }}>5x</option>
+                                        <option value="10.0"{{ $expedition_reward_multiplier_dark_matter == 10.0 ? ' selected' : '' }}>10x</option>
+                                    </select>
+                                </div>
+                                <div class="smallFont">@lang('Multiplies dark matter rewards from expeditions. Great for Dark Matter events! Set to 1x for normal rewards.')</div>
+                            </div>
+                            <div class="fieldwrapper">
+                                <label class="styled textBeefy">@lang('Expedition item rewards multiplier (for events):')</label>
+                                <div class="thefield">
+                                    <select name="expedition_reward_multiplier_items" class="w130" data-value="{{ $expedition_reward_multiplier_items }}">
+                                        <option value="1.0"{{ $expedition_reward_multiplier_items == 1.0 ? ' selected' : '' }}>1x (normal)</option>
+                                        <option value="1.5"{{ $expedition_reward_multiplier_items == 1.5 ? ' selected' : '' }}>1.5x</option>
+                                        <option value="2.0"{{ $expedition_reward_multiplier_items == 2.0 ? ' selected' : '' }}>2x</option>
+                                        <option value="3.0"{{ $expedition_reward_multiplier_items == 3.0 ? ' selected' : '' }}>3x</option>
+                                        <option value="5.0"{{ $expedition_reward_multiplier_items == 5.0 ? ' selected' : '' }}>5x</option>
+                                        <option value="10.0"{{ $expedition_reward_multiplier_items == 10.0 ? ' selected' : '' }}>10x</option>
+                                    </select>
+                                </div>
+                                <div class="smallFont">@lang('Multiplies item rewards from expeditions (when items are implemented). Set to 1x for normal rewards.')</div>
                             </div>
                         </div>
 

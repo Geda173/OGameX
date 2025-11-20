@@ -53,6 +53,15 @@ class AttackMission extends GameMission
             return new MissionPossibleStatus(false);
         }
 
+        // Check noob protection: can the attacker attack the target?
+        // Only check if target planet has an owner (not destroyed/abandoned)
+        $attacker = $planet->getPlayer();
+        $target = $targetPlanet->getPlayer();
+
+        if ($target !== null && !$attacker->canAttack($target)) {
+            return new MissionPossibleStatus(false, __('The target player is under noob protection and cannot be attacked.'));
+        }
+
         // If all checks pass, the mission is possible.
         return new MissionPossibleStatus(true);
     }
@@ -70,6 +79,14 @@ class AttackMission extends GameMission
         $defenderPlanet->update();
 
         $attackerPlayer = $origin_planet->getPlayer();
+        $defenderPlayer = $defenderPlanet->getPlayer();
+
+        // Check if attacker should become outlaw (vogelfrei)
+        // This happens when a player under noob protection attacks a strong player
+        if ($attackerPlayer->isNewbie($defenderPlayer) && $defenderPlayer->isStrong($attackerPlayer)) {
+            $attackerPlayer->makeOutlaw();
+        }
+
         $attackerUnits = $this->fleetMissionService->getFleetUnits($mission);
 
         // If attacker planet was abandoned/destroyed after sending the attack,

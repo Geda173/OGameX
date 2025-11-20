@@ -526,6 +526,15 @@ class FleetController extends OGameController
                     throw new Exception('You cannot join this ACS group. Only buddies and alliance members can join.');
                 }
 
+                // Verify player can attack the target (noob protection check)
+                $targetPlanet = $planetServiceFactory->makeForCoordinate($target_coordinate, true, $planetType);
+                if ($targetPlanet !== null) {
+                    $targetPlayer = $targetPlanet->getPlayer();
+                    if ($targetPlayer !== null && !$player->canAttack($targetPlayer)) {
+                        throw new Exception('You cannot join this ACS group. The target player is under noob protection and cannot be attacked.');
+                    }
+                }
+
                 // Calculate this fleet's natural arrival time at the USER'S SELECTED speed
                 $currentTime = time();
                 $durationAtSelectedSpeed = $fleetMissionService->calculateFleetMissionDuration($planet, $target_coordinate, $units, $speed_percent);

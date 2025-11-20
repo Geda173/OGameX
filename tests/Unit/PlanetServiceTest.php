@@ -4,27 +4,14 @@ namespace Tests\Unit;
 
 use OGame\Models\Enums\ResourceType;
 use OGame\Models\Resources;
-use Tests\UnitTestCase;
+use Tests\AccountTestCase;
 
-class PlanetServiceTest extends UnitTestCase
+class PlanetServiceTest extends AccountTestCase
 {
-    /**
-     * Set up common test components.
-     */
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        $this->setUpPlanetService();
-    }
-
     public function testGetResources(): void
     {
-        $this->createAndSetPlanetModel([
-            'metal' => 1000,
-            'crystal' => 2000,
-            'deuterium' => 3000,
-        ]);
+        $this->planetResetResources();
+        $this->planetAddResources(new Resources(1000, 2000, 3000, 0));
 
         $this->assertEquals(1000, $this->planetService->metal()->get());
         $this->assertEquals(2000, $this->planetService->crystal()->get());
@@ -37,14 +24,12 @@ class PlanetServiceTest extends UnitTestCase
      */
     public function testGetObjectArrays(): void
     {
-        $this->createAndSetPlanetModel([
-            'metal_mine' => 1,
-            'crystal_mine' => 2,
-            'small_cargo' => 10,
-            'destroyer' => 3,
-            'espionage_probe' => 2,
-            'rocket_launcher' => 1,
-        ]);
+        $this->planetSetObjectLevel('metal_mine', 1);
+        $this->planetSetObjectLevel('crystal_mine', 2);
+        $this->planetAddUnit('small_cargo', 10);
+        $this->planetAddUnit('destroyer', 3);
+        $this->planetAddUnit('espionage_probe', 2);
+        $this->planetAddUnit('rocket_launcher', 1);
 
         // Verify that getBuildingArray() returns the correct array.
         $this->assertEquals([
@@ -70,9 +55,7 @@ class PlanetServiceTest extends UnitTestCase
      */
     public function testDeductTooManyResources(): void
     {
-        $this->createAndSetPlanetModel([
-            'metal_mine' => 1,
-        ]);
+        $this->planetSetObjectLevel('metal_mine', 1);
 
         // Specify the type of exception you expect to be thrown
         $this->expectException(\Exception::class);
@@ -83,11 +66,9 @@ class PlanetServiceTest extends UnitTestCase
 
     public function testAddValidResourceIndividually(): void
     {
-        $this->createAndSetPlanetModel([
-            'metal' => 1000,
-            'crystal' => 2000,
-            'deuterium' => 3000,
-        ]);
+        $this->planetResetResources();
+        $this->planetAddResources(new Resources(1000, 2000, 3000, 0));
+
         foreach (ResourceType::cases() as $validResource) {
             $this->planetService->addResource($validResource, 100, false);
         }
@@ -107,14 +88,21 @@ class PlanetServiceTest extends UnitTestCase
      */
     public function testGetPlanetFieldMax(): void
     {
-        $this->createAndSetPlanetModel([
-            'field_max' => 90,
-        ]);
+        // Reset terraformer and lunar_base to 0 to ensure clean state
+        $this->planetSetObjectLevel('terraformer', 0);
+        $this->planetSetObjectLevel('lunar_base', 0);
+
+        \DB::table('planets')->where('id', $this->currentPlanetId)->update(['field_max' => 90]);
+        $planetServiceFactory = resolve(\OGame\Factories\PlanetServiceFactory::class);
+        $this->planetService = $planetServiceFactory->make($this->currentPlanetId, true);
+        $this->planetService->reloadPlanet();
+
         $this->assertEquals(90, $this->planetService->getPlanetFieldMax());
 
-        $this->createAndSetPlanetModel([
-            'field_max' => 14,
-        ]);
+        \DB::table('planets')->where('id', $this->currentPlanetId)->update(['field_max' => 14]);
+        $this->planetService = $planetServiceFactory->make($this->currentPlanetId, true);
+        $this->planetService->reloadPlanet();
+
         $this->assertEquals(14, $this->planetService->getPlanetFieldMax());
     }
 
@@ -123,37 +111,43 @@ class PlanetServiceTest extends UnitTestCase
      */
     public function testGetPlanetFieldMaxWithTerraformer(): void
     {
+        $planetServiceFactory = resolve(\OGame\Factories\PlanetServiceFactory::class);
+
+        // Reset terraformer and lunar_base to 0 to ensure clean state
+        $this->planetSetObjectLevel('terraformer', 0);
+        $this->planetSetObjectLevel('lunar_base', 0);
+
         // Test none divisible by 2-- should only add 5.
-        $this->createAndSetPlanetModel([
-            'field_max' => 90,
-            'terraformer' => 1,
-        ]);
+        $this->planetSetObjectLevel('terraformer', 1);
+        \DB::table('planets')->where('id', $this->currentPlanetId)->update(['field_max' => 90]);
+        $this->planetService = $planetServiceFactory->make($this->currentPlanetId, true);
+        $this->planetService->reloadPlanet();
 
         $this->assertEquals(95, $this->planetService->getPlanetFieldMax(), 'Terraformer level 1 should add 5 to the max fields.');
 
         // Test a divisible of 2, should add 5, and +1 bonus.
-        $this->createAndSetPlanetModel([
-            'field_max' => 150,
-            'terraformer' => 2,
-        ]);
+        $this->planetSetObjectLevel('terraformer', 2);
+        \DB::table('planets')->where('id', $this->currentPlanetId)->update(['field_max' => 150]);
+        $this->planetService = $planetServiceFactory->make($this->currentPlanetId, true);
+        $this->planetService->reloadPlanet();
 
         $this->assertEquals(161, $this->planetService->getPlanetFieldMax(), 'Terraformer level 2 should add 11 to the max fields.');
 
         // Larger divisible
-        $this->createAndSetPlanetModel([
-            'field_max' => 100,
-            'terraformer' => 20,
-        ]);
+        $this->planetSetObjectLevel('terraformer', 20);
+        \DB::table('planets')->where('id', $this->currentPlanetId)->update(['field_max' => 100]);
+        $this->planetService = $planetServiceFactory->make($this->currentPlanetId, true);
+        $this->planetService->reloadPlanet();
 
         // each level + 5 max fields - 100 base, plus 20*5 = 200
         // every 2 levels + 1 max field- 20/2 = 10, so 200 + 10 = 210
         $this->assertEquals(210, $this->planetService->getPlanetFieldMax(), 'Terraformer level 20 should add 210 to the max fields.');
 
         // Ensure if it's not built it doesn't alter the max fields.
-        $this->createAndSetPlanetModel([
-            'field_max' => 100,
-            'terraformer' => 0,
-        ]);
+        $this->planetSetObjectLevel('terraformer', 0);
+        \DB::table('planets')->where('id', $this->currentPlanetId)->update(['field_max' => 100]);
+        $this->planetService = $planetServiceFactory->make($this->currentPlanetId, true);
+        $this->planetService->reloadPlanet();
 
         $this->assertEquals(100, $this->planetService->getPlanetFieldMax(), 'Terraformer level 0 should not alter the max fields.');
     }
@@ -163,29 +157,32 @@ class PlanetServiceTest extends UnitTestCase
      */
     public function testGetPlanetFieldMaxWithLunarBase(): void
     {
+        $planetServiceFactory = resolve(\OGame\Factories\PlanetServiceFactory::class);
+
         // Test lunar base level 0 for baseline.
-        $this->createAndSetPlanetModel([
-            'field_max' => 90,
-            'lunar_base' => 0,
-        ]);
+        $this->planetSetObjectLevel('lunar_base', 0);
+        $this->planetSetObjectLevel('terraformer', 0); // Reset from previous test
+        \DB::table('planets')->where('id', $this->currentPlanetId)->update(['field_max' => 90]);
+        $this->planetService = $planetServiceFactory->make($this->currentPlanetId, true);
+        $this->planetService->reloadPlanet();
 
         $this->assertEquals(0, $this->planetService->getBuildingCount());
         $this->assertEquals(90, $this->planetService->getPlanetFieldMax(), 'Lunar base level 0 should not alter the max fields.');
 
         // Test lunar base level 1-- should add 3 (lunar base itself takes up one field so 2 bonus).
-        $this->createAndSetPlanetModel([
-            'field_max' => 90,
-            'lunar_base' => 1,
-        ]);
+        $this->planetSetObjectLevel('lunar_base', 1);
+        \DB::table('planets')->where('id', $this->currentPlanetId)->update(['field_max' => 90]);
+        $this->planetService = $planetServiceFactory->make($this->currentPlanetId, true);
+        $this->planetService->reloadPlanet();
 
         $this->assertEquals(1, $this->planetService->getBuildingCount());
         $this->assertEquals(93, $this->planetService->getPlanetFieldMax(), 'Lunar base level 1 should add 3 to the max fields.');
 
         // Test lunar base level 2-- should add 6.
-        $this->createAndSetPlanetModel([
-            'field_max' => 150,
-            'lunar_base' => 2,
-        ]);
+        $this->planetSetObjectLevel('lunar_base', 2);
+        \DB::table('planets')->where('id', $this->currentPlanetId)->update(['field_max' => 150]);
+        $this->planetService = $planetServiceFactory->make($this->currentPlanetId, true);
+        $this->planetService->reloadPlanet();
 
         $this->assertEquals(2, $this->planetService->getBuildingCount());
         $this->assertEquals(156, $this->planetService->getPlanetFieldMax(), 'Lunar base level 2 should add 6 to the max fields.');
@@ -196,27 +193,23 @@ class PlanetServiceTest extends UnitTestCase
      */
     public function testGetPlanetBuildingCount(): void
     {
-        $this->createAndSetPlanetModel([
-            'metal_mine' => 50,
-            'crystal_mine' => 20,
-            'small_cargo' => 10,
-            'destroyer' => 3,
-            'espionage_probe' => 2,
-            'rocket_launcher' => 1,
-        ]);
+        $this->planetSetObjectLevel('metal_mine', 50);
+        $this->planetSetObjectLevel('crystal_mine', 20);
+        $this->planetAddUnit('small_cargo', 10);
+        $this->planetAddUnit('destroyer', 3);
+        $this->planetAddUnit('espionage_probe', 2);
+        $this->planetAddUnit('rocket_launcher', 1);
 
         // Should only return valid buildings, ( ie metal_mine and crystal_mine )
         $this->assertEquals(70, $this->planetService->getBuildingCount());
 
         // Do another test to ensure sum is correct.
-        $this->createAndSetPlanetModel([
-            'metal_mine' => 50,
-            'crystal_mine' => 50,
-            'solar_plant' => 50,
-            'destroyer' => 3,
-            'espionage_probe' => 2,
-            'rocket_launcher' => 44,
-        ]);
+        $this->planetSetObjectLevel('metal_mine', 50);
+        $this->planetSetObjectLevel('crystal_mine', 50);
+        $this->planetSetObjectLevel('solar_plant', 50);
+        $this->planetAddUnit('destroyer', 3);
+        $this->planetAddUnit('espionage_probe', 2);
+        $this->planetAddUnit('rocket_launcher', 44);
 
         // Should only return valid buildings, ( ie metal_mine crystal_mine, solar_plant )
         $this->assertEquals(150, $this->planetService->getBuildingCount());

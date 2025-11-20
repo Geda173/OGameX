@@ -10,14 +10,12 @@ use OGame\Models\BuildingQueue;
 use OGame\Models\Enums\PlanetType;
 use OGame\Models\FleetMission;
 use OGame\Models\Planet;
-use OGame\Models\Planet\Coordinate;
 use OGame\Models\PlanetRelocation;
 use OGame\Models\RepairQueue;
 use OGame\Models\Resources;
 use OGame\Models\ResearchQueue;
 use OGame\Models\User;
 use OGame\Services\FleetMissionService;
-use OGame\Services\PlayerService;
 
 class ProcessPlanetRelocations extends Command
 {

@@ -2,9 +2,9 @@
 
 namespace Tests\Unit;
 
-use Tests\UnitTestCase;
+use Tests\AccountTestCase;
 
-class RustFfiTest extends UnitTestCase
+class RustFfiTest extends AccountTestCase
 {
     /**
      * Test that we can call a Rust test program via PHP FFI.

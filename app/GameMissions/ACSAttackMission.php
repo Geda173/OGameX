@@ -52,6 +52,15 @@ class ACSAttackMission extends GameMission
             return new MissionPossibleStatus(false);
         }
 
+        // Check noob protection: can the attacker attack the target?
+        // Only check if target planet has an owner (not destroyed/abandoned)
+        $attacker = $planet->getPlayer();
+        $target = $targetPlanet->getPlayer();
+
+        if ($target !== null && !$attacker->canAttack($target)) {
+            return new MissionPossibleStatus(false, __('The target player is under noob protection and cannot be attacked.'));
+        }
+
         // If all checks pass, the mission is possible.
         return new MissionPossibleStatus(true);
     }
@@ -157,6 +166,8 @@ class ACSAttackMission extends GameMission
         // Trigger defender planet update to make sure the battle uses up-to-date info.
         $defenderPlanet->update();
 
+        $defenderPlayer = $defenderPlanet->getPlayer();
+
         // Get all fleet missions in this ACS group
         $fleetMembers = ACSService::getGroupFleets($acsGroup);
 
@@ -199,6 +210,13 @@ class ACSAttackMission extends GameMission
             // Store fleet info for later processing (use the cloned version)
             $originPlanet = $this->planetServiceFactory->make($fleetMission->planet_id_from, true);
             $fleetPlayer = $originPlanet->getPlayer();
+
+            // Check if this attacker should become outlaw (vogelfrei)
+            // This happens when a player under noob protection attacks a strong player
+            if ($defenderPlayer !== null && $fleetPlayer->isNewbie($defenderPlayer) && $defenderPlayer->isStrong($fleetPlayer)) {
+                $fleetPlayer->makeOutlaw();
+            }
+
             $attackerFleets[] = [
                 'mission' => $fleetMission,
                 'player' => $fleetPlayer,

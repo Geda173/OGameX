@@ -13,6 +13,13 @@ return new class () extends Migration {
      */
     public function up(): void
     {
+        // For SQLite (testing), handle differently
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            // SQLite doesn't support dropping/modifying columns easily, so we skip this
+            // The column will be created as nullable in the original migration
+            return;
+        }
+
         // Get the actual foreign key constraint name from the database
         $constraintName = $this->getForeignKeyName('planets', 'user_id');
 
@@ -39,6 +46,12 @@ return new class () extends Migration {
      */
     public function down(): void
     {
+        // For SQLite (testing), handle differently
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            // SQLite doesn't support this easily, so skip
+            return;
+        }
+
         // Get the current foreign key constraint name
         $constraintName = $this->getForeignKeyName('planets', 'user_id');
 
@@ -67,6 +80,13 @@ return new class () extends Migration {
      */
     private function getForeignKeyName(string $table, string $column): ?string
     {
+        // For SQLite, we can't query information_schema, so just return a generic name
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            // SQLite foreign keys are handled differently - we'll try to drop by column
+            return null;
+        }
+
+        // For MySQL/MariaDB
         $databaseName = DB::getDatabaseName();
 
         $result = DB::select("

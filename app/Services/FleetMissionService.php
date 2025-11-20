@@ -70,12 +70,29 @@ class FleetMissionService
      */
     public function calculateFleetMissionDuration(PlanetService $fromPlanet, Coordinate $to, UnitCollection $units, float $speed_percent = 10): int
     {
+        // Validate speed_percent to prevent division by zero
+        if ($speed_percent <= 0) {
+            $speed_percent = 10; // Default to 100% speed
+        }
+
         // Get slowest unit speed.
         $slowest_speed = $units->getSlowestUnitSpeed($fromPlanet->getPlayer());
+
+        // Validate slowest_speed to prevent division by zero
+        if ($slowest_speed <= 0) {
+            $slowest_speed = 1; // Default minimum speed
+        }
+
+        // Validate fleet speed setting to prevent division by zero
+        $fleetSpeed = $this->settingsService->fleetSpeed();
+        if ($fleetSpeed <= 0) {
+            $fleetSpeed = 1; // Default minimum fleet speed
+        }
+
         $distance = $this->calculateFleetMissionDistance($fromPlanet, $to);
         return (int) max(
             round(
-                (35000 / $speed_percent * sqrt($distance * 10 / $slowest_speed) + 10) / $this->settingsService->fleetSpeed()
+                (35000 / $speed_percent * sqrt($distance * 10 / $slowest_speed) + 10) / $fleetSpeed
             ),
             1
         );

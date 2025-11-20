@@ -61,8 +61,10 @@ use Spatie\Permission\Traits\HasRoles;
  * @method static \Illuminate\Database\Eloquent\Builder|User withoutRole($roles, $guard = null)
  * @property string|null $username_updated_at
  * @property int $espionage_probes_amount
+ * @property string|null $outlaw_until
  * @method static \Illuminate\Database\Eloquent\Builder|User whereUsernameUpdatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder|User whereEspionageProbesAmount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder|User whereOutlawUntil($value)
  * @mixin \Eloquent
  */
 class User extends Authenticatable
@@ -103,6 +105,24 @@ class User extends Authenticatable
     protected $casts = [
         'last_login_at' => 'datetime',
     ];
+
+    /**
+     * Bootstrap the model and its traits.
+     *
+     * @return void
+     */
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        // Set the 'time' field to current timestamp when creating a new user
+        // This ensures newly created users are not immediately marked as inactive
+        static::creating(function (User $user) {
+            if (empty($user->time)) {
+                $user->time = time();
+            }
+        });
+    }
 
     /**
      * Get the user tech record associated with the user.

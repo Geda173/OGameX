@@ -3,10 +3,11 @@
 namespace Tests\Unit\BattleEngine;
 
 use OGame\GameObjects\Models\Units\UnitCollection;
+use OGame\Models\Resources;
 use OGame\Services\ObjectService;
-use Tests\UnitTestCase;
+use Tests\AccountTestCase;
 
-abstract class BattleEngineTestAbstract extends UnitTestCase
+abstract class BattleEngineTestAbstract extends AccountTestCase
 {
     /**
      * Factory method that should return the battle engine instance to test.
@@ -14,29 +15,14 @@ abstract class BattleEngineTestAbstract extends UnitTestCase
     abstract protected function createBattleEngine(UnitCollection $attackerFleet): mixed;
 
     /**
-     * Set up common test components.
-     */
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        // Initialize the planet and user tech models with empty data to avoid errors.
-        $this->createAndSetPlanetModel([]);
-        $this->createAndSetUserTechModel([]);
-    }
-
-    /**
      * Test that the loot gained from a battle is calculated correctly when the attacker ships
      * have enough cargo space.
      */
     public function testLootGained(): void
     {
-        // Create a planet with resources.
-        $this->createAndSetPlanetModel([
-            'metal' => 10000,
-            'crystal' => 5000,
-            'deuterium' => 0,
-        ]);
+        // Create a planet with resources using helper method
+        $this->planetResetResources();
+        $this->planetAddResources(new Resources(10000, 5000, 0, 0));
 
         // Create fleet of attacker player.
         $attackerFleet = new UnitCollection();
@@ -58,12 +44,8 @@ abstract class BattleEngineTestAbstract extends UnitTestCase
      */
     public function testLootGainedCapacityConstraintMetalCrystal(): void
     {
-        // Create a planet with resources.
-        $this->createAndSetPlanetModel([
-            'metal' => 100000,
-            'crystal' => 100000,
-            'deuterium' => 0,
-        ]);
+        // Create a planet with resources using helper method
+        $this->planetAddResources(new Resources(100000, 100000, 0, 0));
 
         // Create fleet of attacker player.
         $attackerFleet = new UnitCollection();
@@ -87,12 +69,8 @@ abstract class BattleEngineTestAbstract extends UnitTestCase
      */
     public function testLootGainedCapacityConstraintMetalCrystalDeuterium(): void
     {
-        // Create a planet with resources.
-        $this->createAndSetPlanetModel([
-            'metal' => 100000,
-            'crystal' => 100000,
-            'deuterium' => 10000,
-        ]);
+        // Create a planet with resources using helper method
+        $this->planetAddResources(new Resources(100000, 100000, 10000, 0));
 
         // Create fleet of attacker player.
         $attackerFleet = new UnitCollection();
@@ -115,13 +93,9 @@ abstract class BattleEngineTestAbstract extends UnitTestCase
      */
     public function testAttackerDefenderFleet(): void
     {
-        // Create a planet with resources.
-        $this->createAndSetPlanetModel([
-            'metal' => 100000,
-            'crystal' => 100000,
-            'deuterium' => 10000,
-            'rocket_launcher' => 100,
-        ]);
+        // Create a planet with resources using helper method
+        $this->planetAddResources(new Resources(100000, 100000, 10000, 0));
+        $this->planetAddUnit('rocket_launcher', 100);
 
         // Create fleet of attacker player.
         $attackerFleet = new UnitCollection();
@@ -158,18 +132,13 @@ abstract class BattleEngineTestAbstract extends UnitTestCase
      */
     public function testAttackerDefenderResearchLevels(): void
     {
-        // Create a planet with resources.
-        $this->createAndSetPlanetModel([
-            'metal' => 100000,
-            'crystal' => 100000,
-            'deuterium' => 10000,
-            'rocket_launcher' => 20,
-        ]);
-        $this->createAndSetUserTechModel([
-            'weapon_technology' => 5,
-            'shielding_technology' => 3,
-            'armor_technology' => 18,
-        ]);
+        // Create a planet with resources using helper method
+        $this->planetAddResources(new Resources(100000, 100000, 10000, 0));
+        $this->planetAddUnit('rocket_launcher', 20);
+
+        $this->playerSetResearchLevel('weapon_technology', 5);
+        $this->playerSetResearchLevel('shielding_technology', 3);
+        $this->playerSetResearchLevel('armor_technology', 18);
 
         // Create fleet of attacker player.
         $attackerFleet = new UnitCollection();
@@ -189,18 +158,13 @@ abstract class BattleEngineTestAbstract extends UnitTestCase
      */
     public function testBattleEngineBasicRounds(): void
     {
-        // Create a planet with resources.
-        $this->createAndSetPlanetModel([
-            'metal' => 100000,
-            'crystal' => 100000,
-            'deuterium' => 10000,
-            'rocket_launcher' => 10,
-        ]);
-        $this->createAndSetUserTechModel([
-            'weapon_technology' => 5,
-            'shielding_technology' => 3,
-            'armor_technology' => 18,
-        ]);
+        // Create a planet with resources using helper method
+        $this->planetAddResources(new Resources(100000, 100000, 10000, 0));
+        $this->planetAddUnit('rocket_launcher', 10);
+
+        $this->playerSetResearchLevel('weapon_technology', 5);
+        $this->playerSetResearchLevel('shielding_technology', 3);
+        $this->playerSetResearchLevel('armor_technology', 18);
 
         // Create fleet of attacker player.
         $attackerFleet = new UnitCollection();
@@ -242,12 +206,8 @@ abstract class BattleEngineTestAbstract extends UnitTestCase
      */
     public function testBattleEngineNoRoundsWithZeroDefense(): void
     {
-        // Create a planet with resources.
-        $this->createAndSetPlanetModel([
-            'metal' => 100000,
-            'crystal' => 100000,
-            'deuterium' => 10000,
-        ]);
+        // Create a planet with resources using helper method
+        $this->planetAddResources(new Resources(100000, 100000, 10000, 0));
 
         // Create fleet of attacker player.
         $attackerFleet = new UnitCollection();
@@ -268,9 +228,7 @@ abstract class BattleEngineTestAbstract extends UnitTestCase
     {
         // Simulation 1: attacker with 150 light fighters vs defender with 200 rocket launchers (not taking into account any tech levels).
         // Expected result: attacker loses, defender rocket launchers remaining >= 160.
-        $this->createAndSetPlanetModel([
-            'rocket_launcher' => 200,
-        ]);
+        $this->planetAddUnit('rocket_launcher', 200);
 
         // Create fleet of attacker player.
         $attackerFleet = new UnitCollection();
@@ -313,11 +271,9 @@ abstract class BattleEngineTestAbstract extends UnitTestCase
     {
         // Simulation 1: attacker with 1 death star and 1k light fighters vs defender with 200 plasma turrets, 100 rocket launchers and 50 light lasers (not taking into account any tech levels).
         // Expected result: draw. attacker keeps death star and < 100 light fighters. Defender keeps > 180 plasma turrets, < 20 rocket launchers and < 20 light lasers.
-        $this->createAndSetPlanetModel([
-            'rocket_launcher' => 100,
-            'light_laser' => 50,
-            'plasma_turret' => 200,
-        ]);
+        $this->planetAddUnit('rocket_launcher', 100);
+        $this->planetAddUnit('light_laser', 50);
+        $this->planetAddUnit('plasma_turret', 200);
 
         // Create fleet of attacker player.
         $attackerFleet = new UnitCollection();
@@ -348,9 +304,7 @@ abstract class BattleEngineTestAbstract extends UnitTestCase
      */
     public function testBattleEngineStatistics(): void
     {
-        $this->createAndSetPlanetModel([
-            'rocket_launcher' => 100,
-        ]);
+        $this->planetAddUnit('rocket_launcher', 100);
 
         // Create fleet of attacker player.
         $attackerFleet = new UnitCollection();
@@ -377,9 +331,7 @@ abstract class BattleEngineTestAbstract extends UnitTestCase
      */
     public function testBattleEngineRapidfire(): void
     {
-        $this->createAndSetPlanetModel([
-            'rocket_launcher' => 500,
-        ]);
+        $this->planetAddUnit('rocket_launcher', 500);
 
         // Create fleet of attacker player.
         $attackerFleet = new UnitCollection();
@@ -414,9 +366,7 @@ abstract class BattleEngineTestAbstract extends UnitTestCase
         // This test is to verify that the shield bounce logic works correctly. A light fighter's attack power is less
         // than 1% of a large shield dome's shield points. Therefore, the attack should bounce off the shield and not
         // cause any damage to the shield dome. The battle will end in a draw after 6 rounds.
-        $this->createAndSetPlanetModel([
-            'large_shield_dome' => 1,
-        ]);
+        $this->planetAddUnit('large_shield_dome', 1);
 
         // Create fleet of attacker player.
         $attackerFleet = new UnitCollection();
@@ -447,16 +397,13 @@ abstract class BattleEngineTestAbstract extends UnitTestCase
         // be able to destroy a large shield dome. Attacker needs to have weapon tech level 10 higher than
         // twice the defender's shield tech level to destroy the shield.
         // In this case we test with weapon tech level 31 and shield tech level 10.
-        $this->createAndSetPlanetModel([
-            'large_shield_dome' => 1,
-        ]);
+        $this->planetAddUnit('large_shield_dome', 1);
+
         // TODO: currently the attacker player and defender player are the same so the tech level used in the
         // battle engine are the same. Refactor this unit test logic later so that the attacker and defender tech
         // levels can be set separately.
-        $this->createAndSetUserTechModel([
-            'weapon_technology' => 31,
-            'shielding_technology' => 10,
-        ]);
+        $this->playerSetResearchLevel('weapon_technology', 31);
+        $this->playerSetResearchLevel('shielding_technology', 10);
 
         // Create fleet of attacker player.
         $attackerFleet = new UnitCollection();
@@ -485,18 +432,17 @@ abstract class BattleEngineTestAbstract extends UnitTestCase
     {
         // Attacker with 50 light fighters vs. defender with 1000 heavy lasers.
         // Expecting attacker to lose all units which are turned to debris at 30% rate.
-        $this->createAndSetPlanetModel([
-            'heavy_laser' => 1000,
-        ]);
+        $this->planetAddUnit('heavy_laser', 1000);
 
         // Create fleet of attacker player.
         $attackerFleet = new UnitCollection();
         $lightFighter = ObjectService::getUnitObjectByMachineName('light_fighter');
         $attackerFleet->addUnit($lightFighter, 50);
 
-        $this->settingsService->set('debris_field_from_ships', 30);
-        $this->settingsService->set('debris_field_from_defense', 0);
-        $this->settingsService->set('debris_field_deuterium_on', 0);
+        $settingsService = resolve(\OGame\Services\SettingsService::class);
+        $settingsService->set('debris_field_from_ships', 30);
+        $settingsService->set('debris_field_from_defense', 0);
+        $settingsService->set('debris_field_deuterium_on', 0);
 
         // Simulate battle.
         $battleResult = $this->createBattleEngine($attackerFleet)->simulateBattle();
@@ -525,19 +471,33 @@ abstract class BattleEngineTestAbstract extends UnitTestCase
     {
         // Attacker with 50 light fighters vs. defender with 1000 heavy lasers.
         // Expecting attacker to lose all units which are turned to debris at 30% rate
-        $this->settingsService->set('debris_field_from_ships', 30);
-        $this->settingsService->set('debris_field_from_defense', 0);
-        $this->settingsService->set('debris_field_deuterium_on', 0);
+        $settingsService = resolve(\OGame\Services\SettingsService::class);
+        $settingsService->set('debris_field_from_ships', 30);
+        $settingsService->set('debris_field_from_defense', 0);
+        $settingsService->set('debris_field_deuterium_on', 0);
 
         // Calculate the debris generated from the destroyed ships.
         // Test with different debris percentages
         $debrisPercentages = [0, 30, 50, 100];
+        $planetServiceFactory = resolve(\OGame\Factories\PlanetServiceFactory::class);
         foreach ($debrisPercentages as $percentage) {
-            $this->settingsService->set('debris_field_from_ships', $percentage);
+            $settingsService->set('debris_field_from_ships', $percentage);
 
-            $this->createAndSetPlanetModel([
-                'heavy_laser' => 1000,
+            // Reset ALL planet units before each iteration to avoid contamination
+            \DB::table('planets')->where('id', $this->currentPlanetId)->update([
+                'heavy_laser' => 0,
+                'light_laser' => 0,
+                'plasma_turret' => 0,
+                'rocket_launcher' => 0,
+                'gauss_cannon' => 0,
+                'ion_cannon' => 0,
+                'small_shield_dome' => 0,
+                'large_shield_dome' => 0,
+                'anti_ballistic_missile' => 0,
+                'interplanetary_missile' => 0,
             ]);
+            $this->planetService = $planetServiceFactory->make($this->currentPlanetId);
+            $this->planetAddUnit('heavy_laser', 1000);
 
             // Create fleet of attacker player.
             // Expected total losses of attacker player: 150k metal and 50k crystal.
@@ -561,12 +521,24 @@ abstract class BattleEngineTestAbstract extends UnitTestCase
         // Test defense debris
         $defenseDebrisPercentages = [0, 30, 50, 100];
         foreach ($defenseDebrisPercentages as $percentage) {
-            $this->settingsService->set('debris_field_from_defense', $percentage);
-            $this->settingsService->set('debris_field_from_ships', 0);
+            $settingsService->set('debris_field_from_defense', $percentage);
+            $settingsService->set('debris_field_from_ships', 0);
 
-            $this->createAndSetPlanetModel([
-                'light_laser' => 200,
+            // Reset ALL planet units before each iteration to avoid contamination from previous loops
+            \DB::table('planets')->where('id', $this->currentPlanetId)->update([
+                'heavy_laser' => 0,
+                'light_laser' => 0,
+                'plasma_turret' => 0,
+                'rocket_launcher' => 0,
+                'gauss_cannon' => 0,
+                'ion_cannon' => 0,
+                'small_shield_dome' => 0,
+                'large_shield_dome' => 0,
+                'anti_ballistic_missile' => 0,
+                'interplanetary_missile' => 0,
             ]);
+            $this->planetService = $planetServiceFactory->make($this->currentPlanetId);
+            $this->planetAddUnit('light_laser', 200);
 
             // Create fleet of attacker player.
             // Expected total losses of defender player: 300k metal and 100k crystal.
@@ -590,13 +562,25 @@ abstract class BattleEngineTestAbstract extends UnitTestCase
         // Test deuterium off and on with 30% debris from ships.
         $deuteriumSettings = [0, 1];
         foreach ($deuteriumSettings as $setting) {
-            $this->settingsService->set('debris_field_deuterium_on', $setting);
-            $this->settingsService->set('debris_field_from_ships', 30);
-            $this->settingsService->set('debris_field_from_defense', 0);
+            $settingsService->set('debris_field_deuterium_on', $setting);
+            $settingsService->set('debris_field_from_ships', 30);
+            $settingsService->set('debris_field_from_defense', 0);
 
-            $this->createAndSetPlanetModel([
-                'plasma_turret' => 1000,
+            // Reset ALL planet units before each iteration to avoid contamination
+            \DB::table('planets')->where('id', $this->currentPlanetId)->update([
+                'heavy_laser' => 0,
+                'light_laser' => 0,
+                'plasma_turret' => 0,
+                'rocket_launcher' => 0,
+                'gauss_cannon' => 0,
+                'ion_cannon' => 0,
+                'small_shield_dome' => 0,
+                'large_shield_dome' => 0,
+                'anti_ballistic_missile' => 0,
+                'interplanetary_missile' => 0,
             ]);
+            $this->planetService = $planetServiceFactory->make($this->currentPlanetId);
+            $this->planetAddUnit('plasma_turret', 1000);
 
             // Create fleet of attacker player.
             // Expected total losses of attacker player: 1M metal and 350k crystal, 100k deuterium.
@@ -626,9 +610,7 @@ abstract class BattleEngineTestAbstract extends UnitTestCase
     {
         $start_rocket_launcher = 50000;
         $start_light_fighter = 50000;
-        $this->createAndSetPlanetModel([
-            'rocket_launcher' => $start_rocket_launcher,
-        ]);
+        $this->planetAddUnit('rocket_launcher', $start_rocket_launcher);
 
         // Create fleet of attacker player.
         $attackerFleet = new UnitCollection();

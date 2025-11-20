@@ -32,7 +32,9 @@ class EspionageMission extends GameMission
         }
 
         // If target planet does not exist, the mission is not possible.
-        $targetPlanet = $this->planetServiceFactory->makeForCoordinate($targetCoordinate, true, $targetType);
+        // Force reload from database (useCache=false) to ensure we get the latest planet state
+        // This is important for destroyed planets which may have been recently abandoned
+        $targetPlanet = $this->planetServiceFactory->makeForCoordinate($targetCoordinate, false, $targetType);
         if ($targetPlanet === null) {
             return new MissionPossibleStatus(false);
         }
@@ -53,6 +55,15 @@ class EspionageMission extends GameMission
             return new MissionPossibleStatus(false);
         }
 
+        // Check noob protection: strong players cannot spy on protected players
+        $spy = $planet->getPlayer();
+        $target = $targetPlanet->getPlayer();
+
+        // Skip noob protection check for destroyed planets (which have null player)
+        if ($target !== null && $target->isNewbie($spy)) {
+            return new MissionPossibleStatus(false, __('The target player is under noob protection and cannot be spied on.'));
+        }
+
         // If all checks pass, the mission is possible.
         return new MissionPossibleStatus(true);
     }
@@ -68,6 +79,15 @@ class EspionageMission extends GameMission
 
         // Trigger target planet update to make sure the espionage report is accurate.
         $target_planet->update();
+
+        $spy = $origin_planet->getPlayer();
+        $target = $target_planet->getPlayer();
+
+        // Check if spy should become outlaw (vogelfrei)
+        // This happens when a player under noob protection spies on a strong player
+        if ($spy->isNewbie($target) && $target->isStrong($spy)) {
+            $spy->makeOutlaw();
+        }
 
         // Calculate counter-espionage chance
         $counterEspionageChance = $this->calculateCounterEspionageChance($mission, $origin_planet, $target_planet);

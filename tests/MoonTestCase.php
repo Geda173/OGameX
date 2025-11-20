@@ -3,6 +3,7 @@
 namespace Tests;
 
 use Illuminate\Contracts\Container\BindingResolutionException;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use OGame\Factories\PlanetServiceFactory;
 use OGame\Services\PlanetService;
 
@@ -11,6 +12,7 @@ use OGame\Services\PlanetService;
  */
 abstract class MoonTestCase extends AccountTestCase
 {
+    use RefreshDatabase;
     /**
      * Test user moon that is associated with the main planet.
      *
