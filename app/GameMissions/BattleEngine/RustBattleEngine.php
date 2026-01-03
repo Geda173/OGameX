@@ -34,10 +34,12 @@ class RustBattleEngine extends BattleEngine
      * @param PlayerService $attackerPlayer The attacker player.
      * @param PlanetService $defenderPlanet The planet of the defender player.
      * @param SettingsService $settings The settings service.
+     * @param int $attackerFleetMissionId The fleet mission ID of the attacking fleet.
+     * @param int $attackerOwnerId The ID of the player who owns the attacking fleet.
      */
-    public function __construct(UnitCollection $attackerFleet, PlayerService $attackerPlayer, PlanetService $defenderPlanet, SettingsService $settings)
+    public function __construct(UnitCollection $attackerFleet, PlayerService $attackerPlayer, PlanetService $defenderPlanet, SettingsService $settings, int $attackerFleetMissionId, int $attackerOwnerId)
     {
-        parent::__construct($attackerFleet, $attackerPlayer, $defenderPlanet, $settings);
+        parent::__construct($attackerFleet, $attackerPlayer, $defenderPlanet, $settings, $attackerFleetMissionId, $attackerOwnerId);
 
         $this->ffi = FFI::cdef(
             "char* fight_battle_rounds(const char* input_json);",
@@ -53,6 +55,9 @@ class RustBattleEngine extends BattleEngine
      */
     protected function fightBattleRounds(BattleResult $result): array
     {
+        // Hamill Manoeuvre: General class Light Fighters have a chance to destroy one Deathstar before battle
+        $this->checkHamillManoeuvre($result);
+
         // Convert PHP battle units to format expected by Rust
         $input = $this->prepareBattleInput($result);
 
@@ -212,5 +217,52 @@ class RustBattleEngine extends BattleEngine
             $unitCollection->addUnit($unitObject, (int)$unit['amount']);
         }
         return $unitCollection;
+    }
+
+    /**
+     * Check and execute the Hamill Manoeuvre special ability.
+     * General class Light Fighters have a small chance to instantly destroy one Deathstar before battle.
+     *
+     * @param BattleResult $result
+     * @return void
+     */
+    private function checkHamillManoeuvre(BattleResult $result): void
+    {
+        // Check if attacker is General class
+        $characterClassService = app(\OGame\Services\CharacterClassService::class);
+        if (!$characterClassService->isGeneral($this->attackerPlayer->getUser())) {
+            return;
+        }
+
+        // Check if attacker has at least one Light Fighter
+        $hasLightFighter = $result->attackerUnitsStart->getAmountByMachineName('light_fighter') > 0;
+
+        if (!$hasLightFighter) {
+            return;
+        }
+
+        // Check if defender has at least one Deathstar
+        $hasDeathstar = $result->defenderUnitsStart->getAmountByMachineName('deathstar') > 0;
+
+        if (!$hasDeathstar) {
+            return;
+        }
+
+        // Roll the dice for Hamill Manoeuvre
+        $settings = app(\OGame\Services\SettingsService::class);
+        $probability = $settings->hamillManoeuvreChance();
+        $dice = random_int(1, $probability);
+
+        if ($dice === 1) {
+            // Hamill Manoeuvre triggered! Destroy one Deathstar
+            $result->hamillManoeuvreTriggered = true;
+
+            // Remove the Deathstar from defender units so it doesn't participate in battle
+            $deathstarObject = \OGame\Services\ObjectService::getShipObjectByMachineName('deathstar');
+            $result->defenderUnitsStart->removeUnit($deathstarObject, 1);
+
+            // NOTE: The loss will be properly calculated after battle rounds complete
+            // by comparing the modified defenderUnitsStart with defenderUnitsResult.
+        }
     }
 }
