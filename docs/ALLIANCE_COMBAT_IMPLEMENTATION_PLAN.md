@@ -34,6 +34,13 @@ This document outlines the implementation plan for adding Alliance Combat System
    - Proper brace placement and spacing
    - Namespace and use statement ordering
 
+4. **Clean GitHub History**: Keep all GitHub references free of AI/assistant mentions
+   - NEVER mention "Claude", "AI", "assistant", or similar in commit messages
+   - NEVER mention "Claude", "AI", "assistant", or similar in PR titles or descriptions
+   - NEVER reference this plan or any AI involvement in GitHub activity
+   - Write commit messages and PR descriptions as if written by a human developer
+   - Focus on *what* changed and *why*, not *how* it was developed
+
 **Pre-commit Checklist**:
 ```bash
 # Run these commands before every commit:
