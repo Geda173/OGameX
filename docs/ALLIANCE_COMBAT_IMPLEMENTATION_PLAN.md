@@ -8,6 +8,7 @@ This document outlines the implementation plan for adding Alliance Combat System
 
 | Date | Change |
 |------|--------|
+| 2026-01-03 | Updated: PR 2 marked as completed (merged as PR #1003). PR 3, PR 5, and PR 6 now ready for development. |
 | 2026-01-03 | Updated: PR 1 marked as completed (merged as PR #974). Added implementation notes and updated dependency table. |
 | Initial | Original implementation plan created |
 
@@ -60,7 +61,7 @@ This feature should be implemented across multiple smaller PRs rather than one g
 ```
 PR 1: ACS Defend (Basic) ✅        ──┐
                                     ├──► PR 3: Multi-Defender Battle Engine
-PR 2: BattleUnit Owner Tracking   ──┘
+PR 2: BattleUnit Owner Tracking ✅ ──┘
                                             │
                                             ▼
                                     PR 4: Alliance Depot (Optional)
@@ -78,7 +79,8 @@ PR 6: Multi-Attacker Battle       ──┘
 
 ### Current Progress
 - **PR 1**: ✅ Completed (merged as PR #974)
-- **PR 2-9**: Pending
+- **PR 2**: ✅ Completed (merged as PR #1003)
+- **PR 3-9**: Pending
 
 ---
 
@@ -114,8 +116,9 @@ PR 6: Multi-Attacker Battle       ──┘
 
 ---
 
-### PR 2: BattleUnit Owner Tracking
+### PR 2: BattleUnit Owner Tracking ✅ COMPLETED
 **Branch**: `feature/battle-unit-owner-tracking`
+**Merged**: PR #1003
 **Size**: ~200-300 lines
 **Deliverable**: Foundation for tracking which fleet owns each ship in battle
 
@@ -129,10 +132,17 @@ PR 6: Multi-Attacker Battle       ──┘
 **Tasks from Milestones**: 2.1
 
 **Acceptance Criteria**:
-- [ ] BattleUnit accepts and stores fleetMissionId
-- [ ] BattleUnit accepts and stores ownerId
-- [ ] Existing 1v1 battles continue to work unchanged
-- [ ] PHPStan passes, PSR-12 compliant
+- [x] BattleUnit accepts and stores fleetMissionId
+- [x] BattleUnit accepts and stores ownerId
+- [x] Existing 1v1 battles continue to work unchanged
+- [x] PHPStan passes, PSR-12 compliant
+
+**Implementation Notes** (added post-completion):
+- `fleetMissionId` and `ownerId` are now required constructor parameters (not optional)
+- Both PHP and Rust battle engines updated to pass ownership info
+- All mission types updated: `AttackMission`, `EspionageMission`, `ExpeditionMission`, `MoonDestructionMission`
+- Stationary planet defenses use `fleetMissionId = 0`
+- New test file: `tests/Unit/BattleEngine/BattleUnitTest.php`
 
 ---
 
@@ -305,23 +315,24 @@ PR 6: Multi-Attacker Battle       ──┘
 | PR | Status | Can Start After | Delivers |
 |----|--------|-----------------|----------|
 | **PR 1** | ✅ Done | ~~Immediately~~ | Basic ACS Defend holding |
-| **PR 2** | Ready | Immediately | Owner tracking foundation |
-| **PR 3** | Blocked | PR 2 | Defenders participate in battle |
+| **PR 2** | ✅ Done | ~~Immediately~~ | Owner tracking foundation |
+| **PR 3** | Ready | ~~PR 1 + PR 2~~ | Defenders participate in battle |
 | **PR 4** | Blocked | PR 3 | Alliance Depot (optional) |
 | **PR 5** | Ready | Immediately | Fleet unions foundation |
-| **PR 6** | Blocked | PR 2 | Multi-attacker battle engine |
+| **PR 6** | Ready | ~~PR 2~~ | Multi-attacker battle engine |
 | **PR 7** | Blocked | PR 5 + PR 6 | Full ACS Attack |
 | **PR 8** | Blocked | PR 7 | Loot & sync returns |
 | **PR 9** | Blocked | PR 7 | Battle reports & UI |
 
 **Next Steps** (can be developed in parallel):
-- **PR 2**: BattleUnit Owner Tracking - unblocks PR 3 and PR 6
+- **PR 3**: Multi-Defender Battle Engine - makes defending fleets participate in combat
 - **PR 5**: Fleet Unions Foundation - unblocks PR 7
+- **PR 6**: Multi-Attacker Battle Engine - unblocks PR 7
 
 **Parallel Development Possible**:
-- PR 2 and PR 5 can be developed in parallel now
-- PR 3 and PR 6 can be developed in parallel (after PR 2)
+- PR 3, PR 5, and PR 6 can all be developed in parallel now
 - PR 4 can be done anytime after PR 3
+- PR 7 requires both PR 5 and PR 6
 
 ---
 
