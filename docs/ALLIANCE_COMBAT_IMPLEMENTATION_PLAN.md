@@ -8,7 +8,8 @@ This document outlines the implementation plan for adding Alliance Combat System
 
 | Date | Change |
 |------|--------|
-| 2026-01-06 | Updated: PR 3 (Multi-Defender Battle Engine) completed. ACS Defend is now fully functional. Updated PR 4 (Alliance Depot) with accurate game mechanics from wiki. |
+| 2026-01-06 | Revised PR 4 (Alliance Depot): Players CAN extend hold time via supply rockets. Sender pays initial costs, host pays for extensions. Added UI requirements (button + popup in /facilities). Split into sub-PRs 4a/4b/4c. |
+| 2026-01-06 | Updated: PR 3 (Multi-Defender Battle Engine) completed. ACS Defend is now fully functional. |
 | 2026-01-03 | Updated: PR 2 marked as completed. PR 3, PR 5, and PR 6 now ready for development. |
 | 2026-01-03 | Updated: PR 1 marked as completed. Added implementation notes and updated dependency table. |
 | Initial | Original implementation plan created |
@@ -178,25 +179,36 @@ PR 6: Multi-Attacker Battle       ──┘
 
 ---
 
-### PR 4: Alliance Depot (Optional Enhancement)
+### PR 4: Alliance Depot
 **Branch**: `feature/alliance-depot`
-**Size**: ~400-600 lines
-**Deliverable**: Planet owner can supply deuterium to defending fleets
+**Size**: ~800-1200 lines (split into sub-PRs recommended)
+**Deliverable**: Planet owner can extend hold time for defending fleets via supply rockets
 
-| What's Included | What's NOT Included |
-|-----------------|---------------------|
-| Alliance Depot building object | Manual hold time extension |
-| Automatic deuterium consumption | "Rocket" launch mechanics |
-| Per-ship-type holding costs | - |
-| Integration with ACS defend missions | - |
+This feature is more complex than originally scoped. Recommend splitting into sub-PRs:
+- **PR 4a**: Alliance Depot building + UI button/popup
+- **PR 4b**: Supply rocket mechanics + hold time extension
+- **PR 4c**: Integration with ACS defend mission processing
 
-**Note**: This PR is optional and can be done later. ACS Defend works without it (fleets simply return after their hold time).
+#### Game Mechanics (Corrected)
 
-**Game Mechanics** (from OGame wiki):
+**Cost Model**:
+- **Sender** pays ALL initial costs: flight deuterium + holding deuterium for initial hold time
+- **Host** only pays when sending supply rockets to extend hold time beyond initial period
+- Fleets holding for **1 hour or more** can have their hold time extended
+
+**Alliance Depot Building**:
 - Building costs: 20,000 Metal + 40,000 Crystal at level 1 (doubles each level)
-- Depot **automatically** supplies deuterium to holding fleets (no player action required)
-- Supply rate: 10,000 deuterium per level per hour
-- Holding costs vary by ship type (deuterium per hour):
+- Located in Facilities
+- Supply capacity: 10,000 deuterium per level per hour
+
+**UI Requirements**:
+- Button in `/facilities` page labeled "Alliance Depot" (same position/styling as Jump Gate or Resource Settings buttons)
+- Button opens a popup window showing:
+  - Currently holding fleets
+  - Option to send supply rockets to extend hold time
+  - Deuterium cost calculation
+
+**Holding Costs** (deuterium per hour per ship):
 
 | Ship Type | Deut/Hour | Ship Type | Deut/Hour |
 |-----------|-----------|-----------|-----------|
@@ -208,14 +220,51 @@ PR 6: Multi-Attacker Battle       ──┘
 | Battleship | 60 | Recycler | 30 |
 | Colony Ship | 100 | - | - |
 
-**Important**: Players CANNOT manually extend hold time. The depot automatically consumes the planet owner's deuterium to support holding fleets. When deuterium runs out, fleets return home.
+#### Sub-PR 4a: Building & UI Foundation
+
+| What's Included | What's NOT Included |
+|-----------------|---------------------|
+| Alliance Depot building object | Supply rocket logic |
+| `/facilities` button (like Jump Gate) | Hold time extension |
+| Popup window (basic structure) | Deuterium billing |
+| View currently holding fleets | - |
 
 **Acceptance Criteria**:
 - [ ] Alliance Depot building can be constructed (Facilities category)
-- [ ] Depot automatically supplies deuterium to holding ACS defend fleets
-- [ ] Consumption rate based on fleet composition and ship holding costs
-- [ ] Supply capacity: 10,000 deut/hour per depot level
-- [ ] When planet deuterium is depleted, holding fleets return home (not stranded)
+- [ ] Button appears in `/facilities` when depot level >= 1
+- [ ] Popup opens showing holding fleets at this planet
+- [ ] Popup styling matches existing popups (Jump Gate style)
+
+#### Sub-PR 4b: Supply Rocket Mechanics
+
+| What's Included | What's NOT Included |
+|-----------------|---------------------|
+| Send supply rocket action | - |
+| Deuterium cost calculation | - |
+| Hold time extension logic | - |
+| Host pays for extension | - |
+
+**Acceptance Criteria**:
+- [ ] Host can send supply rocket to extend fleet hold time
+- [ ] Only fleets holding 1+ hours can be extended
+- [ ] Deuterium cost calculated based on fleet composition
+- [ ] Host's deuterium is deducted when rocket sent
+- [ ] Fleet's hold time is extended accordingly
+
+#### Sub-PR 4c: Mission Integration
+
+| What's Included | What's NOT Included |
+|-----------------|---------------------|
+| Update ACS Defend mission processing | - |
+| Handle extended hold times | - |
+| Fleet returns when hold expires | - |
+| Edge cases (depot destroyed, etc.) | - |
+
+**Acceptance Criteria**:
+- [ ] Extended fleets continue holding until new time expires
+- [ ] Fleets return home when final hold time expires
+- [ ] If depot is destroyed, existing extensions remain valid
+- [ ] Multiple extensions can be stacked
 
 ---
 
