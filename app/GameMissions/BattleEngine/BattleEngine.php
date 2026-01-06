@@ -2,6 +2,10 @@
 
 namespace OGame\GameMissions\BattleEngine;
 
+use OGame\GameMissions\BattleEngine\Models\DefenderFleetResult;
+use OGame\GameMissions\BattleEngine\Models\DefenderFleet;
+use OGame\Services\CharacterClassService;
+use OGame\Services\ObjectService;
 use OGame\GameMissions\BattleEngine\Models\BattleResult;
 use OGame\GameMissions\BattleEngine\Models\BattleResultRound;
 use OGame\GameMissions\BattleEngine\Services\DefenseRepairService;
@@ -24,20 +28,6 @@ use OGame\Services\SettingsService;
  */
 abstract class BattleEngine
 {
-    private UnitCollection $attackerFleet;
-    protected PlayerService $attackerPlayer;
-    protected PlanetService $defenderPlanet;
-
-    /**
-     * @var int The fleet mission ID of the attacking fleet.
-     */
-    protected int $attackerFleetMissionId;
-
-    /**
-     * @var int The ID of the player who owns the attacking fleet.
-     */
-    protected int $attackerOwnerId;
-
     /**
      * @var LootService The service used to calculate the loot gained from a battle.
      */
@@ -50,35 +40,23 @@ abstract class BattleEngine
     private int $lootPercentage = 50;
 
     /**
-     * @var SettingsService The settings service.
-     */
-    private SettingsService $settings;
-
-    /**
      * BattleEngine constructor.
      *
      * @param UnitCollection $attackerFleet The fleet of the attacker player.
      * @param PlayerService $attackerPlayer The attacker player.
-     * @param PlanetService $defenderPlanet The planet of the defender player.
+     * @param PlanetService $defenderPlanet The planet of the defender player (used for loot, moon calculation).
+     * @param array<DefenderFleet> $defenders All defending fleets (planet owner + ACS defend fleets).
      * @param SettingsService $settings The settings service.
      * @param int $attackerFleetMissionId The fleet mission ID of the attacking fleet.
      * @param int $attackerOwnerId The ID of the player who owns the attacking fleet.
      */
-    public function __construct(UnitCollection $attackerFleet, PlayerService $attackerPlayer, PlanetService $defenderPlanet, SettingsService $settings, int $attackerFleetMissionId, int $attackerOwnerId)
+    public function __construct(private UnitCollection $attackerFleet, protected PlayerService $attackerPlayer, protected PlanetService $defenderPlanet, protected array $defenders, private SettingsService $settings, protected int $attackerFleetMissionId, protected int $attackerOwnerId)
     {
-        $this->attackerFleet = $attackerFleet;
-        $this->attackerPlayer = $attackerPlayer;
-        $this->defenderPlanet = $defenderPlanet;
-        $this->attackerFleetMissionId = $attackerFleetMissionId;
-        $this->attackerOwnerId = $attackerOwnerId;
-
         // Determine loot percentage based on character class and defender status
-        $characterClassService = app(\OGame\Services\CharacterClassService::class);
+        $characterClassService = app(CharacterClassService::class);
         $this->lootPercentage = (int)($characterClassService->getInactiveLootPercentage($this->attackerPlayer->getUser()) * 100);
 
         $this->lootService = new LootService($this->attackerFleet, $this->attackerPlayer, $this->defenderPlanet, $this->lootPercentage);
-
-        $this->settings = $settings;
     }
 
     /**
@@ -103,7 +81,7 @@ abstract class BattleEngine
         $defenderArmorBase = $this->defenderPlanet->getPlayer()->getResearchLevel('armor_technology');
 
         // Apply General class combat research bonus (+2 levels)
-        $characterClassService = app(\OGame\Services\CharacterClassService::class);
+        $characterClassService = app(CharacterClassService::class);
         $attackerCombatBonus = $characterClassService->getAdditionalCombatResearchLevels($this->attackerPlayer->getUser());
         $defenderCombatBonus = $characterClassService->getAdditionalCombatResearchLevels($this->defenderPlanet->getPlayer()->getUser());
 
@@ -118,8 +96,20 @@ abstract class BattleEngine
         $result->attackerUnitsStart = clone $this->attackerFleet;
         $result->attackerUnitsResult = clone $this->attackerFleet;
         $result->defenderUnitsStart = new UnitCollection();
-        $result->defenderUnitsStart->addCollection($this->defenderPlanet->getShipUnits());
-        $result->defenderUnitsStart->addCollection($this->defenderPlanet->getDefenseUnits());
+
+        // Collect units from all defending fleets and initialize per-fleet results
+        foreach ($this->defenders as $defenderFleet) {
+            $result->defenderUnitsStart->addCollection($defenderFleet->units);
+
+            // Initialize result tracking for this fleet
+            $fleetResult = new DefenderFleetResult(
+                $defenderFleet->fleetMissionId,
+                $defenderFleet->ownerId,
+                $defenderFleet->units
+            );
+            $result->defenderFleetResults[] = $fleetResult;
+        }
+
         $result->defenderUnitsResult = clone $result->defenderUnitsStart;
 
         // Execute the battle rounds, this will handle the actual combat logic.
@@ -154,7 +144,7 @@ abstract class BattleEngine
 
         // Add Hamill Manoeuvre Deathstar loss if it was triggered
         if ($result->hamillManoeuvreTriggered) {
-            $deathstarObject = \OGame\Services\ObjectService::getShipObjectByMachineName('deathstar');
+            $deathstarObject = ObjectService::getShipObjectByMachineName('deathstar');
             $result->defenderUnitsLost->addUnit($deathstarObject, 1);
         }
 

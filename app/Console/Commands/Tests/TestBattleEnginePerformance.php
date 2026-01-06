@@ -2,6 +2,8 @@
 
 namespace OGame\Console\Commands\Tests;
 
+use OGame\GameMissions\BattleEngine\Models\DefenderFleet;
+use Illuminate\Support\Facades\Date;
 use Exception;
 use Illuminate\Support\Carbon;
 use InvalidArgumentException;
@@ -72,7 +74,7 @@ class TestBattleEnginePerformance extends TestCommand
     private function runSingleEngineTest(string $engine, array $fleets): int
     {
         // Set static time
-        Carbon::setTestNow(Carbon::create(2024, 1, 1, 0, 0, 0));
+        Date::setTestNow(Date::create(2024, 1, 1, 0, 0, 0));
 
         // Add resources and tech levels
         $this->currentPlanetService->addResources(new Resources(1000000, 1000000, 1000000, 0));
@@ -120,13 +122,16 @@ class TestBattleEnginePerformance extends TestCommand
         // Resolve settings service.
         $settingsService = resolve(SettingsService::class);
 
+        // Create defenders array with planet's stationary forces
+        $defenders = [DefenderFleet::fromPlanet($this->currentPlanetService)];
+
         // For test battles, use fleetMissionId = 0 and current player's ID
         $fleetMissionId = 0;
         $ownerId = $this->playerService->getId();
 
         return $engine === 'php'
-            ? new PhpBattleEngine($attackerFleet, $this->playerService, $this->currentPlanetService, $settingsService, $fleetMissionId, $ownerId)
-            : new RustBattleEngine($attackerFleet, $this->playerService, $this->currentPlanetService, $settingsService, $fleetMissionId, $ownerId);
+            ? new PhpBattleEngine($attackerFleet, $this->playerService, $this->currentPlanetService, $defenders, $settingsService, $fleetMissionId, $ownerId)
+            : new RustBattleEngine($attackerFleet, $this->playerService, $this->currentPlanetService, $defenders, $settingsService, $fleetMissionId, $ownerId);
     }
 
     /**

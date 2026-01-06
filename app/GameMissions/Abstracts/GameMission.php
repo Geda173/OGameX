@@ -2,6 +2,8 @@
 
 namespace OGame\GameMissions\Abstracts;
 
+use OGame\GameMissions\BattleEngine\Models\DefenderFleet;
+use Illuminate\Support\Facades\Date;
 use Exception;
 use Illuminate\Support\Carbon;
 use OGame\Enums\FleetMissionStatus;
@@ -10,6 +12,7 @@ use OGame\Factories\PlanetServiceFactory;
 use OGame\Factories\PlayerServiceFactory;
 use OGame\GameMessages\ReturnOfFleet;
 use OGame\GameMessages\ReturnOfFleetWithResources;
+use OGame\GameMissions\AcsDefendMission;
 use OGame\GameMissions\ExpeditionMission;
 use OGame\GameMissions\Models\MissionPossibleStatus;
 use OGame\GameObjects\Models\Units\UnitCollection;
@@ -50,16 +53,6 @@ abstract class GameMission
      */
     protected static FleetMissionStatus $friendlyStatus;
 
-    protected FleetMissionService $fleetMissionService;
-
-    protected MessageService $messageService;
-
-    protected PlanetServiceFactory $planetServiceFactory;
-
-    protected PlayerServiceFactory $playerServiceFactory;
-
-    protected SettingsService $settings;
-
     /**
      * @param FleetMissionService $fleetMissionService
      * @param MessageService $messageService
@@ -67,13 +60,8 @@ abstract class GameMission
      * @param PlayerServiceFactory $playerServiceFactory
      * @param SettingsService $settings
      */
-    public function __construct(FleetMissionService $fleetMissionService, MessageService $messageService, PlanetServiceFactory $planetServiceFactory, PlayerServiceFactory $playerServiceFactory, SettingsService $settings)
+    public function __construct(protected FleetMissionService $fleetMissionService, protected MessageService $messageService, protected PlanetServiceFactory $planetServiceFactory, protected PlayerServiceFactory $playerServiceFactory, protected SettingsService $settings)
     {
-        $this->fleetMissionService = $fleetMissionService;
-        $this->messageService = $messageService;
-        $this->planetServiceFactory = $planetServiceFactory;
-        $this->playerServiceFactory = $playerServiceFactory;
-        $this->settings = $settings;
     }
 
     public static function getName(): string
@@ -132,7 +120,7 @@ abstract class GameMission
     {
         // Update the mission arrived time to now instead of original planned arrival time if the mission would finish by itself.
         // This arrival time is used by the return mission to calculate the return time.
-        $mission->time_arrival = (int)Carbon::now()->timestamp;
+        $mission->time_arrival = (int)Date::now()->timestamp;
 
         // Clear the holding time for recalled missions (expeditions, etc.)
         // The fleet should return immediately without waiting at the destination.
@@ -241,7 +229,7 @@ abstract class GameMission
         }
 
         // Time this fleet mission will depart (now).
-        $time_start = (int)Carbon::now()->timestamp;
+        $time_start = (int)Date::now()->timestamp;
 
         // Time fleet mission will arrive.
         // TODO: refactor calculate to gamemission base class?
@@ -270,10 +258,12 @@ abstract class GameMission
 
         // Holding time is the amount of time the fleet will wait at the target planet and/or how long expedition will last.
         // The $holdingHours is in hours, so we convert it to seconds.
-        // Only applies to expeditions (and ACS missions, but those are not implemented yet).
+        // Applies to expeditions and ACS Defend missions.
         if (static::class === ExpeditionMission::class) {
             $mission->time_holding = $holdingHours * 3600;
             $targetType = PlanetType::DeepSpace;
+        } elseif (static::class === AcsDefendMission::class) {
+            $mission->time_holding = $holdingHours * 3600;
         }
 
         $mission->type_to = $targetType->value;
@@ -314,7 +304,7 @@ abstract class GameMission
         // Check if the created mission arrival time is in the past. This can happen if the planet hasn't been updated
         // for some time and missions have already played out in the meantime.
         // If the mission is in the past, process it immediately.
-        if ($mission->time_arrival < Carbon::now()->timestamp) {
+        if ($mission->time_arrival < Date::now()->timestamp) {
             $this->process($mission);
         }
 
@@ -407,7 +397,7 @@ abstract class GameMission
         // Check if the created mission arrival time is in the past. This can happen if the planet hasn't been updated
         // for some time and missions have already played out in the meantime.
         // If the mission is in the past, process it immediately.
-        if ($mission->time_arrival < Carbon::now()->timestamp) {
+        if ($mission->time_arrival < Date::now()->timestamp) {
             $this->process($mission);
         }
     }
@@ -475,6 +465,40 @@ abstract class GameMission
             // This is a return mission as it has a parent mission.
             $this->processReturn($mission);
         }
+    }
+
+    /**
+     * Collect all defending fleets at a planet (planet owner + ACS defend fleets).
+     *
+     * @param PlanetService $planet The planet being defended.
+     * @return array<DefenderFleet> Array of all defending fleets.
+     */
+    protected function collectDefendingFleets(PlanetService $planet): array
+    {
+        $defenders = [];
+
+        // Always add the planet owner's forces first
+        $defenders[] = DefenderFleet::fromPlanet($planet);
+
+        // Find all ACS Defend fleets currently holding at this planet
+        $defendMissions = FleetMission::query()
+            ->where('mission_type', 5)  // ACS Defend
+            ->where('planet_id_to', $planet->getPlanetId())
+            ->where('processed', 0)  // Still active
+            ->where('time_arrival', '<=', Date::now()->timestamp)  // Has arrived
+            ->whereRaw('time_arrival + COALESCE(time_holding, 0) > ?', [Date::now()->timestamp])  // Still holding
+            ->get();
+
+        // Add each defending fleet
+        foreach ($defendMissions as $mission) {
+            $defenders[] = DefenderFleet::fromFleetMission(
+                $mission,
+                $this->fleetMissionService,
+                $this->playerServiceFactory
+            );
+        }
+
+        return $defenders;
     }
 
     /**

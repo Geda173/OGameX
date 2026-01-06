@@ -2,6 +2,12 @@
 
 namespace OGame\GameMissions;
 
+use OGame\GameMessages\FleetLostContact;
+use OGame\Models\Resources;
+use OGame\Factories\PlayerServiceFactory;
+use OGame\GameMessages\DefenderEspionageDetected;
+use OGame\GameMissions\BattleEngine\Models\BattleResult;
+use OGame\Services\PlayerService;
 use OGame\Enums\FleetMissionStatus;
 use OGame\Enums\FleetSpeedType;
 use OGame\GameMissions\Abstracts\GameMission;
@@ -95,6 +101,11 @@ class EspionageMission extends GameMission
         $attackerProbeCount = $mission->espionage_probe;
         $attackerEspionageLevel = $origin_planet->getPlayer()->getResearchLevel('espionage_technology');
         $defenderEspionageLevel = $target_planet->getPlayer()->getResearchLevel('espionage_technology');
+
+        // TODO: Include ACS Defend fleets in counter-espionage chance calculation
+        // Currently only counts planet owner's ships via getDefenderShipCount()
+        // Should also count ships from ACS Defend fleets present at the target planet
+        // This creates inconsistency: ACS fleets participate in battle but don't affect detection chance
         $defenderShipCount = $counterEspionageService->getDefenderShipCount($target_planet);
 
         $counterEspionageChance = $counterEspionageService->calculateChance(
@@ -169,12 +180,12 @@ class EspionageMission extends GameMission
                 'chance'        => $counterEspionageChance,
             ];
 
-            $playerServiceFactory = resolve(\OGame\Factories\PlayerServiceFactory::class);
+            $playerServiceFactory = resolve(PlayerServiceFactory::class);
             $defenderService      = $playerServiceFactory->make($defenderUserId);
 
             $this->messageService->sendSystemMessageToPlayer(
                 $defenderService,
-                \OGame\GameMessages\DefenderEspionageDetected::class,
+                DefenderEspionageDetected::class,
                 $params
             );
         }
@@ -207,7 +218,7 @@ class EspionageMission extends GameMission
      * @param CounterEspionageService $counterEspionageService
      * @param int $fleetMissionId
      * @param int $ownerId
-     * @return \OGame\GameMissions\BattleEngine\Models\BattleResult
+     * @return BattleResult
      */
     private function executeCounterEspionageBattle(
         PlanetService $originPlanet,
@@ -216,7 +227,7 @@ class EspionageMission extends GameMission
         CounterEspionageService $counterEspionageService,
         int $fleetMissionId,
         int $ownerId
-    ): \OGame\GameMissions\BattleEngine\Models\BattleResult {
+    ): BattleResult {
         $attackerPlayer = $originPlanet->getPlayer();
 
         // Get only ships for counter-espionage battle (no defense)
@@ -228,14 +239,17 @@ class EspionageMission extends GameMission
             $targetPlanet->removeUnit($unit->unitObject->machine_name, $unit->amount, false);
         }
 
+        // Collect all defending fleets (planet owner + ACS defend fleets)
+        $defenders = $this->collectDefendingFleets($targetPlanet);
+
         // Execute battle using configured battle engine
         switch ($this->settings->battleEngine()) {
             case 'php':
-                $battleEngine = new PhpBattleEngine($attackerUnits, $attackerPlayer, $targetPlanet, $this->settings, $fleetMissionId, $ownerId);
+                $battleEngine = new PhpBattleEngine($attackerUnits, $attackerPlayer, $targetPlanet, $defenders, $this->settings, $fleetMissionId, $ownerId);
                 break;
             case 'rust':
             default:
-                $battleEngine = new RustBattleEngine($attackerUnits, $attackerPlayer, $targetPlanet, $this->settings, $fleetMissionId, $ownerId);
+                $battleEngine = new RustBattleEngine($attackerUnits, $attackerPlayer, $targetPlanet, $defenders, $this->settings, $fleetMissionId, $ownerId);
                 break;
         }
 
@@ -246,21 +260,52 @@ class EspionageMission extends GameMission
             $targetPlanet->addUnit($unit->unitObject->machine_name, $unit->amount, false);
         }
 
+        // Process defender fleet results (planet owner + ACS defend fleets)
+        foreach ($battleResult->defenderFleetResults as $fleetResult) {
+            if ($fleetResult->fleetMissionId === 0) {
+                // Planet owner's ships - remove permanently lost ships (no defense repair in counter-espionage)
+                if ($fleetResult->unitsLost->getAmount() > 0) {
+                    $targetPlanet->removeUnits($fleetResult->unitsLost, false);
+                }
+                $targetPlanet->save();
+            } else {
+                // ACS Defend fleet - handle return or destruction
+                $defendMission = FleetMission::find($fleetResult->fleetMissionId);
+                if ($defendMission) {
+                    if ($fleetResult->completelyDestroyed) {
+                        // Fleet was completely destroyed - no return mission
+                        $defendMission->processed = 1;
+                        $defendMission->save();
+
+                        // Send fleet lost contact message to the fleet owner
+                        $fleetOwner = $this->playerServiceFactory->make($fleetResult->ownerId);
+                        $coordinates = '[coordinates]' . $targetPlanet->getPlanetCoordinates()->asString() . '[/coordinates]';
+                        $this->messageService->sendSystemMessageToPlayer($fleetOwner, FleetLostContact::class, [
+                            'coordinates' => $coordinates,
+                        ]);
+                    } else {
+                        // Fleet survived - create return mission with surviving units
+                        $this->startReturn($defendMission, new Resources(0, 0, 0, 0), $fleetResult->unitsResult);
+                    }
+                }
+            }
+        }
+
         return $battleResult;
     }
 
     /**
      * Create a battle report for counter-espionage battle.
      *
-     * @param \OGame\Services\PlayerService $attackerPlayer
+     * @param PlayerService $attackerPlayer
      * @param PlanetService $defenderPlanet
-     * @param \OGame\GameMissions\BattleEngine\Models\BattleResult $battleResult
+     * @param BattleResult $battleResult
      * @return int
      */
     private function createCounterEspionageBattleReport(
-        \OGame\Services\PlayerService $attackerPlayer,
+        PlayerService $attackerPlayer,
         PlanetService $defenderPlanet,
-        \OGame\GameMissions\BattleEngine\Models\BattleResult $battleResult
+        BattleResult $battleResult
     ): int {
         $report = new BattleReport();
         $report->planet_galaxy = $defenderPlanet->getPlanetCoordinates()->galaxy;
@@ -412,6 +457,11 @@ class EspionageMission extends GameMission
         $remainingProbes = max(0, $mission->espionage_probe - $extraProbesRequired);
 
         // Fleets
+        // TODO: Include ACS Defend fleets in espionage report
+        // Currently only shows planet owner's ships via getShipUnits()
+        // Should also show ACS Defend fleet units present at the target planet
+        // This creates inconsistency: ACS fleets are invisible to spy but participate in counter-espionage battles
+        // Consider showing them in a separate section or with owner labels
         if ($this->canRevealData($remainingProbes, $attackerEspionageLevel, $defenderEspionageLevel, 2, 1)) {
             $report->ships = $targetPlanet->getShipUnits()->toArray();
         }
