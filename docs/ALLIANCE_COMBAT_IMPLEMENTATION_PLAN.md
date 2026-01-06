@@ -8,8 +8,9 @@ This document outlines the implementation plan for adding Alliance Combat System
 
 | Date | Change |
 |------|--------|
-| 2026-01-03 | Updated: PR 2 marked as completed (merged as PR #1003). PR 3, PR 5, and PR 6 now ready for development. |
-| 2026-01-03 | Updated: PR 1 marked as completed (merged as PR #974). Added implementation notes and updated dependency table. |
+| 2026-01-06 | Updated: PR 3 (Multi-Defender Battle Engine) completed. ACS Defend is now fully functional. Updated PR 4 (Alliance Depot) with accurate game mechanics from wiki. |
+| 2026-01-03 | Updated: PR 2 marked as completed. PR 3, PR 5, and PR 6 now ready for development. |
+| 2026-01-03 | Updated: PR 1 marked as completed. Added implementation notes and updated dependency table. |
 | Initial | Original implementation plan created |
 
 ---
@@ -60,7 +61,7 @@ This feature should be implemented across multiple smaller PRs rather than one g
 
 ```
 PR 1: ACS Defend (Basic) ✅        ──┐
-                                    ├──► PR 3: Multi-Defender Battle Engine
+                                    ├──► PR 3: Multi-Defender Battle Engine ✅
 PR 2: BattleUnit Owner Tracking ✅ ──┘
                                             │
                                             ▼
@@ -78,9 +79,10 @@ PR 6: Multi-Attacker Battle       ──┘
 ```
 
 ### Current Progress
-- **PR 1**: ✅ Completed (merged as PR #974)
-- **PR 2**: ✅ Completed (merged as PR #1003)
-- **PR 3-9**: Pending
+- **PR 1**: ✅ Completed - Basic ACS Defend holding
+- **PR 2**: ✅ Completed - BattleUnit owner tracking
+- **PR 3**: ✅ Completed - Multi-defender battle engine
+- **PR 4-9**: Pending
 
 ---
 
@@ -146,7 +148,7 @@ PR 6: Multi-Attacker Battle       ──┘
 
 ---
 
-### PR 3: Multi-Defender Battle Engine
+### PR 3: Multi-Defender Battle Engine ✅ COMPLETED
 **Branch**: `feature/multi-defender-battle`
 **Size**: ~600-900 lines
 **Deliverable**: Defending fleets from PR 1 now participate in battles
@@ -162,11 +164,17 @@ PR 6: Multi-Attacker Battle       ──┘
 **Tasks from Milestones**: 2.3 (defender version), 2.4, 2.5 (defender parts)
 
 **Acceptance Criteria**:
-- [ ] Defending fleet fights alongside planet owner's defenses
-- [ ] Each defender uses their own tech levels
-- [ ] Destroyed defender fleet: no return mission, slot freed
-- [ ] Surviving defender fleet: returns with survivors
-- [ ] Battle report shows defending fleets participated
+- [x] Defending fleet fights alongside planet owner's defenses
+- [x] Each defender uses their own tech levels
+- [x] Destroyed defender fleet: no return mission, slot freed
+- [x] Surviving defender fleet: returns with survivors
+- [x] Battle report shows defending fleets participated
+
+**Implementation Notes** (added post-completion):
+- New models: `DefenderFleet` (from planet or fleet mission), `DefenderFleetResult`
+- Battle engine updated to collect ACS defend fleets at target planet
+- Per-fleet survivor tracking and result assignment
+- Comprehensive test suite: `FleetDispatchMultiDefenderBattleTest.php`
 
 ---
 
@@ -177,18 +185,37 @@ PR 6: Multi-Attacker Battle       ──┘
 
 | What's Included | What's NOT Included |
 |-----------------|---------------------|
-| Alliance Depot building object | - |
-| Deuterium supply calculation | - |
-| Integration with defend missions | - |
-| UI to view depot status | - |
+| Alliance Depot building object | Manual hold time extension |
+| Automatic deuterium consumption | "Rocket" launch mechanics |
+| Per-ship-type holding costs | - |
+| Integration with ACS defend missions | - |
 
-**Note**: This PR is optional and can be done later. ACS Defend works without it.
+**Note**: This PR is optional and can be done later. ACS Defend works without it (fleets simply return after their hold time).
+
+**Game Mechanics** (from OGame wiki):
+- Building costs: 20,000 Metal + 40,000 Crystal at level 1 (doubles each level)
+- Depot **automatically** supplies deuterium to holding fleets (no player action required)
+- Supply rate: 10,000 deuterium per level per hour
+- Holding costs vary by ship type (deuterium per hour):
+
+| Ship Type | Deut/Hour | Ship Type | Deut/Hour |
+|-----------|-----------|-----------|-----------|
+| Small Cargo | 1 | Bomber | 100 |
+| Large Cargo | 5 | Destroyer | 100 |
+| Light Fighter | 2 | Battlecruiser | 25 |
+| Heavy Fighter | 7 | Death Star | 0.1 |
+| Cruiser | 30 | Espionage Probe | 0.1 |
+| Battleship | 60 | Recycler | 30 |
+| Colony Ship | 100 | - | - |
+
+**Important**: Players CANNOT manually extend hold time. The depot automatically consumes the planet owner's deuterium to support holding fleets. When deuterium runs out, fleets return home.
 
 **Acceptance Criteria**:
-- [ ] Alliance Depot building can be constructed
-- [ ] Depot supplies deuterium to holding fleets
-- [ ] Supply rate based on depot level
-- [ ] Fleet doesn't strand if depot runs out (returns home)
+- [ ] Alliance Depot building can be constructed (Facilities category)
+- [ ] Depot automatically supplies deuterium to holding ACS defend fleets
+- [ ] Consumption rate based on fleet composition and ship holding costs
+- [ ] Supply capacity: 10,000 deut/hour per depot level
+- [ ] When planet deuterium is depleted, holding fleets return home (not stranded)
 
 ---
 
@@ -316,22 +343,23 @@ PR 6: Multi-Attacker Battle       ──┘
 |----|--------|-----------------|----------|
 | **PR 1** | ✅ Done | ~~Immediately~~ | Basic ACS Defend holding |
 | **PR 2** | ✅ Done | ~~Immediately~~ | Owner tracking foundation |
-| **PR 3** | Ready | ~~PR 1 + PR 2~~ | Defenders participate in battle |
-| **PR 4** | Blocked | PR 3 | Alliance Depot (optional) |
+| **PR 3** | ✅ Done | ~~PR 1 + PR 2~~ | Defenders participate in battle |
+| **PR 4** | Ready | ~~PR 3~~ | Alliance Depot (optional) |
 | **PR 5** | Ready | Immediately | Fleet unions foundation |
 | **PR 6** | Ready | ~~PR 2~~ | Multi-attacker battle engine |
 | **PR 7** | Blocked | PR 5 + PR 6 | Full ACS Attack |
 | **PR 8** | Blocked | PR 7 | Loot & sync returns |
 | **PR 9** | Blocked | PR 7 | Battle reports & UI |
 
+**ACS Defend is now fully functional!** Players can send fleets to defend buddy planets and those fleets participate in battles with their own tech levels.
+
 **Next Steps** (can be developed in parallel):
-- **PR 3**: Multi-Defender Battle Engine - makes defending fleets participate in combat
-- **PR 5**: Fleet Unions Foundation - unblocks PR 7
-- **PR 6**: Multi-Attacker Battle Engine - unblocks PR 7
+- **PR 4**: Alliance Depot (optional) - allows planet owner to supply deuterium to holding fleets
+- **PR 5**: Fleet Unions Foundation - unblocks ACS Attack
+- **PR 6**: Multi-Attacker Battle Engine - unblocks ACS Attack
 
 **Parallel Development Possible**:
-- PR 3, PR 5, and PR 6 can all be developed in parallel now
-- PR 4 can be done anytime after PR 3
+- PR 4, PR 5, and PR 6 can all be developed in parallel now
 - PR 7 requires both PR 5 and PR 6
 
 ---
