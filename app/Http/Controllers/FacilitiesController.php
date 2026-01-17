@@ -2,7 +2,6 @@
 
 namespace OGame\Http\Controllers;
 
-use OGame\Services\ObjectService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -10,6 +9,7 @@ use Illuminate\View\View;
 use OGame\Http\Controllers\Abstracts\AbstractBuildingsController;
 use OGame\Services\BuildingQueueService;
 use OGame\Services\HalvingService;
+use OGame\Services\ObjectService;
 use OGame\Services\PlayerService;
 use OGame\Services\SettingsService;
 use OGame\Services\WreckFieldService;
@@ -42,7 +42,7 @@ class FacilitiesController extends AbstractBuildingsController
         // Header filename objects are the building IDs that make up the header filename
         // to be used in the background image of the page header.
         if ($this->planet->isPlanet()) {
-            $this->header_filename_objects = [14, 21, 31, 34];
+            $this->header_filename_objects = [14, 15, 21, 31, 33, 34];
             $this->objects = [
                 ['robot_factory', 'shipyard', 'research_lab', 'alliance_depot', 'missile_silo', 'nano_factory', 'terraformer', 'space_dock'],
             ];
@@ -53,9 +53,14 @@ class FacilitiesController extends AbstractBuildingsController
             ];
         }
 
-        return view('ingame.facilities.index')->with(
-            $this->indexPageParams($request, $player)
-        );
+        $params = $this->indexPageParams($request, $player);
+
+        // Add alliance depot level for button visibility
+        if ($this->planet->isPlanet()) {
+            $params['alliance_depot_level'] = $this->planet->getObjectLevel('alliance_depot');
+        }
+
+        return view('ingame.facilities.index')->with($params);
     }
 
     /**

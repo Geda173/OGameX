@@ -2,11 +2,10 @@
 
 namespace OGame\Services;
 
-use Illuminate\Support\Facades\Date;
 use Exception;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Date;
 use OGame\Models\UnitQueue;
 use OGame\ViewModels\Queue\UnitQueueListViewModel;
 use OGame\ViewModels\Queue\UnitQueueViewModel;
@@ -169,6 +168,13 @@ class UnitQueueService
 
         // Check if user satisifes requirements to build this object.
         $requirements_met = ObjectService::objectRequirementsMet($object->machine_name, $planet);
+
+        // Check if user satisifes character class requirements to build this object.
+        $character_class_met = ObjectService::objectCharacterClassMet($object->machine_name, $planet);
+        if (!$character_class_met) {
+            // If character class requirements are not met, stop here.
+            return;
+        }
 
         // Sanity check: check if the planet has enough resources to build
         // the amount requested. If not, then adjust the ordered amount.

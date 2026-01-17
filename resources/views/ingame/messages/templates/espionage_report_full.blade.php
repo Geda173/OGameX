@@ -21,7 +21,7 @@
                           title='share message'></span>
         </a>
 
-        <a href="#TODOpage=ingame&component=fleetdispatch&galaxy=1&system=4&position=10&type=1&mission=1" class="icon_nf_link fleft">
+        <a href="{{ route('fleet.index', ['galaxy' => $galaxy, 'system' => $system, 'position' => $position, 'type' => $planet_type, 'mission' => 1]) }}" class="icon_nf_link fleft">
                     <span class="icon_nf icon_attack tooltip js_hideTipOnMobile" title='Attack'>
                                                 </span>
         </a>
@@ -1081,7 +1081,7 @@
                                             <inner-bonus-item-heading data-toggable="33620205">
                                                 <div class="openDetails">
                                                     <a href="javascript:void(0);" class="openCloseDetails">
-                                                        <img src="https://gf2.geo.gfsrv.net/cdn10/de1e5f629d9e47d283488eee0c0ede.gif" height="16" width="16" />
+                                                        <img src="{{ asset('img/icons/de1e5f629d9e47d283488eee0c0ede.gif') }}" height="16" width="16" />
                                                     </a>
                                                 </div>
                                                 <div fontsize-11 class="subCategoryTitle">SMs Bodyguard [1:4:10]</div>

@@ -12,6 +12,7 @@ use OGame\Factories\PlanetServiceFactory;
 use OGame\GameConstants\UniverseConstants;
 use OGame\GameObjects\Models\Units\UnitCollection;
 use OGame\Models\Enums\PlanetType;
+use OGame\Models\FleetTemplate;
 use OGame\Models\Planet\Coordinate;
 use OGame\Models\Resources;
 use OGame\Services\CharacterClassService;
@@ -653,8 +654,21 @@ class FleetController extends OGameController
         // Get the fleet mission id
         $fleet_mission_id = request()->input('fleet_mission_id');
 
-        // Get the fleet mission service
-        $fleetMission = $fleetMissionService->getFleetMissionById($fleet_mission_id);
+        // Handle fake IDs used for "wait end" rows and "return trip" rows
+        // Wait end rows use: real_id + 888888
+        // Return trip rows use: real_id + 999999
+        if ($fleet_mission_id > 888888) {
+            if ($fleet_mission_id > 999999) {
+                // This is a return trip fake ID, subtract 999999 to get real ID
+                $fleet_mission_id -= 999999;
+            } else {
+                // This is a wait end fake ID, subtract 888888 to get real ID
+                $fleet_mission_id -= 888888;
+            }
+        }
+
+        // Get the fleet mission (allow processed missions for ACS Defend recalls during hold time)
+        $fleetMission = $fleetMissionService->getFleetMissionById($fleet_mission_id, false);
 
         // Sanity check: only owner of the fleet mission can recall it.
         if ($fleetMission->user_id !== $player->getId()) {
@@ -662,7 +676,16 @@ class FleetController extends OGameController
                 'components' => [],
                 'newAjaxToken' => csrf_token(),
                 'success' => false,
-            ]);
+            ], 500);
+        }
+
+        // Sanity check: mission must not already be canceled
+        if ($fleetMission->canceled) {
+            return response()->json([
+                'components' => [],
+                'newAjaxToken' => csrf_token(),
+                'success' => false,
+            ], 500);
         }
 
         // Recall the fleet mission
@@ -751,6 +774,140 @@ class FleetController extends OGameController
             ],
             'components' => [],
             'newAjaxToken' => csrf_token(),
+        ]);
+    }
+
+    /**
+     * Get all fleet templates for the current user.
+     *
+     * @param PlayerService $player
+     * @return JsonResponse
+     */
+    public function getTemplates(PlayerService $player): JsonResponse
+    {
+        $templates = FleetTemplate::where('user_id', $player->getId())
+            ->orderBy('id')
+            ->get();
+
+        return response()->json([
+            'templates' => $templates->map(function ($template) {
+                return [
+                    'id' => $template->id,
+                    'name' => $template->name,
+                    'ships' => $template->ships,
+                ];
+            }),
+        ]);
+    }
+
+    /**
+     * Save or update a fleet template.
+     *
+     * @param PlayerService $player
+     * @return JsonResponse
+     */
+    public function saveTemplate(PlayerService $player): JsonResponse
+    {
+        $templateId = (int)request()->input('template_id', 0);
+        $name = request()->input('template_name', '');
+        $ships = request()->input('ship', []);
+
+        // Validate name
+        if (empty($name)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Template name is required.',
+            ]);
+        }
+
+        // Validate ships array - ensure all ship IDs are valid and values are non-negative integers
+        $validShipIds = [202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 218, 219];
+        $validatedShips = [];
+
+        foreach ($ships as $shipId => $count) {
+            if (!in_array((int)$shipId, $validShipIds, true)) {
+                continue;
+            }
+            $validatedShips[(int)$shipId] = max(0, (int)$count);
+        }
+
+        // Check if template has any ships
+        if (array_sum($validatedShips) === 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Template must contain at least one ship.',
+            ]);
+        }
+
+        // Update existing template or create new one
+        if ($templateId > 0) {
+            $template = FleetTemplate::where('id', $templateId)
+                ->where('user_id', $player->getId())
+                ->first();
+
+            if ($template === null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Template not found.',
+                ]);
+            }
+
+            $template->name = $name;
+            $template->ships = $validatedShips;
+            $template->save();
+        } else {
+            // Check maximum number of templates per user
+            $templateCount = FleetTemplate::where('user_id', $player->getId())->count();
+            if ($templateCount >= 10) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Maximum number of templates reached (10).',
+                ]);
+            }
+
+            $template = FleetTemplate::create([
+                'user_id' => $player->getId(),
+                'name' => $name,
+                'ships' => $validatedShips,
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Template saved successfully.',
+            'template' => [
+                'id' => $template->id,
+                'name' => $template->name,
+                'ships' => $template->ships,
+            ],
+        ]);
+    }
+
+    /**
+     * Delete a fleet template.
+     *
+     * @param PlayerService $player
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function deleteTemplate(PlayerService $player, int $id): JsonResponse
+    {
+        $template = FleetTemplate::where('id', $id)
+            ->where('user_id', $player->getId())
+            ->first();
+
+        if ($template === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Template not found.',
+            ]);
+        }
+
+        $template->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Template deleted successfully.',
         ]);
     }
 }

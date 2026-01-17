@@ -2,10 +2,10 @@
 
 namespace OGame\Models;
 
-use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  *
@@ -39,7 +39,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $interplanetary_missile
  * @property int|null $target_priority
  * @property int $processed
+ * @property int $processed_hold
  * @property int $canceled
+ * @property array|null $wreck_field_data
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Planet|null $planetFrom
@@ -72,6 +74,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @method static Builder|FleetMission wherePlanetIdTo($value)
  * @method static Builder|FleetMission wherePositionTo($value)
  * @method static Builder|FleetMission whereProcessed($value)
+ * @method static Builder|FleetMission whereProcessedHold($value)
  * @method static Builder|FleetMission whereRecycler($value)
  * @method static Builder|FleetMission whereSmallCargo($value)
  * @method static Builder|FleetMission whereSystemTo($value)
@@ -99,6 +102,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class FleetMission extends Model
 {
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'wreck_field_data' => 'array',
+    ];
+
     /**
      * Get the planet that this fleet mission is going from.
      */

@@ -2,20 +2,20 @@
 
 namespace OGame\Services;
 
-use Illuminate\Support\Facades\Date;
-use OGame\Models\Highscore;
-use OGame\Models\ResearchQueue;
-use OGame\Models\BuildingQueue;
-use OGame\Models\UnitQueue;
-use OGame\Models\Message;
 use Exception;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use OGame\GameObjects\Models\Calculations\CalculationType;
+use OGame\Models\BuildingQueue;
 use OGame\Models\FleetMission;
+use OGame\Models\Highscore;
+use OGame\Models\Message;
 use OGame\Models\Planet;
+use OGame\Models\ResearchQueue;
 use OGame\Models\Resources;
+use OGame\Models\UnitQueue;
 use OGame\Models\User;
 use OGame\Models\UserTech;
 use RuntimeException;
@@ -96,7 +96,7 @@ class PlayerService
     public function load(int $id): void
     {
         // Fetch user from model
-        $user = User::where('id', $id)->first();
+        $user = User::with('highscore')->where('id', $id)->first();
         $this->user = $user;
 
         // Fetch user tech from model
@@ -509,8 +509,14 @@ class PlayerService
         $activeMissions = $fleetMissionService->getActiveFleetMissionsSentByCurrentPlayer();
 
         // Exclude missile attacks (type 10) as they don't use fleet slots
+        // All other missions use fleet slots for their entire duration (travel + hold + return)
         $fleetMissions = $activeMissions->filter(function ($mission) {
-            return $mission->mission_type !== 10;
+            // Exclude missile attacks
+            if ($mission->mission_type === 10) {
+                return false;
+            }
+
+            return true;
         });
 
         return $fleetMissions->count();

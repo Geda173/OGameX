@@ -235,6 +235,18 @@ class SettingsService
     }
 
     /**
+     * Returns the alliance cooldown period in days.
+     * This is the number of days a player must wait after leaving an alliance
+     * before they can create or join another alliance.
+     *
+     * @return int
+     */
+    public function allianceCooldownDays(): int
+    {
+        return (int)$this->get('alliance_cooldown_days', 3);
+    }
+
+    /**
      * Returns the percentage of debris field generated from destroyed ships.
      *
      * @return int
@@ -667,5 +679,17 @@ class SettingsService
     public function hamillManoeuvreChance(): int
     {
         return (int)$this->get('hamill_manoeuvre_chance', 1000);
+    }
+
+    /**
+     * Returns whether admin users should be visible in highscores.
+     * When disabled (default), admins are excluded from highscore rankings entirely.
+     * When enabled, admins appear in highscores with orange-highlighted names.
+     *
+     * @return bool
+     */
+    public function highscoreAdminVisible(): bool
+    {
+        return (bool)$this->get('highscore_admin_visible', 0);
     }
 }

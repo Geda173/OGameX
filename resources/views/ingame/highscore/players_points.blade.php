@@ -29,7 +29,15 @@
             @endif
         </div>
         <select class="changeSite fright">
-            <option value="{{ $highscoreCurrentPlayerPage }}">Own position</option>
+            @if ($currentPlayerIsAdmin ?? false)
+                @if ($highscoreAdminVisible ?? false)
+                    <option value="{{ $highscoreCurrentPlayerPage }}">@lang('Own position')</option>
+                @else
+                    <option value="1">@lang('Own position') (-)</option>
+                @endif
+            @else
+                <option value="{{ $highscoreCurrentPlayerPage }}">@lang('Own position')</option>
+            @endif
             @for ($i = 1; $i <= ceil($highscorePlayerAmount / 100); $i++)
                 <option {{ $i == $highscoreCurrentPage ? 'selected="selected"' : '' }} value="{{ $i }}"> {{ ((($i-1) * 100) + 1)  }} - {{ $i * 100 }}</option>
             @endfor
@@ -79,19 +87,28 @@
 
                     </td>
                     <td class="name">
+                        <div class="highscoreNameFieldWrapper" style="height: unset;">
+                            <div class="highscoreNameAndTitleHolder" style="width: calc(100% - 0px); flex-direction: row;">
+                                <div class="highscoreNameHolder">
+                                    @if(!empty($highscorePlayer['alliance_tag']))
+                                        <span class="ally-tag">
+                                            <a href="{{ route('alliance.info', ['alliance_id' => $highscorePlayer['alliance_id']]) }}" target="_ally">
+                                                [{{ $highscorePlayer['alliance_tag'] }}]
+                                            </a>
+                                        </span>
+                                    @endif
 
-                        <a href="
-{{ route('galaxy.index', ['galaxy' => $highscorePlayer['planet_coords']->galaxy, 'system' => $highscorePlayer['planet_coords']->system, 'position' => $highscorePlayer['planet_coords']->position])  }}" class="dark_highlight_tablet">
-
-<span class="
-                 playername">
-                    {{ $highscorePlayer['name'] }}
-            </span>
-
-                            <span class="honorScore">
-(<span class="undermark tooltip js_hideTipOnMobile" title="Honour points">0</span>)
-</span>
-                        </a>
+                                    <a href="{{ route('galaxy.index', ['galaxy' => $highscorePlayer['planet_coords']->galaxy, 'system' => $highscorePlayer['planet_coords']->system, 'position' => $highscorePlayer['planet_coords']->position]) }}" class="dark_highlight_tablet">
+                                        <span class="playername{{ ($highscorePlayer['is_admin'] ?? false) ? ' status_abbr_admin' : '' }}">
+                                            {{ $highscorePlayer['name'] }}
+                                        </span>
+                                    </a>
+                                </div>
+                                <div class="honorScore">
+                                    (<span class="undermark tooltip js_hideTipOnMobile" title="Honour points">0</span>)
+                                </div>
+                            </div>
+                        </div>
                     </td>
 
                     <td class="sendmsg">
@@ -105,9 +122,14 @@
                         </div>
                     </td>
 
-                    <td class="score
-                     ">
-                        {{ $highscorePlayer['points_formatted'] }}
+                    <td class="score">
+                        @if($highscoreCurrentType == 3 && isset($highscorePlayer['total_ships']))
+                            <span class="tooltip" title="{{ __('Total ships') }}: {{ number_format($highscorePlayer['total_ships']) }}">
+                                {{ $highscorePlayer['points_formatted'] }}
+                            </span>
+                        @else
+                            {{ $highscorePlayer['points_formatted'] }}
+                        @endif
                     </td>
                 </tr>
             @endforeach

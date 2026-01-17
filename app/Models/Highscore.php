@@ -2,11 +2,11 @@
 
 namespace OGame\Models;
 
-use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  *
@@ -68,14 +68,15 @@ class Highscore extends Model
 
     /**
      * Scope to ensure only valid highscore ranks.
+     * Filters out null ranks and rank 0 (used for excluded players like Legor and admins when hidden).
      */
     public function scopeValidRanks(Builder $query): void
     {
         $query->where(function ($query) {
-            $query->where('general_rank', '!=', null)
-                ->where('economy_rank', '!=', null)
-                ->where('military_rank', '!=', null)
-                ->where('research_rank', '!=', null);
+            $query->where('general_rank', '>', 0)
+                ->where('economy_rank', '>', 0)
+                ->where('military_rank', '>', 0)
+                ->where('research_rank', '>', 0);
         });
     }
 }

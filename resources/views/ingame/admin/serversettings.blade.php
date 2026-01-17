@@ -156,6 +156,18 @@
                             </div>
                         </div>
 
+                        <p class="box_highlight textCenter no_buddies">@lang('Alliance settings.')</p>
+
+                        <div class="group bborder" style="display: block;">
+                            <div class="fieldwrapper">
+                                <label class="styled textBeefy">@lang('Alliance cooldown (days):')</label>
+                                <div class="thefield">
+                                    <input type="text" pattern="[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $alliance_cooldown_days }}" size="2" maxlength="3" name="alliance_cooldown_days">
+                                    <div class="smallFont" style="margin-top: 5px;">@lang('Days a player must wait after leaving an alliance before joining/creating another')</div>
+                                </div>
+                            </div>
+                        </div>
+
                         <p class="box_highlight textCenter no_buddies">@lang('Battle settings.')</p>
 
                         <div class="group bborder" style="display: block;">
@@ -400,6 +412,21 @@
                                 <div class="thefield">
                                     <input type="text" pattern="[0-9]*\.?[0-9]*" class="textInput w50 textCenter textBeefy" value="{{ $expedition_weight_items }}" size="6" name="expedition_weight_items">
                                 </div>
+                            </div>
+                        </div>
+
+                        <p class="box_highlight textCenter no_buddies">@lang('Highscore settings.')</p>
+
+                        <div class="group bborder" style="display: block;">
+                            <div class="fieldwrapper">
+                                <label class="styled textBeefy">@lang('Show admins in highscore:')</label>
+                                <div class="thefield">
+                                    <square-checkbox class="square-checkbox">
+                                        <input type="checkbox" id="square-checkHighscoreAdminVisible" name="highscore_admin_visible" value="1" {{ $highscore_admin_visible ? 'checked' : '' }}>
+                                        <label for="square-checkHighscoreAdminVisible"></label>
+                                    </square-checkbox>
+                                </div>
+                                <div class="smallFont">@lang('When enabled, admin users appear in highscores with orange-highlighted names. When disabled (default), admins are excluded from rankings entirely.')</div>
                             </div>
                         </div>
 

@@ -2,14 +2,14 @@
 
 namespace OGame\Http\Traits;
 
-use OGame\GameObjects\Models\Abstracts\GameObject;
-use OGame\Services\PlanetService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use OGame\Facades\AppUtil;
+use OGame\GameObjects\Models\Abstracts\GameObject;
 use OGame\GameObjects\Models\Enums\GameObjectType;
 use OGame\Services\ObjectService;
+use OGame\Services\PlanetService;
 use OGame\Services\PlayerService;
 
 trait ObjectAjaxTrait
@@ -46,6 +46,9 @@ trait ObjectAjaxTrait
         // Check requirements of this object
         $requirements_met = ObjectService::objectRequirementsMetWithQueue($object->machine_name, $next_level, $planet);
 
+        // Check character class requirements
+        $character_class_met = ObjectService::objectCharacterClassMet($object->machine_name, $planet);
+
         // Check if the current planet has the right type to build this object.
         $valid_planet_type = ObjectService::objectValidPlanetType($object->machine_name, $planet);
 
@@ -74,12 +77,14 @@ trait ObjectAjaxTrait
                 $production_datetime = AppUtil::formatDateTimeDuration($planet->getUnitConstructionTime($object->machine_name));
 
                 $shipyard_upgrading = $player->planets->current()->isBuildingObject('shipyard');
+                $nanite_upgrading = $player->planets->current()->isBuildingObject('nano_factory');
                 break;
             case GameObjectType::Defense:
                 $production_time = AppUtil::formatTimeDuration($planet->getUnitConstructionTime($object->machine_name));
                 $production_datetime = AppUtil::formatDateTimeDuration($planet->getUnitConstructionTime($object->machine_name));
 
                 $shipyard_upgrading = $player->planets->current()->isBuildingObject('shipyard');
+                $nanite_upgrading = $player->planets->current()->isBuildingObject('nano_factory');
                 break;
             case GameObjectType::Research:
                 $production_time = AppUtil::formatTimeDuration($planet->getTechnologyResearchTime($object->machine_name));
@@ -108,6 +113,19 @@ trait ObjectAjaxTrait
             if (!empty($production_current->energy->get())) {
                 $energy_difference = ($production_next->energy->get() - $production_current->energy->get()) * -1;
             }
+        } elseif ($object->machine_name === 'crawler') {
+            // Special handling for Crawlers: they consume energy but don't have production property
+            // Each crawler consumes 50 energy at 100%, with additional cost for overcharge
+            $crawlerPercentage = $planet->getBuildingPercent('crawler') / 10; // Convert to decimal (0-1.5)
+            $baseEnergy = 50;
+            $energyConsumption = $baseEnergy * $crawlerPercentage;
+
+            // Add extra energy cost for overload (>100%)
+            if ($crawlerPercentage > 1.0) {
+                $energyConsumption += $baseEnergy * ($crawlerPercentage - 1.0);
+            }
+
+            $energy_difference = floor($energyConsumption);
         }
 
         $enough_resources = $planet->hasResources($price);
@@ -238,6 +256,7 @@ trait ObjectAjaxTrait
             'enough_resources' => $enough_resources,
             'has_requirements' => $object->hasRequirements(),
             'requirements_met' => $requirements_met,
+            'character_class_met' => $character_class_met,
             'valid_planet_type' => $valid_planet_type,
             'build_active' => $build_queue->count(),
             'build_active_current' => $build_active_current,
@@ -250,6 +269,7 @@ trait ObjectAjaxTrait
             'research_lab_upgrading' => $research_lab_upgrading ?? false,
             'research_in_progress' => $research_in_progress ?? false,
             'shipyard_upgrading' => $shipyard_upgrading ?? false,
+            'nanite_upgrading' => $nanite_upgrading ?? false,
             'ship_or_defense_in_progress' => $ship_or_defense_in_progress ?? false,
             'downgrade_price' => $downgrade_price,
             'downgrade_duration' => $downgrade_duration,

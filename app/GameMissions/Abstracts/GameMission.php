@@ -2,10 +2,8 @@
 
 namespace OGame\GameMissions\Abstracts;
 
-use OGame\GameMissions\BattleEngine\Models\DefenderFleet;
-use Illuminate\Support\Facades\Date;
 use Exception;
-use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Date;
 use OGame\Enums\FleetMissionStatus;
 use OGame\Enums\FleetSpeedType;
 use OGame\Factories\PlanetServiceFactory;
@@ -13,6 +11,7 @@ use OGame\Factories\PlayerServiceFactory;
 use OGame\GameMessages\ReturnOfFleet;
 use OGame\GameMessages\ReturnOfFleetWithResources;
 use OGame\GameMissions\AcsDefendMission;
+use OGame\GameMissions\BattleEngine\Models\DefenderFleet;
 use OGame\GameMissions\ExpeditionMission;
 use OGame\GameMissions\Models\MissionPossibleStatus;
 use OGame\GameObjects\Models\Units\UnitCollection;
@@ -101,6 +100,8 @@ abstract class GameMission
 
     /**
      * Checks if the mission is possible under the given circumstances.
+     * Child classes should call parent::isMissionPossible() first and return early if not possible,
+     * then add their own mission-specific checks.
      *
      * @param PlanetService $planet The planet from which the mission is sent.
      * @param Coordinate $targetCoordinate The target coordinate of the mission.
@@ -108,7 +109,21 @@ abstract class GameMission
      * @param UnitCollection $units The units that are sent on the mission.
      * @return MissionPossibleStatus
      */
-    abstract public function isMissionPossible(PlanetService $planet, Coordinate $targetCoordinate, PlanetType $targetType, UnitCollection $units): MissionPossibleStatus;
+    public function isMissionPossible(PlanetService $planet, Coordinate $targetCoordinate, PlanetType $targetType, UnitCollection $units): MissionPossibleStatus
+    {
+        // Cannot send missions while in vacation mode
+        if ($planet->getPlayer()->isInVacationMode()) {
+            return new MissionPossibleStatus(false, __('You cannot send missions while in vacation mode!'));
+        }
+
+        // If mission from and to coordinates and types are the same, the mission is not possible.
+        if ($planet->getPlanetCoordinates()->equals($targetCoordinate) && $planet->getPlanetType() === $targetType) {
+            return new MissionPossibleStatus(false);
+        }
+
+        // Default: mission is possible. Child classes should call parent first and then add their own checks.
+        return new MissionPossibleStatus(true);
+    }
 
     /**
      * Cancel an already started mission.
@@ -118,11 +133,26 @@ abstract class GameMission
      */
     public function cancel(FleetMission $mission): void
     {
-        // Update the mission arrived time to now instead of original planned arrival time if the mission would finish by itself.
-        // This arrival time is used by the return mission to calculate the return time.
-        $mission->time_arrival = (int)Date::now()->timestamp;
+        $currentTime = (int)Date::now()->timestamp;
 
-        // Clear the holding time for recalled missions (expeditions, etc.)
+        // Store the original arrival time before modifying it.
+        // For ACS Defend, we need physical arrival time for return trip calculation.
+        $originalArrivalTime = $mission->time_arrival;
+        if ($mission->mission_type === 5 && $mission->time_holding !== null) {
+            $physicalArrivalTime = $mission->time_arrival - $mission->time_holding;
+            $hasArrived = $physicalArrivalTime <= $currentTime;
+            // For ACS Defend, use physical arrival time for adjustment
+            $originalArrivalTimeForAdjustment = $physicalArrivalTime;
+        } else {
+            $hasArrived = $mission->time_arrival <= $currentTime;
+            $originalArrivalTimeForAdjustment = $originalArrivalTime;
+        }
+
+        // Always update time_arrival to now for consistency.
+        // This ensures startReturn() calculates departure time as "now".
+        $mission->time_arrival = $currentTime;
+
+        // Clear the holding time for recalled missions (expeditions, ACS Defend, etc.)
         // The fleet should return immediately without waiting at the destination.
         // Only set to 0 if there was a holding time, to avoid changing null to 0 for missions that don't use holding time.
         if ($mission->time_holding !== null) {
@@ -136,7 +166,11 @@ abstract class GameMission
 
         // Start the return mission with the resources and units of the original mission.
         // getResources() already includes parent mission resources.
-        $this->startReturn($mission, $this->fleetMissionService->getResources($mission), $this->fleetMissionService->getFleetUnits($mission));
+        // If the mission had already arrived, we need to adjust the return trip calculation.
+        // The adjustment ensures the return takes the same time as the original outbound trip,
+        // not including any elapsed hold time.
+        $returnTripAdjustment = $hasArrived ? ($originalArrivalTimeForAdjustment - $currentTime) : 0;
+        $this->startReturn($mission, $this->fleetMissionService->getResources($mission), $this->fleetMissionService->getFleetUnits($mission), $returnTripAdjustment);
     }
 
     /**
@@ -254,16 +288,24 @@ abstract class GameMission
 
         $mission->mission_type = static::$typeId;
         $mission->time_departure = $time_start;
-        $mission->time_arrival = $time_end;
 
         // Holding time is the amount of time the fleet will wait at the target planet and/or how long expedition will last.
         // The $holdingHours is in hours, so we convert it to seconds.
         // Applies to expeditions and ACS Defend missions.
+        // Note: time_holding stores the "game time" (e.g., 1 hour = 3600 seconds) not the actual real-world duration.
+        // The fleet_speed_holding multiplier is applied when calculating actual mission timings (see startReturn).
         if (static::class === ExpeditionMission::class) {
             $mission->time_holding = $holdingHours * 3600;
             $targetType = PlanetType::DeepSpace;
+            $mission->time_arrival = $time_end;
         } elseif (static::class === AcsDefendMission::class) {
             $mission->time_holding = $holdingHours * 3600;
+            // For ACS Defend, time_arrival includes the hold time.
+            // This means the mission won't be processed until hold time expires.
+            // Hold time is stored as raw game time (not affected by fleet speed).
+            $mission->time_arrival = $time_end + ($holdingHours * 3600);
+        } else {
+            $mission->time_arrival = $time_end;
         }
 
         $mission->type_to = $targetType->value;
@@ -312,6 +354,69 @@ abstract class GameMission
     }
 
     /**
+     * Process the mission.
+     *
+     * @param FleetMission $mission
+     * @return void
+     */
+    public function process(FleetMission $mission): void
+    {
+        if (empty($mission->parent_id)) {
+            // This is an arrival mission as it has no parent mission.
+            // Process arrival.
+            $this->processArrival($mission);
+        } else {
+            // This is a return mission as it has a parent mission.
+            $this->processReturn($mission);
+        }
+    }
+
+    /**
+     * Helper method for child classes to check if target player is in vacation mode.
+     * Should be called after verifying target planet exists.
+     *
+     * @param PlanetService|null $targetPlanet The target planet/moon.
+     * @return MissionPossibleStatus|null Returns MissionPossibleStatus if vacation mode blocks mission, null otherwise.
+     */
+    protected function checkTargetVacationMode(PlanetService|null $targetPlanet): MissionPossibleStatus|null
+    {
+        if ($targetPlanet !== null && $targetPlanet->getPlayer()->isInVacationMode()) {
+            return new MissionPossibleStatus(false, __('This player is in vacation mode!'));
+        }
+        return null;
+    }
+
+    /**
+     * Helper method to check if target belongs to a protected admin user.
+     *
+     * @param PlanetService|null $targetPlanet The target planet/moon.
+     * @param string $errorMessage Custom error message if protected.
+     * @return MissionPossibleStatus|null Returns MissionPossibleStatus if protected, null otherwise.
+     */
+    protected function checkAdminProtection(PlanetService|null $targetPlanet, string $errorMessage): MissionPossibleStatus|null
+    {
+        if ($targetPlanet !== null && $targetPlanet->getPlayer()->getUsername(false) === 'Legor') {
+            return new MissionPossibleStatus(false, $errorMessage);
+        }
+        return null;
+    }
+
+    /**
+     * Helper method to check if target planet belongs to the same player (own planet check).
+     *
+     * @param PlanetService $planet The origin planet.
+     * @param PlanetService|null $targetPlanet The target planet/moon.
+     * @return MissionPossibleStatus|null Returns MissionPossibleStatus if same player, null otherwise.
+     */
+    protected function checkOwnPlanet(PlanetService $planet, PlanetService|null $targetPlanet): MissionPossibleStatus|null
+    {
+        if ($targetPlanet !== null && $planet->getPlayer()->equals($targetPlanet->getPlayer())) {
+            return new MissionPossibleStatus(false);
+        }
+        return null;
+    }
+
+    /**
      * Start the return mission.
      *
      * @param FleetMission $parentMission The parent mission that the return mission is linked to.
@@ -320,7 +425,7 @@ abstract class GameMission
      * @param int $additionalReturnTripTime Time in seconds to add to the return trip duration (optional, used by expeditions). Can be positive or negative.
      * @return void
      */
-    protected function startReturn(FleetMission $parentMission, Resources $resources, UnitCollection $units, int $additionalReturnTripTime = 0): void
+    protected function startReturn(FleetMission $parentMission, Resources $resources, UnitCollection $units, int $additionalReturnTripTime = 0, array|null $wreckFieldData = null): void
     {
         if ($units->getAmount() === 0) {
             // No units to return, no need to create a return mission.
@@ -333,11 +438,29 @@ abstract class GameMission
         // mission and the resources are already delivered. Nothing is deducted from the planet.
         // Time this fleet mission will depart (arrival time of the parent mission + holding time if applicable)
         // For expeditions, the holding time must be included as the mission doesn't complete until after the hold.
-        $time_start = $parentMission->time_arrival + ($parentMission->time_holding ?? 0);
+        // For ACS Defend, time_arrival already includes the hold time.
+        $settingsService = app(SettingsService::class);
+        $actualHoldingTime = $parentMission->time_holding !== null
+            ? (int)($parentMission->time_holding / $settingsService->fleetSpeedHolding())
+            : 0;
 
-        // Time fleet mission will arrive (arrival time of the parent mission + duration of the parent mission)
-        // Return mission duration is always the same as the parent mission duration.
-        $time_end = $time_start + ($parentMission->time_arrival - $parentMission->time_departure) + $additionalReturnTripTime;
+        // For ACS Defend (type 5), time_arrival already includes hold time
+        // For other missions with hold time (like Expeditions), add actual holding time
+        if ($parentMission->mission_type === 5) {
+            $time_start = $parentMission->time_arrival;
+        } else {
+            $time_start = $parentMission->time_arrival + $actualHoldingTime;
+        }
+
+        // Time fleet mission will arrive (departure time + one-way duration)
+        // For ACS Defend, one-way duration = physical arrival - departure
+        // For other missions, one-way duration = arrival - departure
+        if ($parentMission->mission_type === 5 && $parentMission->time_holding !== null) {
+            $oneWayDuration = ($parentMission->time_arrival - $parentMission->time_holding) - $parentMission->time_departure;
+        } else {
+            $oneWayDuration = $parentMission->time_arrival - $parentMission->time_departure;
+        }
+        $time_end = $time_start + $oneWayDuration + $additionalReturnTripTime;
 
         // Create new return mission object
         $mission = new FleetMission();
@@ -355,11 +478,7 @@ abstract class GameMission
             if ($parentMission->planet_id_to === null) {
                 // Attempt to load it from the target coordinates.
                 $targetPlanet = $this->planetServiceFactory->makeForCoordinate(new Coordinate($parentMission->galaxy_to, $parentMission->system_to, $parentMission->position_to));
-                if ($targetPlanet !== null) {
-                    $mission->planet_id_from = $targetPlanet->getPlanetId();
-                } else {
-                    $mission->planet_id_from = null;
-                }
+                $mission->planet_id_from = $targetPlanet?->getPlanetId();
             } else {
                 $mission->planet_id_from = $parentMission->planet_id_to;
             }
@@ -391,13 +510,18 @@ abstract class GameMission
         $mission->crystal = (int)$resources->crystal->get();
         $mission->deuterium = (int)$resources->deuterium->get();
 
+        // Set wreck field data if provided (for General class attacks)
+        if ($wreckFieldData !== null) {
+            $mission->wreck_field_data = $wreckFieldData;
+        }
+
         // Save the new fleet return mission.
         $mission->save();
 
-        // Check if the created mission arrival time is in the past. This can happen if the planet hasn't been updated
-        // for some time and missions have already played out in the meantime.
+        // Check if the created mission arrival time is in the past.
         // If the mission is in the past, process it immediately.
-        if ($mission->time_arrival < Date::now()->timestamp) {
+        $currentTime = (int)Date::now()->timestamp;
+        if ($mission->time_arrival < $currentTime) {
             $this->process($mission);
         }
     }
@@ -414,20 +538,20 @@ abstract class GameMission
         $return_resources = $this->fleetMissionService->getResources($mission);
 
         // Define from string based on whether the planet is available or not.
-        $from = '[coordinates]' . $mission->galaxy_from . ':' . $mission->system_from . ':' . $mission->position_from . '[/coordinates]';
+        $from = "[coordinates]{$mission->galaxy_from}:{$mission->system_from}:{$mission->position_from}[/coordinates]";
         switch ($mission->type_from) {
             case PlanetType::Planet->value:
             case PlanetType::Moon->value:
                 if ($mission->planet_id_from !== null) {
-                    $from = __('planet') . ' [planet]' . $mission->planet_id_from . '[/planet]';
+                    $from = __('planet') . " [planet]{$mission->planet_id_from}[/planet]";
                 }
                 break;
             case PlanetType::DebrisField->value:
-                $from = '[debrisfield]' . $mission->galaxy_from . ':' . $mission->system_from . ':' . $mission->position_from . '[/debrisfield]';
+                $from = "[debrisfield]{$mission->galaxy_from}:{$mission->system_from}:{$mission->position_from}[/debrisfield]";
                 break;
         }
 
-        $to = __('planet') . ' [planet]' . $mission->planet_id_to . '[/planet]';
+        $to = __('planet') . " [planet]{$mission->planet_id_to}[/planet]";
 
         if ($return_resources->any()) {
             $params = [
@@ -450,24 +574,6 @@ abstract class GameMission
     }
 
     /**
-     * Process the mission.
-     *
-     * @param FleetMission $mission
-     * @return void
-     */
-    public function process(FleetMission $mission): void
-    {
-        if (empty($mission->parent_id)) {
-            // This is an arrival mission as it has no parent mission.
-            // Process arrival.
-            $this->processArrival($mission);
-        } else {
-            // This is a return mission as it has a parent mission.
-            $this->processReturn($mission);
-        }
-    }
-
-    /**
      * Collect all defending fleets at a planet (planet owner + ACS defend fleets).
      *
      * @param PlanetService $planet The planet being defended.
@@ -481,12 +587,15 @@ abstract class GameMission
         $defenders[] = DefenderFleet::fromPlanet($planet);
 
         // Find all ACS Defend fleets currently holding at this planet
+        // For ACS Defend, time_arrival includes hold time, so we need to check:
+        // - physical_arrival (time_arrival - time_holding) <= now (fleet has arrived)
+        // - time_arrival > now (still holding, hold hasn't expired)
         $defendMissions = FleetMission::query()
             ->where('mission_type', 5)  // ACS Defend
             ->where('planet_id_to', $planet->getPlanetId())
             ->where('processed', 0)  // Still active
-            ->where('time_arrival', '<=', Date::now()->timestamp)  // Has arrived
-            ->whereRaw('time_arrival + COALESCE(time_holding, 0) > ?', [Date::now()->timestamp])  // Still holding
+            ->whereRaw('time_arrival - COALESCE(time_holding, 0) <= ?', [Date::now()->timestamp])  // Has physically arrived
+            ->where('time_arrival', '>', Date::now()->timestamp)  // Still holding (hold hasn't expired)
             ->get();
 
         // Add each defending fleet

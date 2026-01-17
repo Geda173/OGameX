@@ -213,11 +213,11 @@ If you want to upgrade an existing installation of OGameX to a new version, foll
 ### Assigning admin role
 By default, the first registered user is assigned the admin role which can see the admin bar and is able to change server settings. You can also assign the admin role manually via the command line:
   ```
-  $ php artisan ogamex:assign-admin-role {username}
+  $ php artisan ogamex:admin:assign-role {username}
   ```
   To remove the admin role from a user, use the following command:
   ```
-  $ php artisan ogamex:remove-admin-role {username}
+  $ php artisan ogamex:admin:remove-role {username}
   ```
 
 ## <a name="support"></a> 📞 9. Support
@@ -261,6 +261,7 @@ The following projects either host OGameX servers or are based on the OGameX cor
 
 | Project Name | Description | Link | Type |
 |-------------|-------------|------|------|
+| OGameX Combat Simulator | High-performance OGame combat simulator based on the OGameX Rust battle engine. Features a blazing fast Rust-powered WASM engine (~200x faster than PHP), client-side calculations that work offline, and accurate battle simulations based on OGameX formulas. | [GitHub](https://github.com/rbardtke/OgameX-Combat-Simulator) | Open Source (MIT) |
 | Space Rivals | Built on top of the OGameX core with many different customizations and features. | [Visit](https://space-rivals.net/) | Not Open Source |
 
 Do you want your own OGameX-related project to be listed here? Create an issue in the [GitHub issues page](https://github.com/lanedirt/OGameX/issues) and provide details about your project.
