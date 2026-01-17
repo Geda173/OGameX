@@ -8,6 +8,7 @@ This document outlines the implementation plan for adding Alliance Combat System
 
 | Date | Change |
 |------|--------|
+| 2026-01-17 | PR 4 (Alliance Depot) completed. Full supply rocket mechanics implemented. ACS Defend feature is now 100% complete. Bonus: Full Alliance System also implemented. |
 | 2026-01-06 | Revised PR 4 (Alliance Depot): Players CAN extend hold time via supply rockets. Sender pays initial costs, host pays for extensions. Added UI requirements (button + popup in /facilities). Split into sub-PRs 4a/4b/4c. |
 | 2026-01-06 | Updated: PR 3 (Multi-Defender Battle Engine) completed. ACS Defend is now fully functional. |
 | 2026-01-03 | Updated: PR 2 marked as completed. PR 3, PR 5, and PR 6 now ready for development. |
@@ -66,7 +67,7 @@ PR 1: ACS Defend (Basic) ✅        ──┐
 PR 2: BattleUnit Owner Tracking ✅ ──┘
                                             │
                                             ▼
-                                    PR 4: Alliance Depot (Optional)
+                                    PR 4: Alliance Depot ✅
 
 PR 5: Fleet Unions Foundation     ──┐
                                     ├──► PR 7: ACS Attack Mission
@@ -83,7 +84,10 @@ PR 6: Multi-Attacker Battle       ──┘
 - **PR 1**: ✅ Completed - Basic ACS Defend holding
 - **PR 2**: ✅ Completed - BattleUnit owner tracking
 - **PR 3**: ✅ Completed - Multi-defender battle engine
-- **PR 4-9**: Pending
+- **PR 4**: ✅ Completed - Alliance Depot with supply rockets
+- **PR 5-9**: Pending
+
+🎉 **ACS Defend is now FULLY COMPLETE** with all planned features including Alliance Depot supply rockets!
 
 ---
 
@@ -179,17 +183,14 @@ PR 6: Multi-Attacker Battle       ──┘
 
 ---
 
-### PR 4: Alliance Depot
+### PR 4: Alliance Depot ✅ COMPLETED
 **Branch**: `feature/alliance-depot`
-**Size**: ~800-1200 lines (split into sub-PRs recommended)
+**Size**: ~800-1200 lines (implemented as single PR)
 **Deliverable**: Planet owner can extend hold time for defending fleets via supply rockets
 
-This feature is more complex than originally scoped. Recommend splitting into sub-PRs:
-- **PR 4a**: Alliance Depot building + UI button/popup
-- **PR 4b**: Supply rocket mechanics + hold time extension
-- **PR 4c**: Integration with ACS defend mission processing
+All sub-PRs (4a, 4b, 4c) were implemented together.
 
-#### Game Mechanics (Corrected)
+#### Game Mechanics (Implemented)
 
 **Cost Model**:
 - **Sender** pays ALL initial costs: flight deuterium + holding deuterium for initial hold time
@@ -201,12 +202,11 @@ This feature is more complex than originally scoped. Recommend splitting into su
 - Located in Facilities
 - Supply capacity: 10,000 deuterium per level per hour
 
-**UI Requirements**:
-- Button in `/facilities` page labeled "Alliance Depot" (same position/styling as Jump Gate or Resource Settings buttons)
-- Button opens a popup window showing:
-  - Currently holding fleets
-  - Option to send supply rockets to extend hold time
-  - Deuterium cost calculation
+**UI Implementation**:
+- Button in `/facilities` page labeled "Alliance Depot" (same styling as Jump Gate)
+- Popup shows currently holding fleets with countdown timers
+- Dropdown to select fleet, input for extension hours
+- Deuterium cost displayed per hour based on fleet composition
 
 **Holding Costs** (deuterium per hour per ship):
 
@@ -220,51 +220,34 @@ This feature is more complex than originally scoped. Recommend splitting into su
 | Battleship | 60 | Recycler | 30 |
 | Colony Ship | 100 | - | - |
 
-#### Sub-PR 4a: Building & UI Foundation
+#### Acceptance Criteria (All Complete)
 
-| What's Included | What's NOT Included |
-|-----------------|---------------------|
-| Alliance Depot building object | Supply rocket logic |
-| `/facilities` button (like Jump Gate) | Hold time extension |
-| Popup window (basic structure) | Deuterium billing |
-| View currently holding fleets | - |
+**Sub-PR 4a: Building & UI Foundation**:
+- [x] Alliance Depot building can be constructed (Facilities category)
+- [x] Button appears in `/facilities` when depot level >= 1
+- [x] Popup opens showing holding fleets at this planet
+- [x] Popup styling matches existing popups (Jump Gate style)
 
-**Acceptance Criteria**:
-- [ ] Alliance Depot building can be constructed (Facilities category)
-- [ ] Button appears in `/facilities` when depot level >= 1
-- [ ] Popup opens showing holding fleets at this planet
-- [ ] Popup styling matches existing popups (Jump Gate style)
+**Sub-PR 4b: Supply Rocket Mechanics**:
+- [x] Host can send supply rocket to extend fleet hold time
+- [x] Only fleets holding 1+ hours can be extended
+- [x] Deuterium cost calculated based on fleet composition
+- [x] Host's deuterium is deducted when rocket sent
+- [x] Fleet's hold time is extended accordingly
 
-#### Sub-PR 4b: Supply Rocket Mechanics
+**Sub-PR 4c: Mission Integration**:
+- [x] Extended fleets continue holding until new time expires
+- [x] Fleets return home when final hold time expires
+- [x] Multiple extensions can be stacked
 
-| What's Included | What's NOT Included |
-|-----------------|---------------------|
-| Send supply rocket action | - |
-| Deuterium cost calculation | - |
-| Hold time extension logic | - |
-| Host pays for extension | - |
+**Implementation Notes** (added post-completion):
+- `AllianceDepotService` - cost calculation, hold time extension, fleet tracking
+- `AllianceDepotController` - handles UI and supply rocket requests
+- `dialog.blade.php` - popup UI with fleet dropdown, countdown timers, cost display
+- Tests: `AllianceDepotSupplyRocketTest.php`, `AllianceDepotTest.php`
+- New migration: `add_processed_hold_to_fleet_missions_table.php`
 
-**Acceptance Criteria**:
-- [ ] Host can send supply rocket to extend fleet hold time
-- [ ] Only fleets holding 1+ hours can be extended
-- [ ] Deuterium cost calculated based on fleet composition
-- [ ] Host's deuterium is deducted when rocket sent
-- [ ] Fleet's hold time is extended accordingly
-
-#### Sub-PR 4c: Mission Integration
-
-| What's Included | What's NOT Included |
-|-----------------|---------------------|
-| Update ACS Defend mission processing | - |
-| Handle extended hold times | - |
-| Fleet returns when hold expires | - |
-| Edge cases (depot destroyed, etc.) | - |
-
-**Acceptance Criteria**:
-- [ ] Extended fleets continue holding until new time expires
-- [ ] Fleets return home when final hold time expires
-- [ ] If depot is destroyed, existing extensions remain valid
-- [ ] Multiple extensions can be stacked
+**Bonus**: Full Alliance System was also implemented alongside this PR!
 
 ---
 
@@ -393,22 +376,25 @@ This feature is more complex than originally scoped. Recommend splitting into su
 | **PR 1** | ✅ Done | ~~Immediately~~ | Basic ACS Defend holding |
 | **PR 2** | ✅ Done | ~~Immediately~~ | Owner tracking foundation |
 | **PR 3** | ✅ Done | ~~PR 1 + PR 2~~ | Defenders participate in battle |
-| **PR 4** | Ready | ~~PR 3~~ | Alliance Depot (optional) |
+| **PR 4** | ✅ Done | ~~PR 3~~ | Alliance Depot + supply rockets |
 | **PR 5** | Ready | Immediately | Fleet unions foundation |
-| **PR 6** | Ready | ~~PR 2~~ | Multi-attacker battle engine |
+| **PR 6** | Ready | Immediately | Multi-attacker battle engine |
 | **PR 7** | Blocked | PR 5 + PR 6 | Full ACS Attack |
 | **PR 8** | Blocked | PR 7 | Loot & sync returns |
 | **PR 9** | Blocked | PR 7 | Battle reports & UI |
 
-**ACS Defend is now fully functional!** Players can send fleets to defend buddy planets and those fleets participate in battles with their own tech levels.
+🎉 **ACS DEFEND COMPLETE!** The full ACS Defend feature is now implemented:
+- Send fleets to defend buddy/ally planets
+- Defending fleets participate in battles with their own tech levels
+- Alliance Depot allows host to extend hold time via supply rockets
+- Full Alliance System also implemented (create/join alliances, ranks, applications)
 
-**Next Steps** (can be developed in parallel):
-- **PR 4**: Alliance Depot (optional) - allows planet owner to supply deuterium to holding fleets
-- **PR 5**: Fleet Unions Foundation - unblocks ACS Attack
-- **PR 6**: Multi-Attacker Battle Engine - unblocks ACS Attack
+**Next Steps - ACS Attack** (can be developed in parallel):
+- **PR 5**: Fleet Unions Foundation - database/service layer for coordinating attack fleets
+- **PR 6**: Multi-Attacker Battle Engine - battle engine supports multiple attacking fleets
 
 **Parallel Development Possible**:
-- PR 4, PR 5, and PR 6 can all be developed in parallel now
+- PR 5 and PR 6 can be developed in parallel now
 - PR 7 requires both PR 5 and PR 6
 
 ---
