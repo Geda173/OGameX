@@ -2006,5 +2006,6 @@ However, the Space Dock's engineers think that some of the remains can be salvag
             "repeatY": "@lang('Repeat vertically')"
         }
     };</script>
+    @yield('scripts')
 </body>
 </html>

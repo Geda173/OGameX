@@ -171,6 +171,9 @@ Route::middleware(['auth', 'globalgame', 'locale', 'firstlogin'])->group(functio
 
     Route::get('/premium', [PremiumController::class, 'index'])->name('premium.index');
     Route::get('/shop', [ShopController::class, 'index'])->name('shop.index');
+    Route::get('/ajax/shop/item-details', [ShopController::class, 'getItemDetails'])->name('shop.ajax.itemdetails');
+    Route::post('/ajax/shop/purchase', [ShopController::class, 'purchaseItem'])->name('shop.ajax.purchase');
+    Route::get('/ajax/shop/inventory', [ShopController::class, 'getInventory'])->name('shop.ajax.inventory');
 
     // Character Class
     Route::get('/characterclass', [CharacterClassController::class, 'index'])->name('characterclass.index');

@@ -47,7 +47,7 @@
                             <li class="border5px inShop active">
                                 <a href="javascript:void(0);" rel="c18170d3125b9941ef3a86bd28dded7bf2066a6a" class="active">
                             <span>
-                                Special offers (<span class="amount">9</span>)
+                                Special offers (<span class="amount">{{ $items->count() }}</span>)
                             </span>
                                 </a>
                             </li>
@@ -91,34 +91,39 @@
                     </div>
 
 
-                    <div id="js_shopSliderBox" class="shop_slider"><div class="anythingSlider anythingSlider-default activeSlider" style="width: 335px; height: 332px;"><div class="anythingWindow" style="width: 335px; height: 332px;"><ul id="js_shopSlider" class="anythingBase horizontal" style="width: 335px; left: 0px;"><li class="slide_0 panel activePage" style="width: 335px; height: 332px;"><div class="item_img r_rare" style="background-image: url(/img/icons/40a1644e104985a3e72da28b76069197128f9fb5-100x.png);"><div class="item_img_box"><div class="activation disabled"></div><a href="javascript:void(0);" tabindex="1" title="KRAKEN Gold|Reduces the building time of buildings currently under construction by <b>6h</b>.<br /><br />
-Duration: now<br /><br />
-Price: 7.000 Dark Matter<br />
-In Inventory: 0" class="detail_button tooltipHTML js_hideTipOnMobile slideIn" ref="929d5e15709cc51a4500de4499e19763c879f7f7"><div class="sale_badge disabled"></div><span class="ecke"><span class="level price">7K DM</span></span></a></div></div><div class="item_img r_rare" style="background-image: url(/img/icons/55d4b1750985e4843023d7d0acd2b9bafb15f0b7-100x.png);"><div class="item_img_box"><div class="activation disabled"></div><a href="javascript:void(0);" tabindex="1" title="DETROID Gold|Reduces the construction time of current shipyard-contracts by <b>6h</b>.<br /><br />
-Duration: now<br /><br />
-Price: 7.000 Dark Matter<br />
-In Inventory: 0" class="detail_button tooltipHTML js_hideTipOnMobile slideIn" ref="0968999df2fe956aa4a07aea74921f860af7d97f"><div class="sale_badge disabled"></div><span class="ecke"><span class="level price">7K DM</span></span></a></div></div><div class="item_img r_rare" style="background-image: url(/img/icons/d949732b01a7f7f6d92e814f2de99479a324e1e3-100x.png);"><div class="item_img_box"><div class="activation disabled"></div><a href="javascript:void(0);" tabindex="1" title="NEWTRON Gold|Reduces research time for all research that is currently in progress by <b>6h</b>.<br /><br />
-Duration: now<br /><br />
-Price: 7.000 Dark Matter<br />
-In Inventory: 0" class="detail_button tooltipHTML js_hideTipOnMobile slideIn" ref="8a4f9e8309e1078f7f5ced47d558d30ae15b4a1b"><div class="sale_badge disabled"></div><span class="ecke"><span class="level price">7K DM</span></span></a></div></div><div class="item_img r_uncommon" style="background-image: url(/img/icons/1ee55efe00bb03743ca031a9eaa1374bb936d863-100x.png);"><div class="item_img_box"><div class="activation disabled"></div><a href="javascript:void(0);" tabindex="1" title="KRAKEN Silver|Reduces the building time of buildings currently under construction by <b>2h</b>.<br /><br />
-Duration: now<br /><br />
-Price: 2.500 Dark Matter<br />
-In Inventory: 0" class="detail_button tooltipHTML js_hideTipOnMobile slideIn" ref="4a58d4978bbe24e3efb3b0248e21b3b4b1bfbd8a"><div class="sale_badge disabled"></div><span class="ecke"><span class="level price">2.5K DM</span></span></a></div></div><div class="item_img r_uncommon" style="background-image: url(/img/icons/d0b8fb3d307b815b3182f3872e8eab654fe677df-100x.png);"><div class="item_img_box"><div class="activation disabled"></div><a href="javascript:void(0);" tabindex="1" title="DETROID Silver|Reduces the construction time of current shipyard-contracts by <b>2h</b>.<br /><br />
-Duration: now<br /><br />
-Price: 2.500 Dark Matter<br />
-In Inventory: 0" class="detail_button tooltipHTML js_hideTipOnMobile slideIn" ref="27cbcd52f16693023cb966e5026d8a1efbbfc0f9"><div class="sale_badge disabled"></div><span class="ecke"><span class="level price">2.5K DM</span></span></a></div></div><div class="item_img r_uncommon" style="background-image: url(/img/icons/a92734028d1bf2e75c5c25ae134b4d298a5ca36e-100x.png);"><div class="item_img_box"><div class="activation disabled"></div><a href="javascript:void(0);" tabindex="1" title="NEWTRON Silver|Reduces research time for all research that is currently in progress by <b>2h</b>.<br /><br />
-Duration: now<br /><br />
-Price: 2.500 Dark Matter<br />
-In Inventory: 0" class="detail_button tooltipHTML js_hideTipOnMobile slideIn" ref="d26f4dab76fdc5296e3ebec11a1e1d2558c713ea"><div class="sale_badge disabled"></div><span class="ecke"><span class="level price">2.5K DM</span></span></a></div></div><div class="item_img r_common" style="background-image: url(/img/icons/98629d11293c9f2703592ed0314d99f320f45845-100x.png);"><div class="item_img_box"><div class="activation disabled"></div><a href="javascript:void(0);" tabindex="1" title="KRAKEN Bronze|Reduces the building time of buildings currently under construction by <b>30m</b>.<br /><br />
-Duration: now<br /><br />
-Price: 700 Dark Matter<br />
-In Inventory: 0" class="detail_button tooltipHTML js_hideTipOnMobile slideIn" ref="40f6c78e11be01ad3389b7dccd6ab8efa9347f3c"><div class="sale_badge disabled"></div><span class="ecke"><span class="level price">700 DM</span></span></a></div></div><div class="item_img r_common" style="background-image: url(/img/icons/56724c3a1dcae8036bb172f0be833a6f9a28bc27-100x.png);"><div class="item_img_box"><div class="activation disabled"></div><a href="javascript:void(0);" tabindex="1" title="DETROID Bronze|Reduces the construction time of current shipyard-contracts by <b>30m</b>.<br /><br />
-Duration: now<br /><br />
-Price: 700 Dark Matter<br />
-In Inventory: 0" class="detail_button tooltipHTML js_hideTipOnMobile slideIn" ref="d3d541ecc23e4daa0c698e44c32f04afd2037d84"><div class="sale_badge disabled"></div><span class="ecke"><span class="level price">700 DM</span></span></a></div></div><div class="item_img r_common" style="background-image: url(/img/icons/4bc4327a3fd508b5da84267e2cfd58d47f9e4dcb-100x.png);"><div class="item_img_box"><div class="activation disabled"></div><a href="javascript:void(0);" tabindex="1" title="NEWTRON Bronze|Reduces research time for all research that is currently in progress by <b>30m</b>.<br /><br />
-Duration: now<br /><br />
-Price: 700 Dark Matter<br />
-In Inventory: 0" class="detail_button tooltipHTML js_hideTipOnMobile slideIn" ref="da4a2a1bb9afd410be07bc9736d87f1c8059e66d"><div class="sale_badge disabled"></div><span class="ecke"><span class="level price">700 DM</span></span></a></div></div></li></ul></div><div class="anythingControls" style="display: none;"><ul class="thumbNav" style="display: none;"></ul></div><span class="arrow back disabled" style="display: none;"><a href="#"><span>«</span></a></span><span class="arrow forward disabled" style="display: none;"><a href="#"><span>»</span></a></span></div></div>
+                    <div id="js_shopSliderBox" class="shop_slider">
+                        <div class="anythingSlider anythingSlider-default activeSlider" style="width: 335px; height: 332px;">
+                            <div class="anythingWindow" style="width: 335px; height: 332px;">
+                                <ul id="js_shopSlider" class="anythingBase horizontal" style="width: 335px; left: 0px;">
+                                    <li class="slide_0 panel activePage" style="width: 335px; height: 332px;">
+                                        @foreach($items as $item)
+                                        <div class="item_img {{ $item->rarity_class }}" style="background-image: url(/img/icons/{{ $item->icon }});">
+                                            <div class="item_img_box">
+                                                <div class="activation disabled"></div>
+                                                <a href="javascript:void(0);"
+                                                   tabindex="1"
+                                                   title="{{ $item->name }}|{!! $item->description !!}"
+                                                   class="detail_button tooltipHTML js_hideTipOnMobile shop-item-link"
+                                                   data-item-ref="{{ $item->ref_id }}"
+                                                   data-item-id="{{ $item->id }}">
+                                                    <div class="sale_badge disabled"></div>
+                                                    <span class="ecke">
+                                                        <span class="level price">{{ $item->formatted_price }}</span>
+                                                    </span>
+                                                </a>
+                                            </div>
+                                        </div>
+                                        @endforeach
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="anythingControls" style="display: none;">
+                                <ul class="thumbNav" style="display: none;"></ul>
+                            </div>
+                            <span class="arrow back disabled" style="display: none;"><a href="#"><span>«</span></a></span>
+                            <span class="arrow forward disabled" style="display: none;"><a href="#"><span>»</span></a></span>
+                        </div>
+                    </div>
 
                     <div id="js_inventorySliderBox" class="inventory_slider" style="display:none;"></div>
                 </div>        <div class="footer"></div>
@@ -126,4 +131,149 @@ In Inventory: 0" class="detail_button tooltipHTML js_hideTipOnMobile slideIn" re
         </div>
     </div>
 
+@endsection
+
+@section('scripts')
+<script type="text/javascript">
+    $(document).ready(function() {
+        // Handle clicking on shop items
+        $(document).on('click', '.shop-item-link', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+
+            var itemId = $(this).data('item-id');
+            console.log('Shop item clicked, item ID:', itemId);
+
+            if (itemId) {
+                loadItemDetails(itemId);
+            }
+
+            return false;
+        });
+
+        // Handle clicking on inventory items
+        $(document).on('click', '.inventory-item-link', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+
+            var itemId = $(this).data('item-id');
+            console.log('Inventory item clicked, item ID:', itemId);
+
+            if (itemId) {
+                loadItemDetails(itemId);
+            }
+
+            return false;
+        });
+
+        // Handle shop/inventory tab switching
+        $('.to_shop').on('click', function() {
+            showShop();
+        });
+
+        $('.to_inventory').on('click', function() {
+            showInventory();
+        });
+
+        // Handle close button in overlay
+        $(document).on('click', '.close_details', function() {
+            $('#detail').fadeOut('fast');
+        });
+    });
+
+    // Map of ref_ids to item IDs from the items collection
+    var itemRefToIdMap = {
+        @foreach($items as $item)
+        '{{ $item->ref_id }}': {{ $item->id }},
+        @endforeach
+    };
+
+    function findItemIdByRef(refId) {
+        return itemRefToIdMap[refId] || null;
+    }
+
+    function loadItemDetails(itemId) {
+        console.log('Loading item details for ID:', itemId);
+
+        $.ajax({
+            url: '{{ route('shop.ajax.itemdetails') }}',
+            method: 'GET',
+            data: {
+                item_id: itemId
+            },
+            success: function(response) {
+                console.log('AJAX response received:', response);
+
+                if (response.content && response.content.technologydetails) {
+                    $('#detail').html(response.content.technologydetails);
+                    $('#detail').css({
+                        'height': '250px',
+                        'display': 'block',
+                        'overflow': 'hidden',
+                        'margin-top': '0px'
+                    }).fadeIn('fast');
+
+                    console.log('Item details loaded successfully');
+                } else {
+                    console.error('Invalid response format:', response);
+                }
+            },
+            error: function(xhr) {
+                console.error('AJAX error:', xhr);
+                console.error('Status:', xhr.status);
+                console.error('Response:', xhr.responseText);
+
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    fadeBox(xhr.responseJSON.message, true);
+                } else {
+                    fadeBox('Failed to load item details', true);
+                }
+            }
+        });
+    }
+
+    function showShop() {
+        $('.to_shop').addClass('active');
+        $('.to_inventory').removeClass('active');
+        $('#js_shopSliderBox').show();
+        $('#js_inventorySliderBox').hide();
+    }
+
+    function showInventory() {
+        $('.to_shop').removeClass('active');
+        $('.to_inventory').addClass('active');
+        $('#js_shopSliderBox').hide();
+        $('#js_inventorySliderBox').show();
+
+        // Load inventory if not already loaded
+        if ($('#js_inventorySliderBox').html().trim() === '') {
+            loadInventory();
+        }
+    }
+
+    function loadInventory() {
+        $.ajax({
+            url: '{{ route('shop.ajax.inventory') }}',
+            method: 'GET',
+            success: function(response) {
+                if (response.success && response.html) {
+                    $('#js_inventorySliderBox').html(response.html);
+                }
+            },
+            error: function(xhr) {
+                console.error('Failed to load inventory:', xhr);
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    fadeBox(xhr.responseJSON.message, true);
+                }
+            }
+        });
+    }
+
+    // Expose for use in other scripts
+    window.loadItemDetails = loadItemDetails;
+    window.showShop = showShop;
+    window.showInventory = showInventory;
+</script>
 @endsection
