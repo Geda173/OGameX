@@ -8,6 +8,7 @@ This document outlines the implementation plan for adding Alliance Combat System
 
 | Date | Change |
 |------|--------|
+| 2026-01-23 | Updated PR 6 to match actual implementation: PHP engine updated with AttackerFleet/AttackerFleetResult models, backward compatibility helpers. Clarified PR 6b (Rust update) is future work with PHP engine as working fallback. |
 | 2026-01-23 | PR 5 (Fleet Unions) completed. PR 6 (Multi-Attacker Battle) in review. Added detailed PR 6b instructions for Rust battle engine multi-attacker support including JSON input/output formats and implementation steps. |
 | 2026-01-17 | PR 4 (Alliance Depot) completed. Full supply rocket mechanics implemented. ACS Defend feature is now 100% complete. Bonus: Full Alliance System also implemented. |
 | 2026-01-06 | Revised PR 4 (Alliance Depot): Players CAN extend hold time via supply rockets. Sender pays initial costs, host pays for extensions. Added UI requirements (button + popup in /facilities). Split into sub-PRs 4a/4b/4c. |
@@ -288,29 +289,43 @@ All sub-PRs (4a, 4b, 4c) were implemented together.
 
 ### PR 6: Multi-Attacker Battle Engine 🔄 IN REVIEW
 **Branch**: `feature/multi-attacker-battle`
-**Size**: ~700-1000 lines (PHP) + Rust library update
-**Deliverable**: Battle engine supports multiple attacking fleets
+**Size**: ~700-1000 lines
+**Deliverable**: Battle engine supports multiple attacking fleets (PHP engine)
 
 | What's Included | What's NOT Included |
 |-----------------|---------------------|
-| `AttackerFleet` model | ACS Attack mission integration |
-| `AttackerFleetResult` model | Loot distribution |
-| Multi-attacker PHP battle engine | UI changes |
-| Per-fleet round tracking | - |
-| Survivor assignment to owners | - |
+| `AttackerFleet` model (like DefenderFleet) | Rust battle engine update |
+| `AttackerFleetResult` model | ACS Attack mission integration |
+| Multi-attacker PHP battle engine | Loot distribution |
+| Per-fleet round tracking in `BattleResultRound` | UI changes |
+| Survivor assignment via `fleetMissionId`/`ownerId` | - |
+| Backward compatibility helpers | - |
+
+**New Models** (mirroring defender pattern):
+- `AttackerFleet` - units, player, fleetMissionId, ownerId, cargo resources
+- `AttackerFleetResult` - unitsStart, unitsResult, unitsLost, loot share
+
+**Backward Compatibility**:
+- Helper methods `getAttackerPlayer()` and `getAttackerFleet()` for single-attacker code paths
+- Existing single-attacker battles work unchanged
 
 **Tasks from Milestones**: 2.2, 2.3, 2.4, 2.5, 2.6
 
 **Acceptance Criteria**:
-- [ ] Engine accepts multiple AttackerFleets
-- [ ] Each attacker uses their own tech levels
-- [ ] Survivors correctly assigned to original owners
-- [ ] Round data tracked per fleet
+- [ ] Engine accepts array of AttackerFleet objects
+- [ ] Each attacker uses their own tech levels (weapon, shield, armor)
+- [ ] Survivors correctly assigned to original fleet owners
+- [ ] Per-fleet round data tracked (losses, hits, damage)
+- [ ] Single-attacker battles still work (backward compatible)
 - [ ] Unit tests pass for multi-attacker scenarios
+
+**Note**: Rust battle engine update is marked as TODO in this PR and will be addressed separately in PR 6b.
 
 ---
 
-#### Sub-PR 6b: Rust Battle Engine Multi-Attacker Support
+#### PR 6b: Rust Battle Engine Multi-Attacker Support (Future Work)
+
+**Status**: The PHP battle engine handles multi-attacker battles. The Rust engine has TODO markers and will be updated in a future PR. Until then, the PHP engine serves as the working implementation.
 
 **Problem**: The Rust battle engine (`libbattle_engine_ffi.so`) currently assumes a single attacking fleet with one set of tech levels. For ACS Attack, we need:
 1. Accept multiple attacking fleets as input
