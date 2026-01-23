@@ -8,6 +8,7 @@ This document outlines the implementation plan for adding Alliance Combat System
 
 | Date | Change |
 |------|--------|
+| 2026-01-23 | PR 5 (Fleet Unions) completed. PR 6 (Multi-Attacker Battle) in review. Added detailed PR 6b instructions for Rust battle engine multi-attacker support including JSON input/output formats and implementation steps. |
 | 2026-01-17 | PR 4 (Alliance Depot) completed. Full supply rocket mechanics implemented. ACS Defend feature is now 100% complete. Bonus: Full Alliance System also implemented. |
 | 2026-01-06 | Revised PR 4 (Alliance Depot): Players CAN extend hold time via supply rockets. Sender pays initial costs, host pays for extensions. Added UI requirements (button + popup in /facilities). Split into sub-PRs 4a/4b/4c. |
 | 2026-01-06 | Updated: PR 3 (Multi-Defender Battle Engine) completed. ACS Defend is now fully functional. |
@@ -69,9 +70,9 @@ PR 2: BattleUnit Owner Tracking ✅ ──┘
                                             ▼
                                     PR 4: Alliance Depot ✅
 
-PR 5: Fleet Unions Foundation     ──┐
+PR 5: Fleet Unions Foundation ✅  ──┐
                                     ├──► PR 7: ACS Attack Mission
-PR 6: Multi-Attacker Battle       ──┘
+PR 6: Multi-Attacker Battle 🔄    ──┘
                                             │
                                             ▼
                                     PR 8: Loot Distribution & Sync Returns
@@ -85,9 +86,13 @@ PR 6: Multi-Attacker Battle       ──┘
 - **PR 2**: ✅ Completed - BattleUnit owner tracking
 - **PR 3**: ✅ Completed - Multi-defender battle engine
 - **PR 4**: ✅ Completed - Alliance Depot with supply rockets
-- **PR 5-9**: Pending
+- **PR 5**: ✅ Completed - Fleet Unions foundation
+- **PR 6**: 🔄 In Review - Multi-attacker battle engine (includes Rust library update)
+- **PR 7-9**: Pending
 
-🎉 **ACS Defend is now FULLY COMPLETE** with all planned features including Alliance Depot supply rockets!
+🎉 **ACS DEFEND COMPLETE!** Full feature including Alliance Depot supply rockets.
+
+🚧 **ACS ATTACK IN PROGRESS**: Fleet unions done, multi-attacker battle engine under review.
 
 ---
 
@@ -251,7 +256,7 @@ All sub-PRs (4a, 4b, 4c) were implemented together.
 
 ---
 
-### PR 5: Fleet Unions Foundation
+### PR 5: Fleet Unions Foundation ✅ COMPLETED
 **Branch**: `feature/fleet-unions`
 **Size**: ~600-800 lines
 **Deliverable**: Database and service layer for coordinating fleets
@@ -267,24 +272,30 @@ All sub-PRs (4a, 4b, 4c) were implemented together.
 **Tasks from Milestones**: 1.1, 1.2, 1.3, 1.4, 3.1, 3.2, 3.3, 3.4, 3.5
 
 **Acceptance Criteria**:
-- [ ] Can create a union from an attack mission
-- [ ] Can join a union (buddy/ally validation)
-- [ ] Max 16 fleets, 5 players enforced
-- [ ] 30% delay limit calculated correctly
-- [ ] Fleet recall removes from union
+- [x] Can create a union from an attack mission
+- [x] Can join a union (buddy/ally validation)
+- [x] Max 16 fleets, 5 players enforced
+- [x] 30% delay limit calculated correctly
+- [x] Fleet recall removes from union
+
+**Implementation Notes** (added post-completion):
+- `FleetUnion` model with relationships to missions
+- `FleetUnionService` handles create, join, validate, delay calculations
+- Migrations: `create_fleet_unions_table`, `add_union_to_fleet_missions_table`
+- Comprehensive test suite: `FleetUnionServiceTest.php`
 
 ---
 
-### PR 6: Multi-Attacker Battle Engine
+### PR 6: Multi-Attacker Battle Engine 🔄 IN REVIEW
 **Branch**: `feature/multi-attacker-battle`
-**Size**: ~700-1000 lines
+**Size**: ~700-1000 lines (PHP) + Rust library update
 **Deliverable**: Battle engine supports multiple attacking fleets
 
 | What's Included | What's NOT Included |
 |-----------------|---------------------|
 | `AttackerFleet` model | ACS Attack mission integration |
-| `AttackerResult` model | Loot distribution |
-| `AcsBattleEngine` class | UI changes |
+| `AttackerFleetResult` model | Loot distribution |
+| Multi-attacker PHP battle engine | UI changes |
 | Per-fleet round tracking | - |
 | Survivor assignment to owners | - |
 
@@ -296,6 +307,193 @@ All sub-PRs (4a, 4b, 4c) were implemented together.
 - [ ] Survivors correctly assigned to original owners
 - [ ] Round data tracked per fleet
 - [ ] Unit tests pass for multi-attacker scenarios
+
+---
+
+#### Sub-PR 6b: Rust Battle Engine Multi-Attacker Support
+
+**Problem**: The Rust battle engine (`libbattle_engine_ffi.so`) currently assumes a single attacking fleet with one set of tech levels. For ACS Attack, we need:
+1. Accept multiple attacking fleets as input
+2. Use each fleet's own player research levels (weapon, shield, armor)
+3. Track which ships belong to which fleet for per-player loss reporting
+
+**Files Involved**:
+- `storage/rust-libs/libbattle_engine_ffi.so` - The Rust library (needs recompilation)
+- `app/GameMissions/BattleEngine/RustBattleEngine.php` - PHP FFI interface
+
+**Current State** (RustBattleEngine.php):
+```php
+// Current input format - single attacker tech levels
+$attackerUnits[$unit->unitObject->id] = [
+    'unit_id' => $unit->unitObject->id,
+    'amount' => $unit->amount,
+    'shield_points' => $unit->unitObject->properties->shield->calculate($this->attackerPlayer)->totalValue,
+    'attack_power' => $unit->unitObject->properties->attack->calculate($this->attackerPlayer)->totalValue,
+    'hull_plating' => floor($unit->unitObject->properties->structural_integrity->calculate($this->attackerPlayer)->totalValue / 10),
+    'rapidfire' => $rapidfire,
+];
+```
+
+**Target State** - New JSON input format:
+```json
+{
+  "attacker_fleets": [
+    {
+      "fleet_mission_id": 123,
+      "owner_id": 456,
+      "units": [
+        {
+          "unit_id": 204,
+          "amount": 50,
+          "shield_points": 25,
+          "attack_power": 55,
+          "hull_plating": 400,
+          "rapidfire": {"205": 6, "210": 5}
+        }
+      ]
+    },
+    {
+      "fleet_mission_id": 789,
+      "owner_id": 111,
+      "units": [...]
+    }
+  ],
+  "defender_fleets": [...] // Same structure as attacker_fleets
+}
+```
+
+**Target State** - New JSON output format:
+```json
+{
+  "rounds": [...],
+  "attacker_fleet_results": [
+    {
+      "fleet_mission_id": 123,
+      "owner_id": 456,
+      "units_start": [...],
+      "units_result": [...],
+      "units_lost": [...]
+    }
+  ],
+  "defender_fleet_results": [...]
+}
+```
+
+**Implementation Steps for Rust Library**:
+
+1. **Update input structs** (in Rust):
+   ```rust
+   struct FleetInput {
+       fleet_mission_id: i32,
+       owner_id: i32,
+       units: Vec<UnitInput>,
+   }
+
+   struct BattleInput {
+       attacker_fleets: Vec<FleetInput>,
+       defender_fleets: Vec<FleetInput>,
+   }
+   ```
+
+2. **Update BattleUnit** to track ownership:
+   ```rust
+   struct BattleUnit {
+       unit_id: i32,
+       fleet_mission_id: i32,  // NEW
+       owner_id: i32,          // NEW
+       shield_points: f64,
+       attack_power: f64,
+       hull_plating: f64,
+       // ... existing fields
+   }
+   ```
+
+3. **Update battle simulation**:
+   - Each unit retains its `fleet_mission_id` and `owner_id` throughout battle
+   - When calculating stats, use the tech levels from the unit's owner (already baked into the input)
+   - No changes to core battle logic (units still fight randomly)
+
+4. **Update output** to group survivors by fleet:
+   ```rust
+   struct FleetResult {
+       fleet_mission_id: i32,
+       owner_id: i32,
+       units_start: Vec<UnitOutput>,
+       units_result: Vec<UnitOutput>,
+       units_lost: Vec<UnitOutput>,
+   }
+   ```
+
+5. **Backward compatibility**: Support both old (single attacker) and new (multi-fleet) formats:
+   ```rust
+   // If input has "attacker_units" (old format), wrap in single fleet
+   // If input has "attacker_fleets" (new format), use directly
+   ```
+
+**Implementation Steps for PHP** (RustBattleEngine.php):
+
+1. **Update `prepareBattleInput()`**:
+   ```php
+   // Loop through $this->attackers (new array of AttackerFleet)
+   foreach ($this->attackers as $attackerFleet) {
+       $fleetUnits = [];
+       foreach ($attackerFleet->units->units as $unit) {
+           $fleetUnits[] = [
+               'unit_id' => $unit->unitObject->id,
+               'amount' => $unit->amount,
+               // Use THIS fleet's player for tech calculations
+               'shield_points' => $unit->unitObject->properties->shield->calculate($attackerFleet->player)->totalValue,
+               'attack_power' => $unit->unitObject->properties->attack->calculate($attackerFleet->player)->totalValue,
+               'hull_plating' => floor($unit->unitObject->properties->structural_integrity->calculate($attackerFleet->player)->totalValue / 10),
+               'rapidfire' => $rapidfire,
+           ];
+       }
+       $attackerFleets[] = [
+           'fleet_mission_id' => $attackerFleet->fleetMissionId,
+           'owner_id' => $attackerFleet->ownerId,
+           'units' => $fleetUnits,
+       ];
+   }
+   ```
+
+2. **Update `convertBattleOutput()`**:
+   - Parse `attacker_fleet_results` from Rust output
+   - Populate `$result->attackerFleetResults` array
+
+3. **Remove workaround** in `fightBattleRounds()`:
+   - Current code distributes survivors proportionally (approximation)
+   - New Rust output provides exact per-fleet results
+
+**Reference Implementation**:
+See `PhpBattleEngine.php` lines 48-72 for how multi-defender tech levels are handled:
+```php
+foreach ($this->defenders as $defenderFleet) {
+    foreach ($defenderFleet->units->units as $unit) {
+        // Use THIS fleet owner's tech levels for calculations
+        $structuralIntegrity = $unit->unitObject->properties->structural_integrity->calculate($defenderFleet->player)->totalValue;
+        $shieldPoints = $unit->unitObject->properties->shield->calculate($defenderFleet->player)->totalValue;
+        $attackPower = $unit->unitObject->properties->attack->calculate($defenderFleet->player)->totalValue;
+
+        $unitObject = new BattleUnit(
+            $unit->unitObject,
+            $structuralIntegrity,
+            $shieldPoints,
+            $attackPower,
+            $defenderFleet->fleetMissionId,  // Track which fleet
+            $defenderFleet->ownerId          // Track which player
+        );
+    }
+}
+```
+
+**Testing Requirements**:
+- [ ] Single attacker still works (backward compatibility)
+- [ ] Two attackers with different tech levels produce correct damage
+- [ ] Survivors correctly attributed to original fleet owners
+- [ ] Per-fleet loss reports are accurate
+- [ ] Performance regression test (battle with 1000+ ships)
+
+**Note**: If Rust library update is blocked, the PHP battle engine can be used as fallback. The PHP engine already supports multi-attacker via the same pattern used for multi-defender.
 
 ---
 
@@ -377,24 +575,24 @@ All sub-PRs (4a, 4b, 4c) were implemented together.
 | **PR 2** | ✅ Done | ~~Immediately~~ | Owner tracking foundation |
 | **PR 3** | ✅ Done | ~~PR 1 + PR 2~~ | Defenders participate in battle |
 | **PR 4** | ✅ Done | ~~PR 3~~ | Alliance Depot + supply rockets |
-| **PR 5** | Ready | Immediately | Fleet unions foundation |
-| **PR 6** | Ready | Immediately | Multi-attacker battle engine |
-| **PR 7** | Blocked | PR 5 + PR 6 | Full ACS Attack |
+| **PR 5** | ✅ Done | ~~Immediately~~ | Fleet unions foundation |
+| **PR 6** | 🔄 Review | ~~Immediately~~ | Multi-attacker battle engine |
+| **PR 6b** | Pending | PR 6 | Rust battle engine multi-attacker |
+| **PR 7** | Blocked | PR 6 | Full ACS Attack |
 | **PR 8** | Blocked | PR 7 | Loot & sync returns |
 | **PR 9** | Blocked | PR 7 | Battle reports & UI |
 
-🎉 **ACS DEFEND COMPLETE!** The full ACS Defend feature is now implemented:
-- Send fleets to defend buddy/ally planets
-- Defending fleets participate in battles with their own tech levels
-- Alliance Depot allows host to extend hold time via supply rockets
-- Full Alliance System also implemented (create/join alliances, ranks, applications)
+🎉 **ACS DEFEND COMPLETE!** Full feature with Alliance Depot supply rockets.
 
-**Next Steps - ACS Attack** (can be developed in parallel):
-- **PR 5**: Fleet Unions Foundation - database/service layer for coordinating attack fleets
-- **PR 6**: Multi-Attacker Battle Engine - battle engine supports multiple attacking fleets
+🚧 **ACS ATTACK IN PROGRESS**:
+- Fleet Unions foundation complete
+- Multi-attacker PHP battle engine under review
+- Rust battle engine update needed (see PR 6b detailed instructions above)
 
-**Parallel Development Possible**:
-- PR 5 and PR 6 can be developed in parallel now
+**Next Steps**:
+- **PR 6**: Complete review of multi-attacker PHP battle engine
+- **PR 6b**: Update Rust battle engine for multi-fleet support (can use PHP engine as fallback)
+- **PR 7**: ACS Attack Mission integration (blocked on PR 6)
 - PR 7 requires both PR 5 and PR 6
 
 ---
