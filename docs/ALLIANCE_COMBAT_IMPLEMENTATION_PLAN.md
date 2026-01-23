@@ -8,6 +8,7 @@ This document outlines the implementation plan for adding Alliance Combat System
 
 | Date | Change |
 |------|--------|
+| 2026-01-23 | **Split Rust engine work into separate PRs**: PR 6b = Rust library update only (no PHP), PR 6c = PHP integration only (after Rust). Added clear warnings to not modify RustBattleEngine.php until library is ready. |
 | 2026-01-23 | Updated PR 6 to match actual implementation: PHP engine updated with AttackerFleet/AttackerFleetResult models, backward compatibility helpers. Clarified PR 6b (Rust update) is future work with PHP engine as working fallback. |
 | 2026-01-23 | PR 5 (Fleet Unions) completed. PR 6 (Multi-Attacker Battle) in review. Added detailed PR 6b instructions for Rust battle engine multi-attacker support including JSON input/output formats and implementation steps. |
 | 2026-01-17 | PR 4 (Alliance Depot) completed. Full supply rocket mechanics implemented. ACS Defend feature is now 100% complete. Bonus: Full Alliance System also implemented. |
@@ -319,37 +320,40 @@ All sub-PRs (4a, 4b, 4c) were implemented together.
 - [ ] Single-attacker battles still work (backward compatible)
 - [ ] Unit tests pass for multi-attacker scenarios
 
-**Note**: Rust battle engine update is marked as TODO in this PR and will be addressed separately in PR 6b.
+**Note**: Rust battle engine update is marked as TODO in this PR and will be addressed separately in PR 6b and PR 6c.
 
 ---
 
-#### PR 6b: Rust Battle Engine Multi-Attacker Support (Future Work)
+## Rust Battle Engine Multi-Attacker Support
 
-**Status**: The PHP battle engine handles multi-attacker battles. The Rust engine has TODO markers and will be updated in a future PR. Until then, the PHP engine serves as the working implementation.
+⚠️ **IMPORTANT: This must be done in order. Do NOT modify RustBattleEngine.php until the Rust library is updated and recompiled.**
 
-**Problem**: The Rust battle engine (`libbattle_engine_ffi.so`) currently assumes a single attacking fleet with one set of tech levels. For ACS Attack, we need:
-1. Accept multiple attacking fleets as input
-2. Use each fleet's own player research levels (weapon, shield, armor)
-3. Track which ships belong to which fleet for per-player loss reporting
+The PHP battle engine already handles multi-attacker battles. The Rust engine needs to be updated separately in two phases:
 
-**Files Involved**:
-- `storage/rust-libs/libbattle_engine_ffi.so` - The Rust library (needs recompilation)
-- `app/GameMissions/BattleEngine/RustBattleEngine.php` - PHP FFI interface
+### PR 6b: Update Rust Library Source Code (RUST ONLY)
 
-**Current State** (RustBattleEngine.php):
-```php
-// Current input format - single attacker tech levels
-$attackerUnits[$unit->unitObject->id] = [
-    'unit_id' => $unit->unitObject->id,
-    'amount' => $unit->amount,
-    'shield_points' => $unit->unitObject->properties->shield->calculate($this->attackerPlayer)->totalValue,
-    'attack_power' => $unit->unitObject->properties->attack->calculate($this->attackerPlayer)->totalValue,
-    'hull_plating' => floor($unit->unitObject->properties->structural_integrity->calculate($this->attackerPlayer)->totalValue / 10),
-    'rapidfire' => $rapidfire,
-];
+**Scope**: Modify the Rust source code and recompile `libbattle_engine_ffi.so`. NO PHP CHANGES.
+
+**Prerequisites**: Access to the Rust battle engine source code repository.
+
+**Files to Modify** (Rust side only):
+- Rust source files (wherever the battle engine is maintained)
+- Output: `storage/rust-libs/libbattle_engine_ffi.so`
+
+**DO NOT MODIFY**:
+- `app/GameMissions/BattleEngine/RustBattleEngine.php` - This comes in PR 6c
+
+#### Current Rust Input Format (Single Attacker)
+```json
+{
+  "attacker_units": {
+    "204": {"unit_id": 204, "amount": 50, "shield_points": 25, "attack_power": 55, "hull_plating": 400, "rapidfire": {...}}
+  },
+  "defender_units": {...}
+}
 ```
 
-**Target State** - New JSON input format:
+#### New Rust Input Format (Multi-Fleet)
 ```json
 {
   "attacker_fleets": [
@@ -357,79 +361,86 @@ $attackerUnits[$unit->unitObject->id] = [
       "fleet_mission_id": 123,
       "owner_id": 456,
       "units": [
-        {
-          "unit_id": 204,
-          "amount": 50,
-          "shield_points": 25,
-          "attack_power": 55,
-          "hull_plating": 400,
-          "rapidfire": {"205": 6, "210": 5}
-        }
+        {"unit_id": 204, "amount": 50, "shield_points": 25, "attack_power": 55, "hull_plating": 400, "rapidfire": {...}}
       ]
-    },
-    {
-      "fleet_mission_id": 789,
-      "owner_id": 111,
-      "units": [...]
     }
   ],
-  "defender_fleets": [...] // Same structure as attacker_fleets
+  "defender_fleets": [
+    {
+      "fleet_mission_id": 0,
+      "owner_id": 789,
+      "units": [...]
+    }
+  ]
 }
 ```
 
-**Target State** - New JSON output format:
+#### New Rust Output Format
 ```json
 {
   "rounds": [...],
   "attacker_fleet_results": [
-    {
-      "fleet_mission_id": 123,
-      "owner_id": 456,
-      "units_start": [...],
-      "units_result": [...],
-      "units_lost": [...]
-    }
+    {"fleet_mission_id": 123, "owner_id": 456, "units_start": [...], "units_result": [...], "units_lost": [...]}
   ],
-  "defender_fleet_results": [...]
+  "defender_fleet_results": [
+    {"fleet_mission_id": 0, "owner_id": 789, "units_start": [...], "units_result": [...], "units_lost": [...]}
+  ]
 }
 ```
 
-**Implementation Steps for Rust Library**:
+#### Rust Implementation Steps
 
-1. **Update input structs** (in Rust):
+1. **Update input structs**:
    ```rust
+   #[derive(Deserialize)]
    struct FleetInput {
        fleet_mission_id: i32,
        owner_id: i32,
        units: Vec<UnitInput>,
    }
 
+   #[derive(Deserialize)]
    struct BattleInput {
-       attacker_fleets: Vec<FleetInput>,
-       defender_fleets: Vec<FleetInput>,
+       // New format
+       attacker_fleets: Option<Vec<FleetInput>>,
+       defender_fleets: Option<Vec<FleetInput>>,
+       // Old format (for backward compatibility)
+       attacker_units: Option<HashMap<i32, UnitInput>>,
+       defender_units: Option<HashMap<i32, UnitInput>>,
    }
    ```
 
-2. **Update BattleUnit** to track ownership:
+2. **Update BattleUnit to track ownership**:
    ```rust
    struct BattleUnit {
        unit_id: i32,
-       fleet_mission_id: i32,  // NEW
-       owner_id: i32,          // NEW
+       fleet_mission_id: i32,  // NEW - track which fleet
+       owner_id: i32,          // NEW - track which player
        shield_points: f64,
        attack_power: f64,
        hull_plating: f64,
-       // ... existing fields
+       original_hull_plating: f64,
+       original_shield_points: f64,
+       rapidfire: HashMap<i32, i32>,
    }
    ```
 
-3. **Update battle simulation**:
-   - Each unit retains its `fleet_mission_id` and `owner_id` throughout battle
-   - When calculating stats, use the tech levels from the unit's owner (already baked into the input)
-   - No changes to core battle logic (units still fight randomly)
-
-4. **Update output** to group survivors by fleet:
+3. **Handle backward compatibility in input parsing**:
    ```rust
+   fn parse_input(input: &BattleInput) -> (Vec<BattleUnit>, Vec<BattleUnit>) {
+       if let Some(ref fleets) = input.attacker_fleets {
+           // New multi-fleet format
+           parse_multi_fleet(fleets)
+       } else if let Some(ref units) = input.attacker_units {
+           // Old single-attacker format - wrap in single fleet with id=0
+           parse_legacy_format(units)
+       }
+   }
+   ```
+
+4. **Update output to group by fleet**:
+   ```rust
+   #[derive(Serialize)]
    struct FleetResult {
        fleet_mission_id: i32,
        owner_id: i32,
@@ -437,78 +448,152 @@ $attackerUnits[$unit->unitObject->id] = [
        units_result: Vec<UnitOutput>,
        units_lost: Vec<UnitOutput>,
    }
+
+   #[derive(Serialize)]
+   struct BattleOutput {
+       rounds: Vec<RoundOutput>,
+       attacker_fleet_results: Vec<FleetResult>,
+       defender_fleet_results: Vec<FleetResult>,
+   }
    ```
 
-5. **Backward compatibility**: Support both old (single attacker) and new (multi-fleet) formats:
+5. **Group survivors by fleet_mission_id after battle**:
    ```rust
-   // If input has "attacker_units" (old format), wrap in single fleet
-   // If input has "attacker_fleets" (new format), use directly
+   fn group_survivors_by_fleet(units: &[BattleUnit]) -> HashMap<i32, Vec<&BattleUnit>> {
+       let mut groups: HashMap<i32, Vec<&BattleUnit>> = HashMap::new();
+       for unit in units {
+           groups.entry(unit.fleet_mission_id).or_default().push(unit);
+       }
+       groups
+   }
    ```
 
-**Implementation Steps for PHP** (RustBattleEngine.php):
+#### Acceptance Criteria for PR 6b
+- [ ] Rust library accepts new multi-fleet input format
+- [ ] Rust library still accepts old single-attacker format (backward compatible)
+- [ ] Each BattleUnit tracks `fleet_mission_id` and `owner_id`
+- [ ] Output includes per-fleet results
+- [ ] Recompiled `libbattle_engine_ffi.so` placed in `storage/rust-libs/`
+- [ ] Existing single-attacker tests still pass
 
-1. **Update `prepareBattleInput()`**:
+#### Testing PR 6b
+Test the new library directly with JSON input/output before integrating with PHP:
+```bash
+# Test backward compatibility (old format)
+echo '{"attacker_units": {...}, "defender_units": {...}}' | test_battle_engine
+
+# Test new format
+echo '{"attacker_fleets": [...], "defender_fleets": [...]}' | test_battle_engine
+```
+
+---
+
+### PR 6c: Update RustBattleEngine.php (PHP ONLY)
+
+**Prerequisites**: PR 6b must be complete. The new `libbattle_engine_ffi.so` must be in place.
+
+**Scope**: Update the PHP FFI interface to use the new Rust library capabilities. NO RUST CHANGES.
+
+**Files to Modify**:
+- `app/GameMissions/BattleEngine/RustBattleEngine.php`
+
+#### PHP Implementation Steps
+
+1. **Update constructor** to accept array of attackers:
    ```php
-   // Loop through $this->attackers (new array of AttackerFleet)
-   foreach ($this->attackers as $attackerFleet) {
-       $fleetUnits = [];
-       foreach ($attackerFleet->units->units as $unit) {
-           $fleetUnits[] = [
-               'unit_id' => $unit->unitObject->id,
-               'amount' => $unit->amount,
+   public function __construct(
+       array $attackers,  // Changed from single UnitCollection
+       PlanetService $defenderPlanet,
+       array $defenders,
+       SettingsService $settings
+   )
+   ```
+
+2. **Update `prepareBattleInput()`** to build multi-fleet JSON:
+   ```php
+   private function prepareBattleInput(BattleResult $result): array
+   {
+       $attackerFleets = [];
+       foreach ($this->attackers as $attackerFleet) {
+           $fleetUnits = [];
+           foreach ($attackerFleet->units->units as $unit) {
                // Use THIS fleet's player for tech calculations
-               'shield_points' => $unit->unitObject->properties->shield->calculate($attackerFleet->player)->totalValue,
-               'attack_power' => $unit->unitObject->properties->attack->calculate($attackerFleet->player)->totalValue,
-               'hull_plating' => floor($unit->unitObject->properties->structural_integrity->calculate($attackerFleet->player)->totalValue / 10),
-               'rapidfire' => $rapidfire,
+               $fleetUnits[] = [
+                   'unit_id' => $unit->unitObject->id,
+                   'amount' => $unit->amount,
+                   'shield_points' => $unit->unitObject->properties->shield->calculate($attackerFleet->player)->totalValue,
+                   'attack_power' => $unit->unitObject->properties->attack->calculate($attackerFleet->player)->totalValue,
+                   'hull_plating' => floor($unit->unitObject->properties->structural_integrity->calculate($attackerFleet->player)->totalValue / 10),
+                   'rapidfire' => $this->getRapidfire($unit->unitObject),
+               ];
+           }
+           $attackerFleets[] = [
+               'fleet_mission_id' => $attackerFleet->fleetMissionId,
+               'owner_id' => $attackerFleet->ownerId,
+               'units' => $fleetUnits,
            ];
        }
-       $attackerFleets[] = [
-           'fleet_mission_id' => $attackerFleet->fleetMissionId,
-           'owner_id' => $attackerFleet->ownerId,
-           'units' => $fleetUnits,
+
+       // Same pattern for defenders...
+
+       return [
+           'attacker_fleets' => $attackerFleets,
+           'defender_fleets' => $defenderFleets,
        ];
    }
    ```
 
-2. **Update `convertBattleOutput()`**:
-   - Parse `attacker_fleet_results` from Rust output
-   - Populate `$result->attackerFleetResults` array
+3. **Update `convertBattleOutput()`** to parse per-fleet results:
+   ```php
+   private function convertBattleOutput(array $battleOutput): array
+   {
+       // Parse rounds as before...
 
-3. **Remove workaround** in `fightBattleRounds()`:
+       // Parse per-fleet attacker results
+       if (isset($battleOutput['attacker_fleet_results'])) {
+           foreach ($battleOutput['attacker_fleet_results'] as $fleetResult) {
+               // Populate $result->attackerFleetResults
+           }
+       }
+
+       // Parse per-fleet defender results
+       if (isset($battleOutput['defender_fleet_results'])) {
+           foreach ($battleOutput['defender_fleet_results'] as $fleetResult) {
+               // Populate $result->defenderFleetResults
+           }
+       }
+   }
+   ```
+
+4. **Remove proportional distribution workaround** in `fightBattleRounds()`:
    - Current code distributes survivors proportionally (approximation)
    - New Rust output provides exact per-fleet results
 
-**Reference Implementation**:
-See `PhpBattleEngine.php` lines 48-72 for how multi-defender tech levels are handled:
-```php
-foreach ($this->defenders as $defenderFleet) {
-    foreach ($defenderFleet->units->units as $unit) {
-        // Use THIS fleet owner's tech levels for calculations
-        $structuralIntegrity = $unit->unitObject->properties->structural_integrity->calculate($defenderFleet->player)->totalValue;
-        $shieldPoints = $unit->unitObject->properties->shield->calculate($defenderFleet->player)->totalValue;
-        $attackPower = $unit->unitObject->properties->attack->calculate($defenderFleet->player)->totalValue;
+#### Acceptance Criteria for PR 6c
+- [ ] RustBattleEngine uses new multi-fleet JSON format
+- [ ] Each attacker fleet uses its own tech levels
+- [ ] Per-fleet results parsed from Rust output
+- [ ] Backward compatibility: single-attacker still works
+- [ ] All existing battle tests pass
+- [ ] New multi-attacker tests pass
 
-        $unitObject = new BattleUnit(
-            $unit->unitObject,
-            $structuralIntegrity,
-            $shieldPoints,
-            $attackPower,
-            $defenderFleet->fleetMissionId,  // Track which fleet
-            $defenderFleet->ownerId          // Track which player
-        );
-    }
-}
+---
+
+### Summary: Rust Engine Update Order
+
+```
+PR 6b: Rust Library Update (RUST ONLY)
+    ↓
+    Recompiled libbattle_engine_ffi.so in storage/rust-libs/
+    ↓
+PR 6c: PHP Integration (PHP ONLY)
+    ↓
+    RustBattleEngine.php uses new library
 ```
 
-**Testing Requirements**:
-- [ ] Single attacker still works (backward compatibility)
-- [ ] Two attackers with different tech levels produce correct damage
-- [ ] Survivors correctly attributed to original fleet owners
-- [ ] Per-fleet loss reports are accurate
-- [ ] Performance regression test (battle with 1000+ ships)
+**Key Rule**: Do NOT touch RustBattleEngine.php until PR 6b is merged and the new library is available.
 
-**Note**: If Rust library update is blocked, the PHP battle engine can be used as fallback. The PHP engine already supports multi-attacker via the same pattern used for multi-defender.
+**Fallback**: If Rust library update is blocked, the PHP battle engine can be used. The PHP engine already supports multi-attacker via the same pattern used for multi-defender.
 
 ---
 
@@ -591,8 +676,9 @@ foreach ($this->defenders as $defenderFleet) {
 | **PR 3** | ✅ Done | ~~PR 1 + PR 2~~ | Defenders participate in battle |
 | **PR 4** | ✅ Done | ~~PR 3~~ | Alliance Depot + supply rockets |
 | **PR 5** | ✅ Done | ~~Immediately~~ | Fleet unions foundation |
-| **PR 6** | 🔄 Review | ~~Immediately~~ | Multi-attacker battle engine |
-| **PR 6b** | Pending | PR 6 | Rust battle engine multi-attacker |
+| **PR 6** | 🔄 Review | ~~Immediately~~ | Multi-attacker PHP battle engine |
+| **PR 6b** | Pending | PR 6 | Rust library update (RUST ONLY) |
+| **PR 6c** | Blocked | PR 6b | RustBattleEngine.php update (PHP ONLY) |
 | **PR 7** | Blocked | PR 6 | Full ACS Attack |
 | **PR 8** | Blocked | PR 7 | Loot & sync returns |
 | **PR 9** | Blocked | PR 7 | Battle reports & UI |
@@ -602,12 +688,14 @@ foreach ($this->defenders as $defenderFleet) {
 🚧 **ACS ATTACK IN PROGRESS**:
 - Fleet Unions foundation complete
 - Multi-attacker PHP battle engine under review
-- Rust battle engine update needed (see PR 6b detailed instructions above)
 
-**Next Steps**:
-- **PR 6**: Complete review of multi-attacker PHP battle engine
-- **PR 6b**: Update Rust battle engine for multi-fleet support (can use PHP engine as fallback)
-- **PR 7**: ACS Attack Mission integration (blocked on PR 6)
+**Next Steps** (in order):
+1. **PR 6**: Complete review of multi-attacker PHP battle engine
+2. **PR 6b**: Update Rust library source code and recompile (RUST ONLY - no PHP)
+3. **PR 6c**: Update RustBattleEngine.php to use new library (PHP ONLY - after PR 6b)
+4. **PR 7**: ACS Attack Mission integration
+
+**Note**: PR 7 can proceed after PR 6 using the PHP battle engine. PR 6b/6c (Rust) can be done in parallel or later.
 - PR 7 requires both PR 5 and PR 6
 
 ---
