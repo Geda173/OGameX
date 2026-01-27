@@ -17,6 +17,8 @@ use Illuminate\Support\Carbon;
  * @property int|null $system_to
  * @property int|null $position_to
  * @property int $mission_type
+ * @property int|null $union_id
+ * @property int|null $union_slot
  * @property int $time_departure
  * @property int $time_arrival
  * @property float $metal
@@ -39,6 +41,7 @@ use Illuminate\Support\Carbon;
  * @property int $interplanetary_missile
  * @property int|null $target_priority
  * @property int $processed
+ * @property int $processed_hold
  * @property int $canceled
  * @property array|null $wreck_field_data
  * @property Carbon|null $created_at
@@ -73,6 +76,7 @@ use Illuminate\Support\Carbon;
  * @method static Builder|FleetMission wherePlanetIdTo($value)
  * @method static Builder|FleetMission wherePositionTo($value)
  * @method static Builder|FleetMission whereProcessed($value)
+ * @method static Builder|FleetMission whereProcessedHold($value)
  * @method static Builder|FleetMission whereRecycler($value)
  * @method static Builder|FleetMission whereSmallCargo($value)
  * @method static Builder|FleetMission whereSystemTo($value)
@@ -123,5 +127,21 @@ class FleetMission extends Model
     public function planetTo(): BelongsTo
     {
         return $this->belongsTo(Planet::class);
+    }
+
+    /**
+     * Get the union this mission belongs to (for ACS Attack).
+     */
+    public function union(): BelongsTo
+    {
+        return $this->belongsTo(FleetUnion::class, 'union_id');
+    }
+
+    /**
+     * Check if this mission is part of a union.
+     */
+    public function isInUnion(): bool
+    {
+        return $this->union_id !== null;
     }
 }

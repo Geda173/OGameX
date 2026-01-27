@@ -2,7 +2,6 @@
 
 namespace OGame\Http\Controllers;
 
-use OGame\Services\SettingsService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -18,6 +17,7 @@ use OGame\Services\BuildingQueueService;
 use OGame\Services\CharacterClassService;
 use OGame\Services\ObjectService;
 use OGame\Services\PlayerService;
+use OGame\Services\SettingsService;
 use OGame\Services\UnitQueueService;
 
 class ResourcesController extends AbstractBuildingsController
@@ -48,7 +48,7 @@ class ResourcesController extends AbstractBuildingsController
         // Header filename objects are the building IDs that make up the header filename
         // to be used in the background image of the page header.
         if ($this->planet->isPlanet()) {
-            $this->header_filename_objects = [1, 2, 3, 4, 212];
+            $this->header_filename_objects = [1, 2, 3, 4, 12, 212];
         } elseif ($this->planet->isMoon()) {
             $this->header_filename_objects = [41, 42, 43];
         }
