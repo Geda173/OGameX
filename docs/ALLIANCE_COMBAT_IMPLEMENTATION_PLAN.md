@@ -8,6 +8,7 @@ This document outlines the implementation plan for adding Alliance Combat System
 
 | Date | Change |
 |------|--------|
+| 2026-01-28 | **Multi-attacker battle engine complete**: Both PHP and Rust battle engines now support multiple attacking fleets with per-fleet result tracking. Merged PR 6b (Rust library) and PR 6c (PHP integration). Ready for ACS Attack mission integration. |
 | 2026-01-23 | **Split Rust engine work into separate PRs**: PR 6b = Rust library update only (no PHP), PR 6c = PHP integration only (after Rust). Added clear warnings to not modify RustBattleEngine.php until library is ready. |
 | 2026-01-23 | Updated PR 6 to match actual implementation: PHP engine updated with AttackerFleet/AttackerFleetResult models, backward compatibility helpers. Clarified PR 6b (Rust update) is future work with PHP engine as working fallback. |
 | 2026-01-23 | PR 5 (Fleet Unions) completed. PR 6 (Multi-Attacker Battle) in review. Added detailed PR 6b instructions for Rust battle engine multi-attacker support including JSON input/output formats and implementation steps. |
@@ -74,7 +75,7 @@ PR 2: BattleUnit Owner Tracking ✅ ──┘
 
 PR 5: Fleet Unions Foundation ✅  ──┐
                                     ├──► PR 7: ACS Attack Mission
-PR 6: Multi-Attacker Battle 🔄    ──┘
+PR 6: Multi-Attacker Battle ✅    ──┘
                                             │
                                             ▼
                                     PR 8: Loot Distribution & Sync Returns
@@ -89,7 +90,7 @@ PR 6: Multi-Attacker Battle 🔄    ──┘
 - **PR 3**: ✅ Completed - Multi-defender battle engine
 - **PR 4**: ✅ Completed - Alliance Depot with supply rockets
 - **PR 5**: ✅ Completed - Fleet Unions foundation
-- **PR 6**: 🔄 In Review - Multi-attacker battle engine (includes Rust library update)
+- **PR 6**: ✅ Completed - Multi-attacker battle engine (PHP + Rust)
 - **PR 7-9**: Pending
 
 🎉 **ACS DEFEND COMPLETE!** Full feature including Alliance Depot supply rockets.
@@ -288,17 +289,18 @@ All sub-PRs (4a, 4b, 4c) were implemented together.
 
 ---
 
-### PR 6: Multi-Attacker Battle Engine 🔄 IN REVIEW
+### PR 6: Multi-Attacker Battle Engine ✅ COMPLETED
 **Branch**: `feature/multi-attacker-battle`
-**Size**: ~700-1000 lines
-**Deliverable**: Battle engine supports multiple attacking fleets (PHP engine)
+**Size**: ~1500 lines (PHP + Rust)
+**Deliverable**: Both PHP and Rust battle engines support multiple attacking fleets
 
 | What's Included | What's NOT Included |
 |-----------------|---------------------|
-| `AttackerFleet` model (like DefenderFleet) | Rust battle engine update |
-| `AttackerFleetResult` model | ACS Attack mission integration |
-| Multi-attacker PHP battle engine | Loot distribution |
-| Per-fleet round tracking in `BattleResultRound` | UI changes |
+| `AttackerFleet` model (like DefenderFleet) | ACS Attack mission integration |
+| `AttackerFleetResult` model | Loot distribution |
+| Multi-attacker PHP battle engine | UI changes |
+| Multi-attacker Rust battle engine | - |
+| Per-fleet round tracking in `BattleResultRound` | - |
 | Survivor assignment via `fleetMissionId`/`ownerId` | - |
 | Backward compatibility helpers | - |
 
@@ -313,28 +315,33 @@ All sub-PRs (4a, 4b, 4c) were implemented together.
 **Tasks from Milestones**: 2.2, 2.3, 2.4, 2.5, 2.6
 
 **Acceptance Criteria**:
-- [ ] Engine accepts array of AttackerFleet objects
-- [ ] Each attacker uses their own tech levels (weapon, shield, armor)
-- [ ] Survivors correctly assigned to original fleet owners
-- [ ] Per-fleet round data tracked (losses, hits, damage)
-- [ ] Single-attacker battles still work (backward compatible)
-- [ ] Unit tests pass for multi-attacker scenarios
+- [x] Engine accepts array of AttackerFleet objects
+- [x] Each attacker uses their own tech levels (weapon, shield, armor)
+- [x] Survivors correctly assigned to original fleet owners
+- [x] Per-fleet round data tracked (losses, hits, damage)
+- [x] Single-attacker battles still work (backward compatible)
+- [x] Unit tests pass for multi-attacker scenarios
 
-**Note**: Rust battle engine update is marked as TODO in this PR and will be addressed separately in PR 6b and PR 6c.
+**Implementation Notes** (added post-completion):
+- `AttackerFleet.php` - mirrors DefenderFleet pattern with `fromFleetMission()` factory
+- `AttackerFleetResult.php` - tracks per-fleet battle results
+- `BattleEngine.php` - constructor now accepts `array<AttackerFleet>`
+- `PhpBattleEngine.php` - creates BattleUnits with per-fleet tech levels
+- `RustBattleEngine.php` - sends multi-fleet JSON to Rust, parses per-fleet results
+- `rust/battle_engine_ffi/src/lib.rs` - full multi-fleet support with `AttackerFleetInput`, `DefenderFleetInput`, per-fleet result tracking
+- All mission classes updated: AttackMission, EspionageMission, ExpeditionMission, MoonDestructionMission
 
 ---
 
-## Rust Battle Engine Multi-Attacker Support
+## Rust Battle Engine Multi-Attacker Support ✅ COMPLETED
 
-⚠️ **IMPORTANT: This must be done in order. Do NOT modify RustBattleEngine.php until the Rust library is updated and recompiled.**
+The Rust battle engine has been fully updated to support multiple attacker and defender fleets. Both phases (Rust library update and PHP integration) are now complete.
 
-The PHP battle engine already handles multi-attacker battles. The Rust engine needs to be updated separately in two phases:
-
-### PR 6b: Update Rust Library Source Code (RUST ONLY)
+### PR 6b: Update Rust Library Source Code (RUST ONLY) ✅ COMPLETED
 
 **Scope**: Modify the Rust source code and recompile `libbattle_engine_ffi.so`. NO PHP CHANGES.
 
-**Prerequisites**: Access to the Rust battle engine source code repository.
+**Status**: ✅ Complete - The Rust library now supports multi-fleet input/output.
 
 **Files to Modify** (Rust side only):
 - Rust source files (wherever the battle engine is maintained)
@@ -469,12 +476,12 @@ The PHP battle engine already handles multi-attacker battles. The Rust engine ne
    ```
 
 #### Acceptance Criteria for PR 6b
-- [ ] Rust library accepts new multi-fleet input format
-- [ ] Rust library still accepts old single-attacker format (backward compatible)
-- [ ] Each BattleUnit tracks `fleet_mission_id` and `owner_id`
-- [ ] Output includes per-fleet results
-- [ ] Recompiled `libbattle_engine_ffi.so` placed in `storage/rust-libs/`
-- [ ] Existing single-attacker tests still pass
+- [x] Rust library accepts new multi-fleet input format
+- [x] Rust library still accepts old single-attacker format (backward compatible)
+- [x] Each BattleUnit tracks `fleet_mission_id` and `owner_id`
+- [x] Output includes per-fleet results
+- [x] Recompiled `libbattle_engine_ffi.so` placed in `storage/rust-libs/`
+- [x] Existing single-attacker tests still pass
 
 #### Testing PR 6b
 Test the new library directly with JSON input/output before integrating with PHP:
@@ -488,9 +495,11 @@ echo '{"attacker_fleets": [...], "defender_fleets": [...]}' | test_battle_engine
 
 ---
 
-### PR 6c: Update RustBattleEngine.php (PHP ONLY)
+### PR 6c: Update RustBattleEngine.php (PHP ONLY) ✅ COMPLETED
 
 **Prerequisites**: PR 6b must be complete. The new `libbattle_engine_ffi.so` must be in place.
+
+**Status**: ✅ Complete - RustBattleEngine.php now uses the multi-fleet JSON format.
 
 **Scope**: Update the PHP FFI interface to use the new Rust library capabilities. NO RUST CHANGES.
 
@@ -570,30 +579,28 @@ echo '{"attacker_fleets": [...], "defender_fleets": [...]}' | test_battle_engine
    - New Rust output provides exact per-fleet results
 
 #### Acceptance Criteria for PR 6c
-- [ ] RustBattleEngine uses new multi-fleet JSON format
-- [ ] Each attacker fleet uses its own tech levels
-- [ ] Per-fleet results parsed from Rust output
-- [ ] Backward compatibility: single-attacker still works
-- [ ] All existing battle tests pass
-- [ ] New multi-attacker tests pass
+- [x] RustBattleEngine uses new multi-fleet JSON format
+- [x] Each attacker fleet uses its own tech levels
+- [x] Per-fleet results parsed from Rust output
+- [x] Backward compatibility: single-attacker still works
+- [x] All existing battle tests pass
+- [x] New multi-attacker tests pass
 
 ---
 
-### Summary: Rust Engine Update Order
+### Summary: Rust Engine Update Order ✅ COMPLETED
 
 ```
-PR 6b: Rust Library Update (RUST ONLY)
+PR 6b: Rust Library Update (RUST ONLY) ✅
     ↓
-    Recompiled libbattle_engine_ffi.so in storage/rust-libs/
+    Recompiled libbattle_engine_ffi.so in storage/rust-libs/ ✅
     ↓
-PR 6c: PHP Integration (PHP ONLY)
+PR 6c: PHP Integration (PHP ONLY) ✅
     ↓
-    RustBattleEngine.php uses new library
+    RustBattleEngine.php uses new library ✅
 ```
 
-**Key Rule**: Do NOT touch RustBattleEngine.php until PR 6b is merged and the new library is available.
-
-**Fallback**: If Rust library update is blocked, the PHP battle engine can be used. The PHP engine already supports multi-attacker via the same pattern used for multi-defender.
+**Status**: Both phases complete. The Rust battle engine now fully supports multi-attacker and multi-defender fleets with per-fleet result tracking.
 
 ---
 
@@ -676,27 +683,21 @@ PR 6c: PHP Integration (PHP ONLY)
 | **PR 3** | ✅ Done | ~~PR 1 + PR 2~~ | Defenders participate in battle |
 | **PR 4** | ✅ Done | ~~PR 3~~ | Alliance Depot + supply rockets |
 | **PR 5** | ✅ Done | ~~Immediately~~ | Fleet unions foundation |
-| **PR 6** | 🔄 Review | ~~Immediately~~ | Multi-attacker PHP battle engine |
-| **PR 6b** | Pending | PR 6 | Rust library update (RUST ONLY) |
-| **PR 6c** | Blocked | PR 6b | RustBattleEngine.php update (PHP ONLY) |
-| **PR 7** | Blocked | PR 6 | Full ACS Attack |
+| **PR 6** | ✅ Done | ~~Immediately~~ | Multi-attacker battle engine (PHP + Rust) |
+| **PR 7** | Ready | ~~PR 5 + PR 6~~ | Full ACS Attack |
 | **PR 8** | Blocked | PR 7 | Loot & sync returns |
 | **PR 9** | Blocked | PR 7 | Battle reports & UI |
 
 🎉 **ACS DEFEND COMPLETE!** Full feature with Alliance Depot supply rockets.
 
-🚧 **ACS ATTACK IN PROGRESS**:
-- Fleet Unions foundation complete
-- Multi-attacker PHP battle engine under review
+🎉 **MULTI-ATTACKER BATTLE ENGINE COMPLETE!** Both PHP and Rust engines support multiple attacking fleets with per-fleet tracking.
 
 **Next Steps** (in order):
-1. **PR 6**: Complete review of multi-attacker PHP battle engine
-2. **PR 6b**: Update Rust library source code and recompile (RUST ONLY - no PHP)
-3. **PR 6c**: Update RustBattleEngine.php to use new library (PHP ONLY - after PR 6b)
-4. **PR 7**: ACS Attack Mission integration
+1. **PR 7**: ACS Attack Mission integration (combines Fleet Unions + multi-attacker battle engine)
+2. **PR 8**: Loot distribution & synchronized returns
+3. **PR 9**: Enhanced battle reports & UI
 
-**Note**: PR 7 can proceed after PR 6 using the PHP battle engine. PR 6b/6c (Rust) can be done in parallel or later.
-- PR 7 requires both PR 5 and PR 6
+**Note**: PR 7 requires both PR 5 (Fleet Unions) and PR 6 (Multi-attacker battle engine), both now complete.
 
 ---
 
