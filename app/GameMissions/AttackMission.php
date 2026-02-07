@@ -7,6 +7,7 @@ use OGame\Enums\FleetSpeedType;
 use OGame\GameMessages\DebrisFieldHarvest;
 use OGame\GameMessages\FleetLostContact;
 use OGame\GameMissions\Abstracts\GameMission;
+use OGame\GameMissions\BattleEngine\Models\AttackerFleet;
 use OGame\GameMissions\BattleEngine\Models\BattleResult;
 use OGame\GameMissions\BattleEngine\PhpBattleEngine;
 use OGame\GameMissions\BattleEngine\RustBattleEngine;
@@ -90,18 +91,21 @@ class AttackMission extends GameMission
         $attackerPlayer = $origin_planet->getPlayer();
         $attackerUnits = $this->fleetMissionService->getFleetUnits($mission);
 
+        // Create AttackerFleet for the mission
+        $attackerFleet = AttackerFleet::fromFleetMission($mission, $this->fleetMissionService, $this->playerServiceFactory, true);
+
         // Collect all defending fleets (planet owner + ACS defend fleets)
         $defenders = $this->collectDefendingFleets($defenderPlanet);
 
         // Execute the battle logic using configured battle engine
         switch ($this->settings->battleEngine()) {
             case 'php':
-                $battleEngine = new PhpBattleEngine($attackerUnits, $attackerPlayer, $defenderPlanet, $defenders, $this->settings, $mission->id, $mission->user_id);
+                $battleEngine = new PhpBattleEngine([$attackerFleet], $defenderPlanet, $defenders, $this->settings);
                 break;
             case 'rust':
             default:
                 // Default to RustBattleEngine if no specific engine is configured
-                $battleEngine = new RustBattleEngine($attackerUnits, $attackerPlayer, $defenderPlanet, $defenders, $this->settings, $mission->id, $mission->user_id);
+                $battleEngine = new RustBattleEngine([$attackerFleet], $defenderPlanet, $defenders, $this->settings);
                 break;
         }
 
@@ -556,6 +560,10 @@ class AttackMission extends GameMission
             'hamill_manoeuvre_triggered' => $battleResult->hamillManoeuvreTriggered,
         ];
 
+        $characterClassService = app(CharacterClassService::class);
+        $attackerCharacterClass = $characterClassService->getCharacterClass($attackPlayer->getUser());
+        $defenderCharacterClass = $characterClassService->getCharacterClass($defenderPlanet->getPlayer()->getUser());
+
         $report->attacker = [
             'player_id' => $attackPlayer->getId(),
             'resource_loss' => $battleResult->attackerResourceLoss->sum(),
@@ -564,6 +572,7 @@ class AttackMission extends GameMission
             'shielding_technology' => $battleResult->attackerShieldLevel,
             'armor_technology' => $battleResult->attackerArmorLevel,
             'planet_id' => $battleResult->attackerPlanetId,
+            'character_class' => $attackerCharacterClass?->getName(),
         ];
 
         // TODO: Enhance battle reports to show individual participating fleets/defenders
@@ -582,6 +591,7 @@ class AttackMission extends GameMission
             'weapon_technology' => $battleResult->defenderWeaponLevel,
             'shielding_technology' => $battleResult->defenderShieldLevel,
             'armor_technology' => $battleResult->defenderArmorLevel,
+            'character_class' => $defenderCharacterClass?->getName(),
         ];
 
         $report->loot = [

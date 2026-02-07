@@ -19,6 +19,7 @@ use OGame\GameMessages\ExpeditionGainShips;
 use OGame\GameMessages\ExpeditionLossOfFleet;
 use OGame\GameMessages\ExpeditionMerchantFound;
 use OGame\GameMissions\Abstracts\GameMission;
+use OGame\GameMissions\BattleEngine\Models\AttackerFleet;
 use OGame\GameMissions\BattleEngine\Models\BattleResult;
 use OGame\GameMissions\BattleEngine\Models\DefenderFleet;
 use OGame\GameMissions\BattleEngine\RustBattleEngine;
@@ -58,13 +59,14 @@ class ExpeditionMission extends GameMission
      * Get configurable outcome weights based on community research.
      * Each outcome has a weight (representing relative probability).
      * Weights are loaded from database settings to allow dynamic event configuration.
+     * @param FleetMission $mission The fleet mission to get outcome weights for
      * @return array<string, float>
      */
-    protected function getOutcomeWeights(): array
+    protected function getOutcomeWeights(FleetMission $mission): array
     {
         $settingsService = app(SettingsService::class);
 
-        return [
+        $weights = [
             'dark_matter' => $settingsService->expeditionWeightDarkMatter(),
             'ships' => $settingsService->expeditionWeightShips(),
             'resources' => $settingsService->expeditionWeightResources(),
@@ -76,6 +78,18 @@ class ExpeditionMission extends GameMission
             'aliens' => $settingsService->expeditionWeightAliens(),
             'merchant' => $settingsService->expeditionWeightMerchant(),
         ];
+
+        // Apply Discoverer class bonus: 50% reduced chance of combat encounters
+        $player = $this->playerServiceFactory->make($mission->user_id, true);
+        $characterClassService = app(CharacterClassService::class);
+        $combatMultiplier = $characterClassService->getExpeditionEnemyChanceMultiplier($player->getUser());
+
+        if ($combatMultiplier < 1.0) {
+            $weights['pirates'] *= $combatMultiplier;
+            $weights['aliens'] *= $combatMultiplier;
+        }
+
+        return $weights;
     }
 
     /**
@@ -136,7 +150,7 @@ class ExpeditionMission extends GameMission
 
         // If the mission is not processed yet, we need to process the outcome.
         // Select a random outcome based on configuration and weights
-        $outcome = $this->selectRandomOutcome();
+        $outcome = $this->selectRandomOutcome($mission);
 
         switch ($outcome) {
             case ExpeditionOutcomeType::Failed:
@@ -690,14 +704,21 @@ class ExpeditionMission extends GameMission
         // NPC battles don't have ACS defend fleets, just the NPC's forces
         $defenders = [DefenderFleet::fromPlanet($npcPlanetService)];
 
+        // Create AttackerFleet for the player's expedition fleet
+        $attackerFleet = new AttackerFleet();
+        $attackerFleet->units = $playerFleet;
+        $attackerFleet->player = $player;
+        $attackerFleet->fleetMissionId = $mission->id;
+        $attackerFleet->ownerId = $mission->user_id;
+        $attackerFleet->cargoResources = new Resources(0, 0, 0, 0);
+        $attackerFleet->isInitiator = true;
+        $attackerFleet->fleetMission = $mission;
+
         $battleEngine = new RustBattleEngine(
-            $playerFleet,
-            $player,
+            [$attackerFleet],
             $npcPlanetService,
             $defenders,
-            $this->settings,
-            $mission->id,
-            $mission->user_id
+            $this->settings
         );
 
         $battleResult = $battleEngine->simulateBattle();
@@ -869,9 +890,10 @@ class ExpeditionMission extends GameMission
      * for a particular outcome means more chance of that outcome being selected
      * relative to the other outcomes.
      *
+     * @param FleetMission $mission The fleet mission to select an outcome for
      * @return ExpeditionOutcomeType
      */
-    private function selectRandomOutcome(): ExpeditionOutcomeType
+    private function selectRandomOutcome(FleetMission $mission): ExpeditionOutcomeType
     {
         // Map outcome types to their weights
         $outcomeMapping = [
@@ -891,7 +913,7 @@ class ExpeditionMission extends GameMission
         $weightedOutcomes = [];
         $totalWeight = 0;
 
-        foreach ($this->getOutcomeWeights() as $key => $weight) {
+        foreach ($this->getOutcomeWeights($mission) as $key => $weight) {
             if (!isset($outcomeMapping[$key])) {
                 continue;
             }
