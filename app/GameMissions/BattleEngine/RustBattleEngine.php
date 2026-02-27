@@ -2,7 +2,9 @@
 
 namespace OGame\GameMissions\BattleEngine;
 
+use Exception;
 use FFI;
+use Log;
 use OGame\GameMissions\BattleEngine\Models\AttackerFleet;
 use OGame\GameMissions\BattleEngine\Models\BattleResult;
 use OGame\GameMissions\BattleEngine\Models\BattleResultRound;
@@ -106,8 +108,20 @@ class RustBattleEngine extends BattleEngine
             foreach ($attackerFleet->units->units as $unit) {
                 $rapidfire = new stdClass();
                 foreach ($unit->unitObject->rapidfire as $rapidfireObject) {
-                    $targetUnit = ObjectService::getUnitObjectByMachineName($rapidfireObject->object_machine_name);
-                    $rapidfire->{$targetUnit->id} = $rapidfireObject->amount;
+                    try {
+                        $targetUnit = ObjectService::getUnitObjectByMachineName($rapidfireObject->object_machine_name);
+                        // CRITICAL FIX: Prevent units from having rapidfire against themselves
+                        if ($targetUnit->id !== $unit->unitObject->id) {
+                            $rapidfire->{$targetUnit->id} = $rapidfireObject->amount;
+                        } else {
+                            // Log self-rapidfire bug for investigation
+                            Log::warning("BUG: Unit {$unit->unitObject->machine_name} (ID:{$unit->unitObject->id}) has rapidfire against itself via target name '{$rapidfireObject->object_machine_name}'");
+                        }
+                    } catch (Exception $e) {
+                        // Skip invalid rapidfire targets
+                        Log::error("Failed to resolve rapidfire target '{$rapidfireObject->object_machine_name}' for unit {$unit->unitObject->machine_name}: " . $e->getMessage());
+                        continue;
+                    }
                 }
 
                 $attackerUnits->{$unit->unitObject->id} = (object)[
@@ -134,8 +148,20 @@ class RustBattleEngine extends BattleEngine
             foreach ($fleetResult->unitsStart->units as $unit) {
                 $rapidfire = new stdClass();
                 foreach ($unit->unitObject->rapidfire as $rapidfireObject) {
-                    $targetUnit = ObjectService::getUnitObjectByMachineName($rapidfireObject->object_machine_name);
-                    $rapidfire->{$targetUnit->id} = $rapidfireObject->amount;
+                    try {
+                        $targetUnit = ObjectService::getUnitObjectByMachineName($rapidfireObject->object_machine_name);
+                        // CRITICAL FIX: Prevent units from having rapidfire against themselves
+                        if ($targetUnit->id !== $unit->unitObject->id) {
+                            $rapidfire->{$targetUnit->id} = $rapidfireObject->amount;
+                        } else {
+                            // Log self-rapidfire bug for investigation
+                            Log::warning("BUG: Unit {$unit->unitObject->machine_name} (ID:{$unit->unitObject->id}) has rapidfire against itself via target name '{$rapidfireObject->object_machine_name}'");
+                        }
+                    } catch (Exception $e) {
+                        // Skip invalid rapidfire targets
+                        Log::error("Failed to resolve rapidfire target '{$rapidfireObject->object_machine_name}' for unit {$unit->unitObject->machine_name}: " . $e->getMessage());
+                        continue;
+                    }
                 }
 
                 $defenderUnits->{$unit->unitObject->id} = (object)[

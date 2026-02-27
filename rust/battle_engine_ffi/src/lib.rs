@@ -404,6 +404,14 @@ fn process_combat(
             let target_idx = rng.gen_range(0..defenders.len());
             let target = &mut defenders[target_idx];
 
+            // Skip units already destroyed earlier this round (hull_plating <= 0).
+            // Dead units remain in the Vec until cleanup_round() runs after all combat.
+            // Without this guard, rapidfire chains billions of shots against dead targets
+            // (e.g. 1M deathstars × rapidfire=250 vs 1 probe = 250M wasted iterations → timeout).
+            if target.current_hull_plating <= 0.0 {
+                continue;
+            }
+
             // Get metadata of the defending unit.
             let target_metadata = defender_unit_metadata.get(&target.unit_id).unwrap();
 
