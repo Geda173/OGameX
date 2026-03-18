@@ -105,7 +105,7 @@
 
                             <button id="js_scrapBargain" class="bargain">@lang('Bargain')</button>
                             <br class="clearfloat">
-                            <span class="bargain_cost">@lang('Costs:'): <span class="js_bargainCost">{{ number_format($bargainCost) }}</span> @lang('Dark Matter')</span>
+                            <span class="bargain_cost">@lang('Costs:') <span class="js_bargainCost">{{ number_format($bargainCost) }}</span> @lang('Dark Matter')</span>
                         </div>
                         <div class="left_footer"></div>
                     </div>
@@ -140,7 +140,7 @@
                                                             </div>
                                                         </div>
                                                         <input class="ship_amount" tabindex="{{ $tabindex }}" name="am{{ $shipId }}" id="ship_{{ $shipId }}"
-                                                               value="" type="text" pattern="[0-9,.]*" {{ $shipData['amount'] == 0 ? 'readonly="readonly"' : '' }}
+                                                               value="" type="text" pattern="[0-9,.]*" {!! $shipData['amount'] == 0 ? 'readonly="readonly"' : '' !!}
                                                                data-item-id="{{ $shipId }}"
                                                                data-metal="{{ $shipData['cost']['metal'] }}" data-crystal="{{ $shipData['cost']['crystal'] }}" data-deuterium="{{ $shipData['cost']['deuterium'] }}">
                                                         <a href="javascript:void(0);" class="max tooltip js_maxShips" ref="#ship_{{ $shipId }}" data-tooltip-title="@lang('Select all')"></a>
@@ -172,7 +172,7 @@
                                                                 </div>
                                                             </div>
                                                             <input class="ship_amount" tabindex="{{ $tabindex }}" name="am{{ $defenseId }}" id="ship_{{ $defenseId }}"
-                                                                   value="" type="text" pattern="[0-9,.]*" {{ $defenseData['amount'] == 0 ? 'readonly="readonly"' : '' }}
+                                                                   value="" type="text" pattern="[0-9,.]*" {!! $defenseData['amount'] == 0 ? 'readonly="readonly"' : '' !!}
                                                                    data-item-id="{{ $defenseId }}"
                                                                    data-metal="{{ $defenseData['cost']['metal'] }}" data-crystal="{{ $defenseData['cost']['crystal'] }}" data-deuterium="{{ $defenseData['cost']['deuterium'] }}">
                                                             <a href="javascript:void(0);" class="max tooltip js_maxShips" ref="#ship_{{ $defenseId }}" data-tooltip-title="@lang('Select all')"></a>
@@ -259,9 +259,10 @@
 
         // Initialize AnythingSlider for ships
         var shipsSlider = $('#js_anythingSliderShips').anythingSlider({
-            buildNavigation: true,
+            buildNavigation: false,
             buildStartStop: false,
-            resizeContents: false,
+            infiniteSlides: false,
+            resizeContents: true,
             expand: false,
             hashTags: false,
             width: 353,
@@ -270,9 +271,10 @@
 
         // Initialize AnythingSlider for defense (hidden initially)
         var defenseSlider = $('#js_anythingSliderDefense').anythingSlider({
-            buildNavigation: true,
+            buildNavigation: false,
             buildStartStop: false,
-            resizeContents: false,
+            infiniteSlides: false,
+            resizeContents: true,
             expand: false,
             hashTags: false,
             width: 353,
@@ -492,7 +494,7 @@
             e.preventDefault();
 
             if (offerPercentage >= maxPercentage) {
-                errorBoxNotify(LocalizationStrings.error, '{{ __('t_merchant.offer_at_maximum') }}', 'OK');
+                errorBoxNotify(LocalizationStrings.error, @json(__('t_merchant.offer_at_maximum')), 'OK');
                 return;
             }
 
@@ -500,9 +502,9 @@
             if (darkMatter < cost) {
                 errorBoxDecision(
                     LocalizationStrings.error,
-                    '{{ __('t_merchant.not_enough_dark_matter') }}',
-                    '{{ __('t_merchant.yes') }}',
-                    '{{ __('t_merchant.no') }}',
+                    @json(__('t_merchant.not_enough_dark_matter')),
+                    @json(__('t_merchant.yes')),
+                    @json(__('t_merchant.no')),
                     function() {
                         // User clicked yes - do nothing, just close
                     }
@@ -531,7 +533,7 @@
 
                     updateScrapOffer();
                     updateBargainButton();
-                    fadeBox('{{ __('t_merchant.negotiation_successful') }}', false);
+                    fadeBox(@json(__('t_merchant.negotiation_successful')), false);
                 } else {
                     errorBoxNotify(LocalizationStrings.error, response.message);
                 }
@@ -559,7 +561,7 @@
             });
 
             if (!hasItems) {
-                errorBoxNotify(LocalizationStrings.error, '{{ __('t_merchant.select_items_to_scrap') }}');
+                errorBoxNotify(LocalizationStrings.error, @json(__('t_merchant.select_items_to_scrap')));
                 return;
             }
 
@@ -591,7 +593,7 @@
                     });
                 } else {
                     // Regular error
-                    errorBoxNotify(LocalizationStrings.error, response && response.message ? response.message : '{{ __('t_merchant.error_occurred') }}');
+                    errorBoxNotify(LocalizationStrings.error, response && response.message ? response.message : @json(__('t_merchant.error_occurred')));
                 }
             });
         });
@@ -601,19 +603,19 @@
             // Build confirmation message with item list
             var itemListHtml = '<div style="text-align: left; margin-left: 30px">';
             $.each(items, function(id, amount) {
-                var itemName = itemNames[id] || '{{ __('t_merchant.unknown_item') }}';
+                var itemName = itemNames[id] || @json(__('t_merchant.unknown_item'));
                 itemListHtml += amount + 'x ' + itemName + '<br>';
             });
             itemListHtml += '</div>';
 
-            var confirmMessage = '{{ __('t_merchant.scrap_confirmation') }}<br><br>' + itemListHtml;
+            var confirmMessage = @json(__('t_merchant.scrap_confirmation')) + '<br><br>' + itemListHtml;
 
             // Show confirmation dialog
             errorBoxDecision(
-                '{{ __('t_merchant.scrap_merchant') }}',
+                @json(__('t_merchant.scrap_merchant')),
                 confirmMessage,
-                '{{ __('t_merchant.yes') }}',
-                '{{ __('t_merchant.no') }}',
+                @json(__('t_merchant.yes')),
+                @json(__('t_merchant.no')),
                 function() {
                     // User confirmed - execute the scrap
                     $.post('{{ route('merchant.scrap.execute') }}', {
@@ -632,7 +634,7 @@
                         }
                     }).fail(function(xhr) {
                         var response = xhr.responseJSON;
-                        errorBoxNotify(LocalizationStrings.error, response && response.message ? response.message : '{{ __('t_merchant.error_occurred') }}');
+                        errorBoxNotify(LocalizationStrings.error, response && response.message ? response.message : @json(__('t_merchant.error_occurred')));
                     });
                 }
             );

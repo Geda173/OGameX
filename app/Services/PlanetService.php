@@ -6,6 +6,7 @@ use Exception;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use OGame\Factories\PlanetServiceFactory;
 use OGame\Factories\PlayerServiceFactory;
 use OGame\GameObjects\Models\Abstracts\GameObject;
@@ -17,6 +18,7 @@ use OGame\Models\Enums\ResourceType;
 use OGame\Models\FleetMission;
 use OGame\Models\Planet;
 use OGame\Models\Planet\Coordinate;
+use OGame\Models\PlanetMove;
 use OGame\Models\ProductionIndex;
 use OGame\Models\ResearchQueue;
 use OGame\Models\Resource;
@@ -225,10 +227,15 @@ class PlanetService
         }
 
         // Sanity check: disallow abandoning a planet with active fleet missions.
-        $fleetMissionService = resolve(FleetMissionService::class);
-        $activeMissions = $fleetMissionService->getActiveMissionsByPlanetIds([$this->planet->id]);
-        if ($activeMissions->count() > 0) {
-            throw new RuntimeException('Cannot abandon planet with active fleet missions.');
+        // Moons are exempt: moon destruction redirects incoming fleets and nulls out planet
+        // references for any remaining missions, so active missions are handled gracefully.
+        if ($this->isPlanet()) {
+            $fleetMissionService = resolve(FleetMissionService::class);
+            $activeMissions = $fleetMissionService->getActiveMissionsByPlanetIds([$this->planet->id]);
+
+            if ($activeMissions->count() > 0) {
+                throw new RuntimeException('Cannot abandon planet with active fleet missions.');
+            }
         }
 
         // If this is a planet and has a moon, delete the moon first
@@ -251,6 +258,9 @@ class PlanetService
 
         // Unit queues
         UnitQueue::where('planet_id', $this->planet->id)->delete();
+
+        // Planet moves
+        PlanetMove::where('planet_id', $this->planet->id)->delete();
 
         // Update the player's current planet if it is the planet being abandoned.
         if ($this->getPlayer()->getCurrentPlanetId() === $this->planet->id) {
@@ -1431,8 +1441,19 @@ class PlanetService
                 // Check if this is a downgrade
                 $is_downgrade = $item->is_downgrade ?? false;
 
-                // Update building level
-                $this->setObjectLevel($item->object_id, $item->object_level_target, $save_planet);
+                // Update building level. If the object type is invalid (e.g. a research object somehow
+                // ended up in the building queue due to a prior bug), skip it gracefully. The item is
+                // already marked processed above, so it will not be retried on the next page load.
+                try {
+                    $this->setObjectLevel($item->object_id, $item->object_level_target, $save_planet);
+                } catch (RuntimeException $e) {
+                    Log::error('Building queue item skipped due to invalid object type.', [
+                        'planet_id' => $this->getPlanetId(),
+                        'object_id' => $item->object_id,
+                        'object_level_target' => $item->object_level_target,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
 
                 // Update production/storage stats for subsequent resource calculations
                 $this->updateResourceProductionStats(false);
@@ -1477,6 +1498,11 @@ class PlanetService
     public function setObjectLevel(int $object_id, int $level, bool $save_planet = true): void
     {
         $object = ObjectService::getObjectById($object_id);
+
+        if ($object->type !== GameObjectType::Building && $object->type !== GameObjectType::Station) {
+            throw new RuntimeException('setObjectLevel() can only be used for buildings and stations, not: ' . $object->machine_name);
+        }
+
         $this->planet->{$object->machine_name} = $level;
         if ($save_planet) {
             $this->save();
@@ -1508,6 +1534,23 @@ class PlanetService
             // Get object information.
             $object = ObjectService::getUnitObjectById($item->object_id);
 
+            $now = (int)Date::now()->timestamp;
+
+            // If time_end has fully elapsed, award all remaining units at once.
+            // This handles cases where time was reduced (e.g. via DM halving/complete).
+            if ($now >= $item->time_end) {
+                $remaining = $item->object_amount - $item->object_amount_progress;
+                if ($remaining > 0) {
+                    $item->time_progress = $item->time_end;
+                    $item->object_amount_progress = $item->object_amount;
+                    $item->processed = 1;
+                    $item->save();
+
+                    $this->addUnit($object->machine_name, $remaining, $save_planet);
+                }
+                continue;
+            }
+
             // Calculate if we can partially (or fully) complete this order
             // yet based on time per unit and amount of ordered units.
             $time_per_unit = ($item->time_end - $item->time_start) / $item->object_amount;
@@ -1519,7 +1562,7 @@ class PlanetService
             if ($last_update < $item->time_start) {
                 $last_update = $item->time_start;
             }
-            $last_update_diff = (int)Date::now()->timestamp - $last_update;
+            $last_update_diff = $now - $last_update;
 
             // If difference between last update and now is equal to or bigger
             // than the time per unit, give the unit and record progress.

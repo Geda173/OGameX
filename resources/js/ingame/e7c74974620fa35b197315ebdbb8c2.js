@@ -14746,7 +14746,7 @@ function initBBCodeEditor(locaKeys, itemArray, imagesAllowed, selector, maxChars
     },
     markupSet: [markupSetBasic, markupSetAdvanced],
     resizeHandle: false,
-    previewParserPath: bbcodePreviewUrl + "&imgAllowed=" + (imagesAllowed ? 1 : 0),
+    previewParserPath: bbcodePreviewUrl ? (bbcodePreviewUrl + "&imgAllowed=" + (imagesAllowed ? 1 : 0)) : '',
     previewAutoRefresh: true,
     previewParserVar: 'text',
     previewInElement: $('<div class="miu_preview_container"></div>'),
@@ -15299,7 +15299,8 @@ function updateBuyTextAndActivatePackage($buttonElem, $package) {
   $package.addClass('premium');
 }
 /**/
-ogame.chat = {
+// ogame.chat implementation has been moved to resources/js/ingame/chat.js
+var _ogame_chat_removed = {
   socket: null,
   connected: false,
   connecting: false,
@@ -33410,6 +33411,12 @@ FleetDispatcher.prototype.refreshFleetTimes = function () {
       let durationAKS = parseInt(union.time - serverTime.getTime() / 1000);
       let unionArrivalTime = formatTime(durationAKS);
       $('#durationAKS').html(unionArrivalTime);
+      // TODO: Show the player the actual synchronized arrival time they will be locked to.
+      // If this fleet arrives earlier than the union, it will be delayed to union.time.
+      // If this fleet arrives later (within the 30% delay window), all union members
+      // will be pushed to this fleet's arrival time. The live #arrivalTime display above
+      // should reflect the post-sync arrival time so the player knows exactly when their
+      // fleet will land before confirming dispatch.
     }
   }
 };
@@ -33538,7 +33545,6 @@ FleetDispatcher.prototype.selectCombatUnion = function (elem) {
     this.setTargetType(parseInt(parts[3]), true);
     this.union = parseInt(parts[5]);
   } else {
-    this.mission = this.fleetHelper.MISSION_NONE;
     this.union = 0;
   }
 };
