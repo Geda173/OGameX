@@ -736,52 +736,81 @@ Currently, `time_arrival` is stored as a Unix timestamp (integer seconds). When 
 - Inconsistent battle results (e.g., a defending fleet might or might not participate depending on processing order)
 - Unfair outcomes when timing matters (e.g., two attacks on the same planet at the same second)
 
-#### Solution: Sub-Second Arrival Ordering
+#### Solution Options
 
-Add a `arrival_order` column (or `time_arrival_ms` with millisecond precision) to `fleet_missions` that provides deterministic ordering for fleets arriving at the same second.
-
-**Approach A: Millisecond Timestamp**
+**Approach A: Millisecond Timestamp Column**
 - Add `time_arrival_ms` column (`BIGINT`, milliseconds since epoch)
 - Set from PHP's `microtime(true) * 1000` at dispatch time
 - All `orderBy('time_arrival')` queries also sort by `time_arrival_ms`
 - Provides natural temporal ordering
+- Minimal code changes, just add secondary sort
 
-**Approach B: Sequence Number**
+**Approach B: Sequence Number Column**
 - Add `arrival_order` column (`INT UNSIGNED`, auto-incrementing per target per second)
 - Assigned at dispatch time: `MAX(arrival_order) + 1` for same target + same second
 - Ties broken by insertion order (first dispatched = first processed)
 - Simpler, no clock dependency
 
+**Approach C: Laravel Queue Worker (Recommended)**
+- Use Laravel's built-in job queue system for fleet arrival processing
+- Dispatch a delayed job when fleet is sent:
+  ```php
+  // In FleetController when dispatching fleet
+  ProcessFleetArrival::dispatch($fleetMissionId)
+      ->delay(Carbon::createFromTimestamp($arrivalTime));
+  ```
+- Queue provides natural FIFO ordering (first dispatched = first processed)
+- OGameX already has queue infrastructure (database driver, one existing job)
+
+**Benefits of Queue Approach**:
+- No database schema changes needed
+- Natural ordering without extra columns
+- More real-time (processes at exact arrival time, not on polling interval)
+- Built-in retry logic if processing fails
+- Scales to Redis/SQS if needed later
+
+**Queue Implementation Considerations**:
+- Fleet recall: Delete the pending job from queue (Laravel supports this via job batching or custom table)
+- Game speed changes: Recalculate delay if speed changes mid-flight
+- Queue workers must run constantly (but already needed for other features)
+- Fallback: Keep the scheduler as backup for missed jobs
+
+**Key Files for Queue Approach**:
+- Create `app/Jobs/ProcessFleetArrival.php` - New job class
+- `app/Http/Controllers/FleetController.php` - Dispatch job at fleet send
+- `app/Services/FleetMissionService.php` - Add `cancelFleetArrivalJob()` for recalls
+- `config/queue.php` - Ensure database driver configured (already is)
+
 | What's Included | What's NOT Included |
 |-----------------|---------------------|
-| Sub-second ordering column (migration) | Game speed changes |
-| Updated fleet dispatch to set ordering value | UI changes |
-| Updated `FleetMissionService` queries to use ordering | - |
-| Updated `getArrivedMissionsByPlanetIds()` ordering | - |
-| Updated `processArrival()` to process in deterministic order | - |
-| Backfill existing missions with sensible defaults | - |
+| `ProcessFleetArrival` job class | Game speed mid-flight changes |
+| Delayed job dispatch at fleet send time | UI changes |
+| Job cancellation on fleet recall | - |
+| Scheduler fallback for missed jobs | - |
+| Test coverage for ordering edge cases | - |
 
-**Key Files to Modify**:
-- `app/Models/FleetMission.php` - Add new column to model
-- `app/Services/FleetMissionService.php` - Update all `orderBy('time_arrival')` to include sub-second ordering
-- `app/Http/Controllers/FleetController.php` - Set ordering value at dispatch time
-- New migration for the column addition
+**Key Files** (Queue Approach):
+- `app/Jobs/ProcessFleetArrival.php` - New job that calls `updateMission()`
+- `app/Http/Controllers/FleetController.php` - Dispatch delayed job at fleet send
+- `app/Services/FleetMissionService.php` - Add job cancellation for recalls
+- `app/Console/Kernel.php` - Keep scheduler as fallback
 - Test coverage for ordering edge cases
 
 **Acceptance Criteria**:
-- [ ] Fleets arriving at the same second are processed in a deterministic, reproducible order
-- [ ] Sub-second ordering is set at dispatch time (not at processing time)
-- [ ] All fleet queries that use `orderBy('time_arrival')` also sort by sub-second ordering
-- [ ] ACS Attack union members arriving at same second process in union slot order
-- [ ] Multiple independent attacks on same target at same second process in dispatch order (first dispatched = first processed)
-- [ ] Existing missions get sensible default values via migration
-- [ ] No performance regression on fleet processing queries (index the new column)
+- [ ] Fleets arriving at the same second are processed in dispatch order (first sent = first processed)
+- [ ] Job is dispatched with correct delay when fleet is sent
+- [ ] Job is cancelled when fleet is recalled
+- [ ] ACS Attack union members process in union slot order (union initiator first)
+- [ ] Scheduler fallback catches any missed jobs (queue worker down, etc.)
+- [ ] Queue worker processes jobs reliably under load
+- [ ] Test coverage for same-second arrival scenarios
 
 **Edge Cases to Consider**:
 - Two independent attacks on the same planet at the exact same second
 - ACS Defend fleet arriving at the same second as an attack
-- Recalled fleet and replacement fleet at same second
-- Server restart / catch-up processing of backlogged missions
+- Recalled fleet: pending job must be removed from queue
+- Server restart: scheduler fallback processes backlogged arrivals
+- Queue worker crash: jobs should persist and process on restart
 
 ---
 
