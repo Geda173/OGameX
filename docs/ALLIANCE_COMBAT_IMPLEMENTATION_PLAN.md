@@ -663,13 +663,14 @@ PR 6c: PHP Integration (PHP ONLY) ✅
 ### PR 8: Loot Distribution & Combat Mechanics Polish
 **Branch**: `feature/acs-loot-distribution`
 **Size**: ~400-600 lines
-**Deliverable**: Fair loot split and remaining combat mechanics
+**Deliverable**: Fair loot split, server setting enforcement, and remaining combat mechanics
 
 | What's Included | What's NOT Included |
 |-----------------|---------------------|
-| Per-fleet loot distribution (cargo capacity proportional) | Battle report filtering |
-| Per-fleet cargo capacity calculation in BattleEngine | Battle report UI |
-| Zero-cargo fleet handling (no loot share) | Fleet queue ordering |
+| **Server setting enforcement** (ACS on/off toggle) | Battle report filtering |
+| Per-fleet loot distribution (cargo capacity proportional) | Battle report UI |
+| Per-fleet cargo capacity calculation in BattleEngine | Fleet queue ordering |
+| Zero-cargo fleet handling (no loot share) | - |
 | Reaper debris collection in multi-attacker battles | - |
 | ACS Defend fleets in counter-espionage calculation | - |
 | ACS Defend fleets in espionage report | - |
@@ -677,9 +678,34 @@ PR 6c: PHP Integration (PHP ONLY) ✅
 
 **Tasks from Milestones**: 5.1, 5.2, 5.3, 5.4
 
+#### Server Setting Enforcement (Required)
+
+**Problem**: The `alliance_combat_system_on` setting exists in database and admin UI, but is NOT enforced. Server admins can toggle it, but ACS missions still work regardless.
+
+**Solution**: Check the setting before allowing ACS missions:
+
+```php
+// In AcsDefendMission::isMissionPossible()
+if (!$this->settings->allianceCombatSystemOn()) {
+    return new MissionPossibleStatus(false, __('ACS is disabled on this server.'));
+}
+
+// In FleetController::checkTarget() - don't enable ACS Attack (type 2)
+if ($settingsService->allianceCombatSystemOn() && $unionId > 0 && in_array(1, $enabledMissions)) {
+    // ... existing union join logic
+}
+```
+
+**Files to modify**:
+- `app/GameMissions/AcsDefendMission.php` - Check setting in `isMissionPossible()`
+- `app/Http/Controllers/FleetController.php` - Check setting before enabling ACS Attack (type 2)
+- `app/Http/Controllers/FleetController.php` - Check setting in `createUnion()` and `joinUnion()`
+
 **Note**: Return flights already use natural speed (each fleet's owner's tech). Synchronized return speeds are NOT used — this matches OGame v9 behavior where each fleet returns independently.
 
 **Acceptance Criteria**:
+- [ ] **ACS missions blocked when `alliance_combat_system_on` is disabled**
+- [ ] **Union creation blocked when ACS is disabled**
 - [ ] Loot distributed proportionally to surviving cargo capacity per fleet
 - [ ] Fleet with no cargo gets no loot
 - [ ] Carried resources survive proportionally to cargo losses
