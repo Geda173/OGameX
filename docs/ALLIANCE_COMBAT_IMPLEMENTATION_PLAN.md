@@ -660,25 +660,10 @@ PR 6c: PHP Integration (PHP ONLY) ✅
 
 ---
 
-### PR 8: Loot Distribution & Combat Mechanics Polish
-**Branch**: `feature/acs-loot-distribution`
-**Size**: ~400-600 lines
-**Deliverable**: Fair loot split, server setting enforcement, and remaining combat mechanics
-
-| What's Included | What's NOT Included |
-|-----------------|---------------------|
-| **Server setting enforcement** (ACS on/off toggle) | Battle report filtering |
-| Per-fleet loot distribution (cargo capacity proportional) | Battle report UI |
-| Per-fleet cargo capacity calculation in BattleEngine | Fleet queue ordering |
-| Zero-cargo fleet handling (no loot share) | - |
-| Reaper debris collection in multi-attacker battles | - |
-| ACS Defend fleets in counter-espionage calculation | - |
-| ACS Defend fleets in espionage report | - |
-| Phalanx scan showing ACS Attack (type 2) fleets | - |
-
-**Tasks from Milestones**: 5.1, 5.2, 5.3, 5.4
-
-#### Server Setting Enforcement (Required)
+### PR 8a: ACS Server Setting Enforcement
+**Branch**: `feature/acs-setting-enforcement`
+**Size**: ~20-30 lines
+**Deliverable**: Server admins can actually disable ACS via the existing toggle
 
 **Problem**: The `alliance_combat_system_on` setting exists in database and admin UI, but is NOT enforced. Server admins can toggle it, but ACS missions still work regardless.
 
@@ -701,11 +686,35 @@ if ($settingsService->allianceCombatSystemOn() && $unionId > 0 && in_array(1, $e
 - `app/Http/Controllers/FleetController.php` - Check setting before enabling ACS Attack (type 2)
 - `app/Http/Controllers/FleetController.php` - Check setting in `createUnion()` and `joinUnion()`
 
+**Acceptance Criteria**:
+- [ ] ACS Defend mission blocked when `alliance_combat_system_on` is 0
+- [ ] ACS Attack (type 2) not shown in mission options when ACS disabled
+- [ ] Union creation returns error when ACS disabled
+- [ ] Union joining returns error when ACS disabled
+- [ ] Existing in-flight ACS missions still complete normally (no mid-flight cancellation)
+
+---
+
+### PR 8: Loot Distribution & Combat Mechanics Polish
+**Branch**: `feature/acs-loot-distribution`
+**Size**: ~400-600 lines
+**Deliverable**: Fair loot split and remaining combat mechanics
+
+| What's Included | What's NOT Included |
+|-----------------|---------------------|
+| Per-fleet loot distribution (cargo capacity proportional) | Battle report filtering |
+| Per-fleet cargo capacity calculation in BattleEngine | Battle report UI |
+| Zero-cargo fleet handling (no loot share) | Fleet queue ordering |
+| Reaper debris collection in multi-attacker battles | - |
+| ACS Defend fleets in counter-espionage calculation | - |
+| ACS Defend fleets in espionage report | - |
+| Phalanx scan showing ACS Attack (type 2) fleets | - |
+
+**Tasks from Milestones**: 5.1, 5.2, 5.3, 5.4
+
 **Note**: Return flights already use natural speed (each fleet's owner's tech). Synchronized return speeds are NOT used — this matches OGame v9 behavior where each fleet returns independently.
 
 **Acceptance Criteria**:
-- [ ] **ACS missions blocked when `alliance_combat_system_on` is disabled**
-- [ ] **Union creation blocked when ACS is disabled**
 - [ ] Loot distributed proportionally to surviving cargo capacity per fleet
 - [ ] Fleet with no cargo gets no loot
 - [ ] Carried resources survive proportionally to cargo losses
@@ -851,6 +860,7 @@ Currently, `time_arrival` is stored as a Unix timestamp (integer seconds). When 
 | **PR 5** | ✅ Done | ~~Immediately~~ | Fleet unions foundation |
 | **PR 6** | ✅ Done | ~~Immediately~~ | Multi-attacker battle engine (PHP + Rust) |
 | **PR 7** | ✅ Done | ~~PR 5 + PR 6~~ | Full ACS Attack mission |
+| **PR 8a** | Ready | Immediately | ACS server setting enforcement |
 | **PR 8** | Ready | ~~PR 7~~ | Loot distribution & combat mechanics |
 | **PR 9** | Ready | ~~PR 7~~ | Battle reports & UI |
 | **PR 10** | Ready | Immediately | Fleet queue system (sub-second ordering) |
@@ -862,11 +872,12 @@ Currently, `time_arrival` is stored as a Unix timestamp (integer seconds). When 
 🎉 **ACS ATTACK MISSION COMPLETE!** Union creation, invite system, coordinated battles, fleet events grouping, and comprehensive test coverage.
 
 **Next Steps** (can be done in parallel):
-1. **PR 8**: Loot distribution & combat mechanics polish (per-fleet loot, Phalanx, espionage)
-2. **PR 9**: Enhanced battle reports & UI (multi-attacker reports, per-fleet display)
-3. **PR 10**: Fleet queue system (sub-second ordering for deterministic processing)
+1. **PR 8a**: ACS server setting enforcement (~20 lines, quick fix)
+2. **PR 8**: Loot distribution & combat mechanics polish (per-fleet loot, Phalanx, espionage)
+3. **PR 9**: Enhanced battle reports & UI (multi-attacker reports, per-fleet display)
+4. **PR 10**: Fleet queue system (sub-second ordering for deterministic processing)
 
-**Note**: PR 8 and PR 9 can be developed in parallel as they touch different areas. PR 10 is independent and can be done at any time.
+**Note**: All remaining PRs can be developed in parallel as they touch different areas.
 
 ---
 
