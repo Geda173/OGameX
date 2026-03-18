@@ -8,6 +8,7 @@ This document outlines the implementation plan for adding Alliance Combat System
 
 | Date | Change |
 |------|--------|
+| 2026-03-18 | **ACS Attack mission complete**: Full union system with invites, coordinated battles, fleet events grouping, slot management, and 17 test scenarios. Updated PR 8 scope (loot + combat mechanics), PR 9 scope (reports to all participants). Added PR 10: Fleet Queue System for deterministic sub-second fleet processing order. |
 | 2026-01-28 | **Multi-attacker battle engine complete**: Both PHP and Rust battle engines now support multiple attacking fleets with per-fleet result tracking. Merged PR 6b (Rust library) and PR 6c (PHP integration). Ready for ACS Attack mission integration. |
 | 2026-01-23 | **Split Rust engine work into separate PRs**: PR 6b = Rust library update only (no PHP), PR 6c = PHP integration only (after Rust). Added clear warnings to not modify RustBattleEngine.php until library is ready. |
 | 2026-01-23 | Updated PR 6 to match actual implementation: PHP engine updated with AttackerFleet/AttackerFleetResult models, backward compatibility helpers. Clarified PR 6b (Rust update) is future work with PHP engine as working fallback. |
@@ -74,14 +75,12 @@ PR 2: BattleUnit Owner Tracking ✅ ──┘
                                     PR 4: Alliance Depot ✅
 
 PR 5: Fleet Unions Foundation ✅  ──┐
-                                    ├──► PR 7: ACS Attack Mission
-PR 6: Multi-Attacker Battle ✅    ──┘
-                                            │
-                                            ▼
-                                    PR 8: Loot Distribution & Sync Returns
-                                            │
-                                            ▼
-                                    PR 9: Enhanced Battle Reports & UI
+                                    ├──► PR 7: ACS Attack Mission ✅
+PR 6: Multi-Attacker Battle ✅    ──┘        │
+                                            ├──► PR 8: Loot & Combat Mechanics
+                                            └──► PR 9: Battle Reports & UI
+
+PR 10: Fleet Queue System (independent, sub-second ordering)
 ```
 
 ### Current Progress
@@ -91,7 +90,8 @@ PR 6: Multi-Attacker Battle ✅    ──┘
 - **PR 4**: ✅ Completed - Alliance Depot with supply rockets
 - **PR 5**: ✅ Completed - Fleet Unions foundation
 - **PR 6**: ✅ Completed - Multi-attacker battle engine (PHP + Rust)
-- **PR 7-9**: Pending
+- **PR 7**: ✅ Completed - ACS Attack mission (union creation, invites, coordinated battles, fleet events)
+- **PR 8-10**: Ready for development
 
 🎉 **ACS DEFEND COMPLETE!** Full feature including Alliance Depot supply rockets.
 
@@ -604,73 +604,184 @@ PR 6c: PHP Integration (PHP ONLY) ✅
 
 ---
 
-### PR 7: ACS Attack Mission
+### PR 7: ACS Attack Mission ✅ COMPLETED
 **Branch**: `feature/acs-attack-mission`
-**Size**: ~800-1200 lines
+**Size**: ~5000 lines (PHP + JS + Blade + CSS + tests)
 **Deliverable**: Full ACS Attack functionality (type 2)
 
 | What's Included | What's NOT Included |
 |-----------------|---------------------|
-| `AcsAttackMission` class | Loot distribution |
-| Mission type 1 → 2 conversion on union create | Synchronized returns |
-| Coordinated arrival times | Enhanced battle reports |
-| UI for union creation | - |
-| UI for joining unions | - |
-| `processUnionBattle()` integration | - |
+| Union creation from attack mission | Per-fleet loot distribution |
+| Union invite system (in-game messages) | Multi-attacker battle reports |
+| Ally/buddy can join union via Combat Forces dropdown | Synchronized return speeds |
+| Mission type 1 → 2 conversion on union create | Phalanx display of ACS Attack fleets |
+| Coordinated arrival times (late joiner sync) | Reaper debris collection in multi-fleet |
+| Multi-attacker battle processing (initiator only) | ACS Defend fleets in espionage calcs |
+| Per-fleet return missions at natural speed | - |
+| Union grouping in fleet events widget | - |
+| Federation overlay UI | - |
+| Union slot management (recall/reassign) | - |
+| Comprehensive test suite (17 scenarios) | - |
 
 **Tasks from Milestones**: 3.6, 4.1, 4.3, 4.4, 7.1-7.4
 
 **Acceptance Criteria**:
-- [ ] Can create union from attack mission
-- [ ] Allies/buddies can join union
-- [ ] All fleets arrive simultaneously
-- [ ] Battle processes with all attackers
-- [ ] Each fleet's survivors return to origin
+- [x] Can create union from attack mission
+- [x] Allies/buddies can join union via invite system
+- [x] All fleets arrive simultaneously (late joiner syncs all members)
+- [x] Battle processes with all attackers (initiator executes, others skip)
+- [x] Each fleet's survivors return to origin at natural speed
+- [x] Union grouping in fleet events widget with player breakdown
+- [x] Slot management: initiator recall reassigns slot 1
+- [x] Max fleet/player limits enforced
+- [x] Target coordinate validation prevents fleet teleportation
+
+**Implementation Notes** (added post-completion):
+- `AttackMission.php` - `collectAttackingFleets()` gathers union participants, only slot 1 (initiator) processes battle
+- `FleetController.php` - New endpoints: create union, join union, get available unions, federation overlay, send invites
+- `FleetEventsController.php` - Groups ACS Attack missions by union_id into summary rows with per-player breakdown
+- `FleetEventRowViewModel.php` - Union display properties (member count, player breakdown, expanded view)
+- `FleetUnionInvite.php` - New model for invite-based access control
+- `GameMission.php` - Added `collectAttackingFleets()` and union recall handling in `cancel()`
+- `FleetUnionService.php` - Added `canPlayerJoinUnion()`, late joiner arrival sync
+- Migration: `create_fleet_union_invites_table` for invite storage
+- Federation overlay blade template for union creation/management UI
+- Union event row blade template for grouped fleet display
+
+**Known TODOs** (deferred to future phases):
+- Per-fleet loot distribution (cargo capacity proportional) → PR 8
+- Multi-attacker battle reports to all participants → PR 9
+- Enhanced per-fleet battle report display → PR 9
+- Phalanx scan showing ACS Attack fleets
+- Reaper debris auto-collection in multi-attacker battles
+- ACS Defend fleets in counter-espionage chance calculation
+- ACS Defend fleets in espionage report
+- Synchronized arrival time preview in fleet dispatch UI
 
 ---
 
-### PR 8: Loot Distribution & Synchronized Returns
-**Branch**: `feature/acs-loot-sync`
+### PR 8: Loot Distribution & Combat Mechanics Polish
+**Branch**: `feature/acs-loot-distribution`
 **Size**: ~400-600 lines
-**Deliverable**: Fair loot split and coordinated return flights
+**Deliverable**: Fair loot split and remaining combat mechanics
 
 | What's Included | What's NOT Included |
 |-----------------|---------------------|
-| Loot split by surviving cargo capacity | Battle report filtering |
-| Synchronized return speeds (slowest fleet) | - |
-| Cargo resource survival on losses | - |
-| Zero-cargo fleet handling | - |
+| Per-fleet loot distribution (cargo capacity proportional) | Battle report filtering |
+| Per-fleet cargo capacity calculation in BattleEngine | Battle report UI |
+| Zero-cargo fleet handling (no loot share) | Fleet queue ordering |
+| Reaper debris collection in multi-attacker battles | - |
+| ACS Defend fleets in counter-espionage calculation | - |
+| ACS Defend fleets in espionage report | - |
+| Phalanx scan showing ACS Attack (type 2) fleets | - |
 
 **Tasks from Milestones**: 5.1, 5.2, 5.3, 5.4
 
+**Note**: Return flights already use natural speed (each fleet's owner's tech). Synchronized return speeds are NOT used — this matches OGame v9 behavior where each fleet returns independently.
+
 **Acceptance Criteria**:
-- [ ] Loot distributed proportionally to cargo capacity
+- [ ] Loot distributed proportionally to surviving cargo capacity per fleet
 - [ ] Fleet with no cargo gets no loot
-- [ ] All return missions have same duration
 - [ ] Carried resources survive proportionally to cargo losses
+- [ ] Reaper debris collection works in multi-attacker battles
+- [ ] Phalanx shows ACS Attack fleets in scan results
+- [ ] ACS Defend fleets contribute to counter-espionage chance
+- [ ] ACS Defend fleets appear in espionage reports
 
 ---
 
 ### PR 9: Enhanced Battle Reports & UI Polish
 **Branch**: `feature/acs-battle-reports`
 **Size**: ~600-900 lines
-**Deliverable**: Per-fleet filtering and polished UI
+**Deliverable**: Multi-attacker/defender battle reports and UI improvements
 
 | What's Included | What's NOT Included |
 |-----------------|---------------------|
-| Per-fleet battle report data | - |
+| Battle report sent to ALL participating attackers | Fleet queue system |
+| Per-fleet breakdown in battle report (attackers) | - |
+| Per-fleet breakdown in battle report (defenders + ACS Defend) | - |
+| Each defender fleet shown with own tech levels | - |
 | Fleet filter dropdown in report view | - |
 | Individual fleet view template | - |
 | Fleet movement UI improvements | - |
-| One report per player (not per fleet) | - |
+| Synchronized arrival time preview in fleet dispatch UI | - |
 
 **Tasks from Milestones**: 6.1-6.6, 7.5-7.7
 
+**Current Gaps** (from code TODOs):
+- `BattleReport.php:143` - Report only renders single attacker, needs multi-attacker display
+- `AttackMission.php:412` - Report only sent to initiator + defender, needs all participants
+- `AttackMission.php:688` - Defender data aggregated, should show per-fleet breakdown
+
 **Acceptance Criteria**:
-- [ ] Battle report shows all participating fleets
+- [ ] Battle report sent to all participating players (not just initiator)
+- [ ] Battle report shows all participating attacker fleets with individual tech levels
+- [ ] Battle report shows planet owner forces + ACS Defend fleets separately
 - [ ] Can filter report to show single fleet's perspective
 - [ ] Each round shows per-fleet ship counts
 - [ ] Player receives one report even with multiple fleets
+- [ ] Arrival time preview shown when joining a union in fleet dispatch
+
+---
+
+### PR 10: Fleet Queue System
+**Branch**: `feature/fleet-queue-system`
+**Size**: ~300-500 lines
+**Deliverable**: Deterministic fleet processing order with sub-second precision
+
+#### Problem Statement
+
+Currently, `time_arrival` is stored as a Unix timestamp (integer seconds). When multiple fleets arrive at the same planet within the same second (common in ACS scenarios, ninja defenses, or timed attacks), their processing order is **non-deterministic**. This can lead to:
+- Race conditions where the outcome depends on database query order
+- Inconsistent battle results (e.g., a defending fleet might or might not participate depending on processing order)
+- Unfair outcomes when timing matters (e.g., two attacks on the same planet at the same second)
+
+#### Solution: Sub-Second Arrival Ordering
+
+Add a `arrival_order` column (or `time_arrival_ms` with millisecond precision) to `fleet_missions` that provides deterministic ordering for fleets arriving at the same second.
+
+**Approach A: Millisecond Timestamp**
+- Add `time_arrival_ms` column (`BIGINT`, milliseconds since epoch)
+- Set from PHP's `microtime(true) * 1000` at dispatch time
+- All `orderBy('time_arrival')` queries also sort by `time_arrival_ms`
+- Provides natural temporal ordering
+
+**Approach B: Sequence Number**
+- Add `arrival_order` column (`INT UNSIGNED`, auto-incrementing per target per second)
+- Assigned at dispatch time: `MAX(arrival_order) + 1` for same target + same second
+- Ties broken by insertion order (first dispatched = first processed)
+- Simpler, no clock dependency
+
+| What's Included | What's NOT Included |
+|-----------------|---------------------|
+| Sub-second ordering column (migration) | Game speed changes |
+| Updated fleet dispatch to set ordering value | UI changes |
+| Updated `FleetMissionService` queries to use ordering | - |
+| Updated `getArrivedMissionsByPlanetIds()` ordering | - |
+| Updated `processArrival()` to process in deterministic order | - |
+| Backfill existing missions with sensible defaults | - |
+
+**Key Files to Modify**:
+- `app/Models/FleetMission.php` - Add new column to model
+- `app/Services/FleetMissionService.php` - Update all `orderBy('time_arrival')` to include sub-second ordering
+- `app/Http/Controllers/FleetController.php` - Set ordering value at dispatch time
+- New migration for the column addition
+- Test coverage for ordering edge cases
+
+**Acceptance Criteria**:
+- [ ] Fleets arriving at the same second are processed in a deterministic, reproducible order
+- [ ] Sub-second ordering is set at dispatch time (not at processing time)
+- [ ] All fleet queries that use `orderBy('time_arrival')` also sort by sub-second ordering
+- [ ] ACS Attack union members arriving at same second process in union slot order
+- [ ] Multiple independent attacks on same target at same second process in dispatch order (first dispatched = first processed)
+- [ ] Existing missions get sensible default values via migration
+- [ ] No performance regression on fleet processing queries (index the new column)
+
+**Edge Cases to Consider**:
+- Two independent attacks on the same planet at the exact same second
+- ACS Defend fleet arriving at the same second as an attack
+- Recalled fleet and replacement fleet at same second
+- Server restart / catch-up processing of backlogged missions
 
 ---
 
@@ -684,20 +795,23 @@ PR 6c: PHP Integration (PHP ONLY) ✅
 | **PR 4** | ✅ Done | ~~PR 3~~ | Alliance Depot + supply rockets |
 | **PR 5** | ✅ Done | ~~Immediately~~ | Fleet unions foundation |
 | **PR 6** | ✅ Done | ~~Immediately~~ | Multi-attacker battle engine (PHP + Rust) |
-| **PR 7** | Ready | ~~PR 5 + PR 6~~ | Full ACS Attack |
-| **PR 8** | Blocked | PR 7 | Loot & sync returns |
-| **PR 9** | Blocked | PR 7 | Battle reports & UI |
+| **PR 7** | ✅ Done | ~~PR 5 + PR 6~~ | Full ACS Attack mission |
+| **PR 8** | Ready | ~~PR 7~~ | Loot distribution & combat mechanics |
+| **PR 9** | Ready | ~~PR 7~~ | Battle reports & UI |
+| **PR 10** | Ready | Immediately | Fleet queue system (sub-second ordering) |
 
 🎉 **ACS DEFEND COMPLETE!** Full feature with Alliance Depot supply rockets.
 
 🎉 **MULTI-ATTACKER BATTLE ENGINE COMPLETE!** Both PHP and Rust engines support multiple attacking fleets with per-fleet tracking.
 
-**Next Steps** (in order):
-1. **PR 7**: ACS Attack Mission integration (combines Fleet Unions + multi-attacker battle engine)
-2. **PR 8**: Loot distribution & synchronized returns
-3. **PR 9**: Enhanced battle reports & UI
+🎉 **ACS ATTACK MISSION COMPLETE!** Union creation, invite system, coordinated battles, fleet events grouping, and comprehensive test coverage.
 
-**Note**: PR 7 requires both PR 5 (Fleet Unions) and PR 6 (Multi-attacker battle engine), both now complete.
+**Next Steps** (can be done in parallel):
+1. **PR 8**: Loot distribution & combat mechanics polish (per-fleet loot, Phalanx, espionage)
+2. **PR 9**: Enhanced battle reports & UI (multi-attacker reports, per-fleet display)
+3. **PR 10**: Fleet queue system (sub-second ordering for deterministic processing)
+
+**Note**: PR 8 and PR 9 can be developed in parallel as they touch different areas. PR 10 is independent and can be done at any time.
 
 ---
 
