@@ -211,18 +211,7 @@ class FleetDispatchAcsDefendTest extends FleetDispatchTestCase
         // Static array persists across test instances
         self::$allCreatedBuddyUserIds[] = $buddyUser->id;
 
-        // Create a planet for the buddy user at a random position to avoid conflicts
-        $buddyPlanet = Planet::factory()->create([
-            'user_id' => $buddyUser->id,
-            'galaxy' => $this->planetService->getPlanetCoordinates()->galaxy,
-            'system' => min(499, $this->planetService->getPlanetCoordinates()->system + 5),
-            'planet' => 8,
-        ]);
-
-        // Get planet service for the buddy's planet
-        $planetServiceFactory = resolve(PlanetServiceFactory::class);
-        $buddyPlayerService = resolve(PlayerService::class, ['player_id' => $buddyUser->id]);
-        $this->buddyPlanet = $planetServiceFactory->makeForPlayer($buddyPlayerService, $buddyPlanet->id);
+        $this->buddyPlanet = $this->createPlanetAtSafeCoordinate($buddyUser->id);
 
         $buddyService = resolve(BuddyService::class);
 
@@ -561,11 +550,16 @@ class FleetDispatchAcsDefendTest extends FleetDispatchTestCase
         $attackerUser = User::factory()->create();
         self::$allCreatedBuddyUserIds[] = $attackerUser->id;
 
+        $buddyGalaxy  = $this->buddyPlanet->getPlanetCoordinates()->galaxy;
+        $buddySystem  = $this->buddyPlanet->getPlanetCoordinates()->system;
+        $attackerPosition = collect([13, 14, 15, 1, 2, 3])->first(
+            fn ($p) => !Planet::where('galaxy', $buddyGalaxy)->where('system', $buddySystem)->where('planet', $p)->exists()
+        );
         $attackerPlanet = Planet::factory()->create([
             'user_id' => $attackerUser->id,
-            'galaxy' => $this->buddyPlanet->getPlanetCoordinates()->galaxy,
-            'system' => $this->buddyPlanet->getPlanetCoordinates()->system,
-            'planet' => 10,
+            'galaxy'  => $buddyGalaxy,
+            'system'  => $buddySystem,
+            'planet'  => $attackerPosition,
         ]);
 
         $planetServiceFactory = resolve(PlanetServiceFactory::class);
@@ -640,11 +634,16 @@ class FleetDispatchAcsDefendTest extends FleetDispatchTestCase
         $attackerUser = User::factory()->create();
         self::$allCreatedBuddyUserIds[] = $attackerUser->id;
 
+        $buddyGalaxy  = $this->buddyPlanet->getPlanetCoordinates()->galaxy;
+        $buddySystem  = $this->buddyPlanet->getPlanetCoordinates()->system;
+        $attackerPosition = collect([13, 14, 15, 1, 2, 3])->first(
+            fn ($p) => !Planet::where('galaxy', $buddyGalaxy)->where('system', $buddySystem)->where('planet', $p)->exists()
+        );
         $attackerPlanet = Planet::factory()->create([
             'user_id' => $attackerUser->id,
-            'galaxy' => $this->buddyPlanet->getPlanetCoordinates()->galaxy,
-            'system' => $this->buddyPlanet->getPlanetCoordinates()->system,
-            'planet' => 11,
+            'galaxy'  => $buddyGalaxy,
+            'system'  => $buddySystem,
+            'planet'  => $attackerPosition,
         ]);
 
         $planetServiceFactory = resolve(PlanetServiceFactory::class);
@@ -1183,18 +1182,7 @@ class FleetDispatchAcsDefendTest extends FleetDispatchTestCase
         $allianceMemberUser = User::factory()->create();
         self::$allCreatedBuddyUserIds[] = $allianceMemberUser->id;
 
-        // Create a planet for the alliance member
-        $allianceMemberPlanet = Planet::factory()->create([
-            'user_id' => $allianceMemberUser->id,
-            'galaxy' => $this->planetService->getPlanetCoordinates()->galaxy,
-            'system' => min(499, $this->planetService->getPlanetCoordinates()->system + 6),
-            'planet' => 13,
-        ]);
-
-        // Get planet service for the alliance member's planet
-        $planetServiceFactory = resolve(PlanetServiceFactory::class);
-        $allianceMemberPlayerService = resolve(PlayerService::class, ['player_id' => $allianceMemberUser->id]);
-        $this->allianceMemberPlanet = $planetServiceFactory->makeForPlayer($allianceMemberPlayerService, $allianceMemberPlanet->id);
+        $this->allianceMemberPlanet = $this->createPlanetAtSafeCoordinate($allianceMemberUser->id);
 
         // Add new member to alliance (bypass cooldown for testing)
         /** @phpstan-ignore assign.propertyType */
@@ -1213,6 +1201,36 @@ class FleetDispatchAcsDefendTest extends FleetDispatchTestCase
     }
 
     /**
+     * Verify that ACS Defend dispatch is blocked when ACS is disabled by server settings.
+     */
+    public function testAcsDisabledBlocksAcsDefendDispatch(): void
+    {
+        $this->basicSetup();
+
+        $buddyUser = User::factory()->create();
+        self::$allCreatedBuddyUserIds[] = $buddyUser->id;
+
+        $acsBlockBuddyPlanet = $this->createPlanetAtSafeCoordinate($buddyUser->id);
+
+        $buddyService = resolve(BuddyService::class);
+        $request = $buddyService->sendRequest($this->currentUserId, $buddyUser->id);
+        $buddyService->acceptRequest($request->id, $buddyUser->id);
+
+        $settingsService = resolve(SettingsService::class);
+        $settingsService->set('alliance_combat_system_on', 0);
+
+        $unitCollection = new UnitCollection();
+        $unitCollection->addUnit(ObjectService::getUnitObjectByMachineName('light_fighter'), 2);
+        $this->dispatchFleet($acsBlockBuddyPlanet->getPlanetCoordinates(), $unitCollection, new Resources(0, 0, 0, 0), PlanetType::Planet, 0, false);
+
+        $settingsService->set('alliance_combat_system_on', 1);
+
+        // Ships should still be on planet (mission was rejected)
+        $response = $this->get('/shipyard');
+        $this->assertObjectLevelOnPage($response, 'light_fighter', 5, 'Ships should not have been dispatched when ACS is disabled.');
+    }
+
+    /**
      * Create a player that is neither buddy nor alliance member.
      *
      * @return User The non-affiliated user
@@ -1223,18 +1241,7 @@ class FleetDispatchAcsDefendTest extends FleetDispatchTestCase
         $otherUser = User::factory()->create();
         self::$allCreatedBuddyUserIds[] = $otherUser->id;
 
-        // Create a planet for the other user
-        $otherPlanet = Planet::factory()->create([
-            'user_id' => $otherUser->id,
-            'galaxy' => $this->planetService->getPlanetCoordinates()->galaxy,
-            'system' => min(499, $this->planetService->getPlanetCoordinates()->system + 7),
-            'planet' => 14,
-        ]);
-
-        // Get planet service for the other user's planet
-        $planetServiceFactory = resolve(PlanetServiceFactory::class);
-        $otherPlayerService = resolve(PlayerService::class, ['player_id' => $otherUser->id]);
-        $this->otherPlanet = $planetServiceFactory->makeForPlayer($otherPlayerService, $otherPlanet->id);
+        $this->otherPlanet = $this->createPlanetAtSafeCoordinate($otherUser->id);
 
         return $otherUser;
     }

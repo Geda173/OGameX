@@ -61,46 +61,88 @@ class FleetDispatchAcsAttackTest extends FleetDispatchTestCase
 
     protected function tearDown(): void
     {
-        // Clean up fleet unions and their invites created during this test.
-        // Deleting the union cascades to fleet_union_invites via FK.
-        // Also unlink any fleet missions referencing these unions.
+        // Capture IDs before anything modifies the static array.
+        $createdUserIds = self::$allCreatedBuddyUserIds;
+
+        // --- Union cleanup (must run before fleet_mission deletion) ---
+        $allUserIds = array_merge(
+            $createdUserIds,
+            isset($this->currentUserId) ? [$this->currentUserId] : []
+        );
         $unionIds = DB::table('fleet_unions')
-            ->whereIn('user_id', array_merge(self::$allCreatedBuddyUserIds, isset($this->currentUserId) ? [$this->currentUserId] : []))
+            ->whereIn('user_id', $allUserIds)
             ->pluck('id')
             ->toArray();
 
         if (!empty($unionIds)) {
-            // Unlink fleet missions from these unions before deleting
             DB::table('fleet_missions')
                 ->whereIn('union_id', $unionIds)
                 ->update(['union_id' => null, 'union_slot' => null]);
-
             DB::table('fleet_unions')
                 ->whereIn('id', $unionIds)
                 ->delete();
         }
 
-        // Clean up buddy relationships and user state for created users
-        while (!empty(self::$allCreatedBuddyUserIds)) {
-            $buddyUserId = array_shift(self::$allCreatedBuddyUserIds);
+        if (!empty($createdUserIds)) {
+            // Collect all planet IDs belonging to the created users.
+            $createdPlanetIds = DB::table('planets')
+                ->whereIn('user_id', $createdUserIds)
+                ->pluck('id')
+                ->toArray();
 
-            DB::table('buddy_requests')
-                ->where(function ($query) use ($buddyUserId) {
-                    $query->where('sender_user_id', $buddyUserId)
-                        ->orWhere('receiver_user_id', $buddyUserId);
-                })
-                ->delete();
+            // Disable FK checks for the duration of the cleanup so we do not need to
+            // enumerate every table that references users or planets. Re-enabled below.
+            DB::statement('SET FOREIGN_KEY_CHECKS=0');
 
-            DB::table('users')
-                ->where('id', $buddyUserId)
-                ->update([
-                    'alliance_id' => null,
-                    'alliance_left_at' => null,
-                    'vacation_mode' => false,
-                    'vacation_mode_activated_at' => null,
-                    'vacation_mode_until' => null,
-                ]);
+            try {
+                // --- Buddy requests ---
+                DB::table('buddy_requests')
+                    ->where(function ($q) use ($createdUserIds) {
+                        $q->whereIn('sender_user_id', $createdUserIds)
+                          ->orWhereIn('receiver_user_id', $createdUserIds);
+                    })
+                    ->delete();
+
+                // --- Fleet missions ---
+                // Delete missions owned by created users, plus any mission that references
+                // one of their planets as origin or destination (e.g. return missions owned
+                // by the main attacker that depart from / arrive at the target planet).
+                DB::table('fleet_missions')
+                    ->where(function ($q) use ($createdUserIds, $createdPlanetIds) {
+                        $q->whereIn('user_id', $createdUserIds);
+                        if (!empty($createdPlanetIds)) {
+                            $q->orWhereIn('planet_id_from', $createdPlanetIds)
+                              ->orWhereIn('planet_id_to', $createdPlanetIds);
+                        }
+                    })
+                    ->delete();
+
+                // --- Battle / espionage reports ---
+                DB::table('battle_reports')->whereIn('planet_user_id', $createdUserIds)->delete();
+                DB::table('espionage_reports')->whereIn('planet_user_id', $createdUserIds)->delete();
+
+                // --- Messages ---
+                DB::table('messages')->whereIn('user_id', $createdUserIds)->delete();
+
+                // --- Planets ---
+                if (!empty($createdPlanetIds)) {
+                    DB::table('planets')->whereIn('id', $createdPlanetIds)->delete();
+                }
+
+                // --- Users ---
+                DB::table('users')->whereIn('id', $createdUserIds)->delete();
+            } finally {
+                DB::statement('SET FOREIGN_KEY_CHECKS=1');
+            }
+
+            self::$allCreatedBuddyUserIds = [];
         }
+
+        // Reset per-test instance state.
+        $this->targetPlanet = null;
+        $this->targetUser   = null;
+        $this->allyPlanet   = null;
+        $this->allyUser     = null;
 
         parent::tearDown();
     }
@@ -132,16 +174,9 @@ class FleetDispatchAcsAttackTest extends FleetDispatchTestCase
         $targetUser = User::factory()->create();
         self::$allCreatedBuddyUserIds[] = $targetUser->id;
 
-        $targetPlanet = Planet::factory()->create([
-            'user_id' => $targetUser->id,
-            'galaxy' => $this->planetService->getPlanetCoordinates()->galaxy,
-            'system' => min(499, $this->planetService->getPlanetCoordinates()->system + 5),
-            'planet' => 13, // Position 13 is outside the allocator range (4-12), preventing collisions
-        ]);
-
-        $planetServiceFactory = resolve(PlanetServiceFactory::class);
-        $targetPlayerService = resolve(PlayerService::class, ['player_id' => $targetUser->id]);
-        $this->targetPlanet = $planetServiceFactory->makeForPlayer($targetPlayerService, $targetPlanet->id);
+        // Minimum 3-system distance ensures the ally (placed in target's system) is
+        // always naturally faster than the initiator, which some tests depend on.
+        $this->targetPlanet = $this->createPlanetAtSafeCoordinate($targetUser->id, 13, 15, 3);
         $this->targetUser = $targetUser;
 
         // Give the target some resources to loot
@@ -159,12 +194,22 @@ class FleetDispatchAcsAttackTest extends FleetDispatchTestCase
         self::$allCreatedBuddyUserIds[] = $allyUser->id;
 
         // Place ally in same system as the target to minimize travel time
-        // (avoids exceeding the 30% delay limit when joining a union)
+        // (avoids exceeding the 30% delay limit when joining a union).
+        // Find an empty slot in the target's system outside the allocator range (4-12).
+        $targetGalaxy  = $this->targetPlanet->getPlanetCoordinates()->galaxy;
+        $targetSystem  = $this->targetPlanet->getPlanetCoordinates()->system;
+        // Prefer positions close to the target (13-15) to minimize same-system travel distance.
+        // Fall back to positions 1-3 if 13-15 are exhausted in this system.
+        $targetPosition = $this->targetPlanet->getPlanetCoordinates()->position;
+        $preferredOrder = array_filter([13, 14, 15, 1, 2, 3], fn ($p) => $p !== $targetPosition);
+        $allyPosition = collect(array_values($preferredOrder))->first(
+            fn ($p) => !Planet::where('galaxy', $targetGalaxy)->where('system', $targetSystem)->where('planet', $p)->exists()
+        );
         $allyPlanet = Planet::factory()->create([
             'user_id' => $allyUser->id,
-            'galaxy' => $this->planetService->getPlanetCoordinates()->galaxy,
-            'system' => min(499, $this->planetService->getPlanetCoordinates()->system + 5),
-            'planet' => 14, // Position 14 is outside the allocator range (4-12), preventing collisions
+            'galaxy'  => $targetGalaxy,
+            'system'  => $targetSystem,
+            'planet'  => $allyPosition,
         ]);
 
         $planetServiceFactory = resolve(PlanetServiceFactory::class);
@@ -1262,6 +1307,202 @@ class FleetDispatchAcsAttackTest extends FleetDispatchTestCase
             $lateArrivalTime,
             $union->time_arrival,
             'Union time_arrival must be updated to reflect the latest fleet arrival'
+        );
+    }
+
+    /**
+     * Verify that union creation is blocked when ACS is disabled by server settings.
+     */
+    public function testAcsDisabledBlocksUnionCreation(): void
+    {
+        $this->basicSetup();
+        $this->createTargetPlayer();
+
+        $unitCollection = new UnitCollection();
+        $unitCollection->addUnit(ObjectService::getUnitObjectByMachineName('light_fighter'), 10);
+        $this->dispatchFleet($this->targetPlanet->getPlanetCoordinates(), $unitCollection, new Resources(0, 0, 0, 0), PlanetType::Planet);
+
+        $fleetMissionService = resolve(FleetMissionService::class);
+        $mission = $fleetMissionService->getActiveFleetMissionsForCurrentPlayer()->first();
+
+        $settingsService = resolve(SettingsService::class);
+        $settingsService->set('alliance_combat_system_on', 0);
+
+        $response = $this->post('/ajax/fleet/union/create', [
+            'fleetID' => $mission->id,
+            'groupname' => 'TestUnion',
+            '_token' => csrf_token(),
+        ]);
+        $response->assertStatus(403);
+
+        $settingsService->set('alliance_combat_system_on', 1);
+
+        // Mission should still be type 1 (not converted to ACS Attack)
+        $mission->refresh();
+        $this->assertEquals(1, $mission->mission_type, 'Mission should remain type 1 when union creation is blocked by ACS setting.');
+    }
+
+    /**
+     * Verify that joining a union is blocked when ACS is disabled by server settings.
+     */
+    public function testAcsDisabledBlocksUnionJoining(): void
+    {
+        $this->basicSetup();
+
+        $settingsService = resolve(SettingsService::class);
+        $settingsService->set('alliance_combat_system_on', 0);
+
+        $response = $this->post('/ajax/fleet/union/join', [
+            'fleet_mission_id' => 999999,
+            'union_id' => 999999,
+            '_token' => csrf_token(),
+        ]);
+        $response->assertStatus(403);
+
+        $settingsService->set('alliance_combat_system_on', 1);
+    }
+
+    /**
+     * Verify that ACS Attack (type 2) is not offered in mission options when ACS is disabled.
+     */
+    public function testAcsDisabledHidesAcsAttackFromCheckTarget(): void
+    {
+        $this->basicSetup();
+        $this->createTargetPlayer();
+
+        // Send attack and create a union while ACS is on
+        $unitCollection = new UnitCollection();
+        $unitCollection->addUnit(ObjectService::getUnitObjectByMachineName('light_fighter'), 10);
+        $this->dispatchFleet($this->targetPlanet->getPlanetCoordinates(), $unitCollection, new Resources(0, 0, 0, 0), PlanetType::Planet);
+
+        $fleetMissionService = resolve(FleetMissionService::class);
+        $mission = $fleetMissionService->getActiveFleetMissionsForCurrentPlayer()->first();
+
+        $this->post('/ajax/fleet/union/create', [
+            'fleetID' => $mission->id,
+            'groupname' => 'TestUnion',
+            '_token' => csrf_token(),
+        ]);
+        $mission->refresh();
+        $unionId = $mission->union_id;
+
+        // Disable ACS
+        $settingsService = resolve(SettingsService::class);
+        $settingsService->set('alliance_combat_system_on', 0);
+
+        $lightFighterObj = ObjectService::getUnitObjectByMachineName('light_fighter');
+        $response = $this->post('/ajax/fleet/dispatch/check-target', [
+            'galaxy' => $this->targetPlanet->getPlanetCoordinates()->galaxy,
+            'system' => $this->targetPlanet->getPlanetCoordinates()->system,
+            'position' => $this->targetPlanet->getPlanetCoordinates()->position,
+            'type' => PlanetType::Planet->value,
+            'mission' => 1,
+            'union' => $unionId,
+            '_token' => csrf_token(),
+            'am' . $lightFighterObj->id => 5,
+        ]);
+
+        $settingsService->set('alliance_combat_system_on', 1);
+
+        $response->assertStatus(200);
+        $response->assertJson(['orders' => [2 => false]]);
+    }
+
+    /**
+     * Regression test: ACS attack must not inflate ship counts due to shared UnitEntry references.
+     *
+     * UnitCollection::addCollection() is called multiple times per battle (BattleEngine
+     * constructor, simulateBattle, sanitizeRoundArray). If entries are inserted by reference
+     * rather than by clone, repeated merges compound the unit amounts in the source collection,
+     * causing the battle engine to see more ships than were actually dispatched and returning
+     * inflated survivors to each attacker.
+     */
+    public function testAcsAttackDoesNotInflateShipCountsViaAlias(): void
+    {
+        $this->basicSetup();
+        $this->createTargetPlayer();
+        $this->createAllyPlayer();
+
+        $initiatorCruiserCount = 360;
+        $allyCruiserCount = 180;
+
+        // Give both planets enough cruisers (cruiser has no prerequisites in test env)
+        $this->planetAddUnit('cruiser', $initiatorCruiserCount);
+        $this->allyPlanet->addUnit('cruiser', $allyCruiserCount);
+
+        // Dispatch initiator fleet
+        $unitCollection = new UnitCollection();
+        $unitCollection->addUnit(ObjectService::getUnitObjectByMachineName('cruiser'), $initiatorCruiserCount);
+        $this->dispatchFleet(
+            $this->targetPlanet->getPlanetCoordinates(),
+            $unitCollection,
+            new Resources(0, 0, 0, 0),
+            PlanetType::Planet
+        );
+
+        $fleetMissionService = resolve(FleetMissionService::class);
+        $initiatorMission = $fleetMissionService->getActiveFleetMissionsForCurrentPlayer()->first();
+
+        // Create union
+        $this->post('/ajax/fleet/union/create', [
+            'fleetID' => $initiatorMission->id,
+            'groupname' => 'AliasRegressionUnion',
+            'unionUsers' => $this->allyUser->username,
+            '_token' => csrf_token(),
+        ]);
+        $initiatorMission->refresh();
+        $unionId = $initiatorMission->union_id;
+        $this->assertNotNull($unionId, 'Union should be created');
+
+        // Ally joins with fleet of the same ship type (cruiser)
+        $allyFleet = new UnitCollection();
+        $allyFleet->addUnit(ObjectService::getUnitObjectByMachineName('cruiser'), $allyCruiserCount);
+
+        $allyFleetMissionService = resolve(FleetMissionService::class, ['player' => $this->allyPlanet->getPlayer()]);
+        $allyMission = $allyFleetMissionService->createNewFromPlanet(
+            $this->allyPlanet,
+            $this->targetPlanet->getPlanetCoordinates(),
+            PlanetType::Planet,
+            1,
+            $allyFleet,
+            new Resources(0, 0, 0, 0),
+            10,
+            0
+        );
+
+        $fleetUnionService = resolve(FleetUnionService::class);
+        $union = FleetUnion::find($unionId);
+        $fleetUnionService->joinUnion($union, $allyMission);
+
+        // Advance to arrival and trigger mission processing
+        $arrivalTime = max($initiatorMission->time_arrival, $allyMission->time_arrival);
+        $this->travelTo(Date::createFromTimestamp($arrivalTime + 10));
+        $this->reloadApplication();
+        $this->get('/overview');
+
+        // Verify battle report shows correct combined attacker count (360 + 180 = 540)
+        $battleReport = BattleReport::orderBy('id', 'desc')->first();
+        $this->assertNotNull($battleReport, 'Battle report should exist');
+
+        $reportedCruisers = $battleReport->attacker['units']['cruiser'] ?? 0;
+        $expectedTotal = $initiatorCruiserCount + $allyCruiserCount; // 540
+        $this->assertEquals(
+            $expectedTotal,
+            $reportedCruisers,
+            "Battle report should show exactly {$expectedTotal} cruisers (not inflated by aliasing)"
+        );
+
+        // Verify initiator return mission carries exactly the initiator's fleet count
+        $initiatorReturn = FleetMission::where('parent_id', $initiatorMission->id)
+            ->where('canceled', 0)
+            ->first();
+        $this->assertNotNull($initiatorReturn, 'Initiator should have a return mission');
+
+        $returnedCruisers = $initiatorReturn->cruiser;
+        $this->assertEquals(
+            $initiatorCruiserCount,
+            $returnedCruisers,
+            "Initiator return mission should carry exactly {$initiatorCruiserCount} cruisers (not doubled)"
         );
     }
 }
