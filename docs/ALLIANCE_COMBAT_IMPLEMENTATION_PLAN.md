@@ -25,92 +25,151 @@ This document tracks the remaining work for the Alliance Combat System (ACS) in 
 
 ## Remaining Work
 
-### PR 8: Loot Distribution & Combat Mechanics
-**Size**: ~400-600 lines
+### PR 8a: Per-Fleet Loot Distribution
+**Size**: ~100-150 lines
+**System**: AttackMission, BattleEngine
 
-**Code TODOs to address**:
+**Code TODOs**:
 ```
-app/GameMissions/AttackMission.php:230  - Per-fleet loot share (cargo capacity proportional)
-app/GameMissions/AttackMission.php:234  - Reaper debris collection in multi-attacker
-app/GameMissions/BattleEngine/BattleEngine.php:68 - Per-fleet cargo capacity calculation
-app/Services/PhalanxService.php:319     - Show ACS Attack (type 2) in Phalanx scan
-app/GameMissions/EspionageMission.php:100 - ACS Defend in counter-espionage chance
-app/GameMissions/EspionageMission.php:465 - ACS Defend fleets in espionage report
+app/GameMissions/AttackMission.php:230
+app/GameMissions/BattleEngine/BattleEngine.php:68
 ```
+
+**Scope**: When multiple attackers participate in ACS battle, distribute loot proportionally to each fleet's surviving cargo capacity.
 
 **Acceptance Criteria**:
-- [ ] Loot distributed proportionally to surviving cargo capacity per fleet
-- [ ] Fleet with no cargo gets no loot
-- [ ] Reaper debris collection works in multi-attacker battles
-- [ ] Phalanx shows ACS Attack fleets in scan results
-- [ ] ACS Defend fleets contribute to counter-espionage chance
-- [ ] ACS Defend fleets appear in espionage reports
+- [ ] Each fleet's loot share = (fleet cargo / total cargo) × total loot
+- [ ] Fleet with no cargo or no survivors gets no loot
+- [ ] Single-attacker battles unchanged (backward compatible)
 
 ---
 
-### PR 9: Enhanced Battle Reports
-**Size**: ~600-900 lines
+### PR 8b: Reaper Debris in Multi-Attacker
+**Size**: ~50-100 lines
+**System**: AttackMission
 
-**Code TODOs to address**:
+**Code TODO**:
 ```
-app/GameMissions/AttackMission.php:412  - Send report to ALL participating players
-app/GameMissions/AttackMission.php:672  - Per-fleet breakdown in battle reports
-app/GameMessages/BattleReport.php:143   - Multi-attacker display in report template
+app/GameMissions/AttackMission.php:234
 ```
+
+**Scope**: General class attacker's Reaper auto-collection should work in multi-attacker ACS battles.
 
 **Acceptance Criteria**:
-- [ ] Battle report sent to all participating attackers (not just initiator)
-- [ ] Report shows all attacker fleets with individual tech levels
+- [ ] Each General class attacker collects debris with their own Reapers
+- [ ] Non-General attackers unaffected
+- [ ] Debris collection shown in return mission
+
+---
+
+### PR 8c: Phalanx ACS Attack Display
+**Size**: ~30-50 lines
+**System**: PhalanxService
+
+**Code TODO**:
+```
+app/Services/PhalanxService.php:319
+```
+
+**Scope**: Show ACS Attack (mission type 2) fleets in Phalanx scan results.
+
+**Acceptance Criteria**:
+- [ ] ACS Attack fleets visible in Phalanx scan
+- [ ] Shows correct fleet composition and arrival time
+- [ ] Union members shown individually or grouped (match OGame behavior)
+
+---
+
+### PR 8d: ACS Defend in Espionage
+**Size**: ~100-150 lines
+**System**: EspionageMission
+
+**Code TODOs**:
+```
+app/GameMissions/EspionageMission.php:100
+app/GameMissions/EspionageMission.php:465
+```
+
+**Scope**: Include ACS Defend fleets in espionage calculations and reports.
+
+**Acceptance Criteria**:
+- [ ] ACS Defend fleets contribute to counter-espionage chance
+- [ ] ACS Defend fleets appear in espionage report (ships section)
+- [ ] Each defending fleet shown with owner info
+
+---
+
+### PR 9a: Battle Report to All Participants
+**Size**: ~50-100 lines
+**System**: AttackMission
+
+**Code TODO**:
+```
+app/GameMissions/AttackMission.php:412
+```
+
+**Scope**: Send battle report to all participating ACS attackers, not just the initiator.
+
+**Acceptance Criteria**:
+- [ ] All union members receive the battle report
+- [ ] Each player receives exactly one report (even with multiple fleets)
+- [ ] Defender still receives report as before
+
+---
+
+### PR 9b: Per-Fleet Battle Report Display
+**Size**: ~200-300 lines
+**System**: AttackMission, BattleReport
+
+**Code TODOs**:
+```
+app/GameMissions/AttackMission.php:672
+app/GameMessages/BattleReport.php:143
+```
+
+**Scope**: Show per-fleet breakdown in battle reports for multi-attacker/defender battles.
+
+**Acceptance Criteria**:
+- [ ] Report shows each attacker fleet separately with tech levels
 - [ ] Report shows defender + ACS Defend fleets separately
-- [ ] Fleet filter dropdown in report view
-- [ ] Player receives one report even with multiple fleets
+- [ ] Per-fleet losses and survivors displayed
+- [ ] Single-attacker reports unchanged
 
 ---
 
 ### PR 10: Fleet Queue System
-**Size**: ~300-500 lines
+**Size**: ~200-300 lines
+**System**: FleetController, Jobs, FleetMissionService
 
-**Problem**: `time_arrival` is stored as Unix timestamp (seconds). Multiple fleets arriving at the same second have non-deterministic processing order.
+**Problem**: `time_arrival` is Unix timestamp (seconds). Multiple fleets at same second have non-deterministic order.
 
-**Recommended Solution**: Laravel Queue Worker
+**Solution**: Laravel Queue Worker
 ```php
-// When fleet is dispatched
 ProcessFleetArrival::dispatch($fleetMissionId)
     ->delay(Carbon::createFromTimestamp($arrivalTime));
 ```
 
-**Benefits**:
-- Natural FIFO ordering (first dispatched = first processed)
-- No database schema changes needed
-- Processes at exact arrival time (no polling delay)
-- OGameX already has queue infrastructure
-
-**Key Implementation Points**:
-- Create `app/Jobs/ProcessFleetArrival.php`
-- Dispatch delayed job in `FleetController` at fleet send
-- Cancel job on fleet recall
-- Keep scheduler as fallback for missed jobs
-
 **Acceptance Criteria**:
-- [ ] Fleets arriving at same second process in dispatch order
-- [ ] Job dispatched with correct delay when fleet sent
+- [ ] Fleets at same second process in dispatch order (FIFO)
+- [ ] Job dispatched when fleet sent
 - [ ] Job cancelled when fleet recalled
-- [ ] Scheduler fallback catches missed jobs
+- [ ] Scheduler fallback for missed jobs
 
 ---
 
 ## Summary
 
-| Phase | Status |
-|-------|--------|
-| ACS Defend (basic + depot) | ✅ Complete |
-| ACS Attack (unions + battles) | ✅ Complete |
-| Server setting enforcement | ✅ Complete |
-| Loot distribution | Ready |
-| Battle reports | Ready |
-| Fleet queue system | Ready |
+| PR | Focus | Size | Dependencies |
+|----|-------|------|--------------|
+| 8a | Loot distribution | ~100 lines | None |
+| 8b | Reaper debris | ~50 lines | None |
+| 8c | Phalanx display | ~30 lines | None |
+| 8d | Espionage integration | ~100 lines | None |
+| 9a | Reports to all players | ~50 lines | None |
+| 9b | Per-fleet report display | ~200 lines | 9a (optional) |
+| 10 | Fleet queue system | ~200 lines | None |
 
-**Remaining PRs can be developed in parallel** - they touch different code paths.
+**All PRs can be developed in parallel** - they touch independent systems.
 
 ---
 
