@@ -53,11 +53,12 @@ app/GameMissions/BattleEngine/BattleEngine.php:68
 app/GameMissions/AttackMission.php:234
 ```
 
-**Scope**: General class attacker's Reaper auto-collection should work in multi-attacker ACS battles.
+**Scope**: Reaper auto-collection should work in multi-attacker ACS battles. Any player with surviving Reapers collects debris (not just Generals - Generals can *build* Reapers, but anyone who has them can use them).
 
 **Acceptance Criteria**:
-- [ ] Each General class attacker collects debris with their own Reapers
-- [ ] Non-General attackers unaffected
+- [ ] Each attacker with surviving Reapers collects their share of debris
+- [ ] Debris split proportionally to Reaper cargo capacity across fleets
+- [ ] Attackers without Reapers unaffected
 - [ ] Debris collection shown in return mission
 
 ---
@@ -139,21 +140,38 @@ app/GameMessages/BattleReport.php:143
 
 ### PR 10: Fleet Queue System
 **Size**: ~200-300 lines
-**System**: FleetController, Jobs, FleetMissionService
+**System**: FleetController, FleetMissionService, Migration
 
-**Problem**: `time_arrival` is Unix timestamp (seconds). Multiple fleets at same second have non-deterministic order.
+**Problem**: `time_arrival` is Unix timestamp (seconds). Multiple fleets arriving at the same second have non-deterministic processing order. This matters for ninja defenses, timed attacks, etc.
 
-**Solution**: Laravel Queue Worker
+**Solution**: Millisecond arrival time precision
+
+Store calculated arrival time with millisecond granularity so fleets are processed in actual arrival order, not dispatch order.
+
 ```php
-ProcessFleetArrival::dispatch($fleetMissionId)
-    ->delay(Carbon::createFromTimestamp($arrivalTime));
+// Migration: Add millisecond precision column
+$table->bigInteger('time_arrival_ms')->default(0); // Unix timestamp in milliseconds
+
+// At dispatch time (FleetController)
+$arrivalTimeMs = (int)(($departureTime + $flightDuration) * 1000); // or use microtime calculation
+$mission->time_arrival_ms = $arrivalTimeMs;
+
+// Processing order
+->orderBy('time_arrival')
+->orderBy('time_arrival_ms')
 ```
 
+**Why not FIFO (dispatch order)?**
+- FIFO rewards who clicked "send" first, not actual arrival
+- A deathstar dispatched first would beat a ninja defender dispatched later
+- Millisecond arrival reflects the actual calculated physics of flight time
+
 **Acceptance Criteria**:
-- [ ] Fleets at same second process in dispatch order (FIFO)
-- [ ] Job dispatched when fleet sent
-- [ ] Job cancelled when fleet recalled
-- [ ] Scheduler fallback for missed jobs
+- [ ] `time_arrival_ms` column added to `fleet_missions` table
+- [ ] Arrival time calculated with ms precision at dispatch
+- [ ] Fleet processing ordered by `time_arrival`, then `time_arrival_ms`
+- [ ] Fleets with earlier calculated arrival process first
+- [ ] Existing missions get sensible defaults (e.g., `time_arrival * 1000`)
 
 ---
 
@@ -167,7 +185,7 @@ ProcessFleetArrival::dispatch($fleetMissionId)
 | 8d | Espionage integration | ~100 lines | None |
 | 9a | Reports to all players | ~50 lines | None |
 | 9b | Per-fleet report display | ~200 lines | 9a (optional) |
-| 10 | Fleet queue system | ~200 lines | None |
+| 10 | Millisecond arrival ordering | ~150 lines | None |
 
 **All PRs can be developed in parallel** - they touch independent systems.
 
