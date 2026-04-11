@@ -138,40 +138,78 @@ app/GameMessages/BattleReport.php:143
 
 ---
 
-### PR 10: Fleet Queue System
-**Size**: ~200-300 lines
-**System**: FleetController, FleetMissionService, Migration
+### PR 10: Fleet Background Processing System
+**Size**: ~400-500 lines
+**System**: FleetController, FleetMissionService, Jobs, Migration
 
-**Problem**: `time_arrival` is Unix timestamp (seconds). Multiple fleets arriving at the same second have non-deterministic processing order. This matters for ninja defenses, timed attacks, etc.
+**Problems to solve:**
+1. Current system relies on polling/user logins - not real-time
+2. Multiple fleets at same second have non-deterministic order
+3. No concurrency - all missions processed sequentially even when they don't conflict
 
-**Solution**: Millisecond arrival time precision
+**Solution: Laravel Jobs + Millisecond Precision**
 
-Store calculated arrival time with millisecond granularity so fleets are processed in actual arrival order, not dispatch order.
+Combines two complementary approaches:
+- **Millisecond column** → determines *ordering* (who processes first)
+- **Laravel delayed jobs** → determines *timing* (processes at exact arrival time)
 
+#### Part 1: Millisecond Arrival Precision
 ```php
-// Migration: Add millisecond precision column
-$table->bigInteger('time_arrival_ms')->default(0); // Unix timestamp in milliseconds
+// Migration
+$table->bigInteger('time_arrival_ms')->default(0);
 
-// At dispatch time (FleetController)
-$arrivalTimeMs = (int)(($departureTime + $flightDuration) * 1000); // or use microtime calculation
+// At dispatch (FleetController)
+$arrivalTimeMs = (int)(($departureTime + $flightDuration) * 1000);
 $mission->time_arrival_ms = $arrivalTimeMs;
-
-// Processing order
-->orderBy('time_arrival')
-->orderBy('time_arrival_ms')
 ```
 
-**Why not FIFO (dispatch order)?**
-- FIFO rewards who clicked "send" first, not actual arrival
-- A deathstar dispatched first would beat a ninja defender dispatched later
-- Millisecond arrival reflects the actual calculated physics of flight time
+#### Part 2: Background Job Processing
+```php
+// At dispatch - schedule job for exact arrival time
+ProcessFleetArrival::dispatch($mission->id)
+    ->delay(Carbon::createFromTimestamp($mission->time_arrival));
+
+// Job processes in arrival order when multiple pending
+class ProcessFleetArrival implements ShouldQueue
+{
+    public function handle(): void
+    {
+        // Lock on target planet to prevent conflicts
+        Cache::lock("planet:{$targetPlanetId}", 30)->block(10, function () {
+            // Process all arrived missions for this planet in ms order
+            $missions = FleetMission::where('planet_id_to', $targetPlanetId)
+                ->where('time_arrival', '<=', now()->timestamp)
+                ->where('processed', 0)
+                ->orderBy('time_arrival')
+                ->orderBy('time_arrival_ms')
+                ->get();
+            
+            foreach ($missions as $mission) {
+                $this->processMission($mission);
+            }
+        });
+    }
+}
+```
+
+#### Concurrency Model
+- Missions to **different planets** → process in parallel (no conflict)
+- Missions to **same planet** → serialize with lock, order by `time_arrival_ms`
+- Lock prevents race conditions when ninja + attack arrive simultaneously
+
+#### Edge Cases
+- **Fleet recall**: Delete pending job from queue
+- **Server downtime**: Scheduler fallback catches missed jobs on restart
+- **Processing delays**: Lock timeout prevents deadlocks
 
 **Acceptance Criteria**:
-- [ ] `time_arrival_ms` column added to `fleet_missions` table
-- [ ] Arrival time calculated with ms precision at dispatch
-- [ ] Fleet processing ordered by `time_arrival`, then `time_arrival_ms`
-- [ ] Fleets with earlier calculated arrival process first
-- [ ] Existing missions get sensible defaults (e.g., `time_arrival * 1000`)
+- [ ] `time_arrival_ms` column stores millisecond-precision arrival time
+- [ ] Jobs dispatched at fleet send, fire at arrival time
+- [ ] Same-planet missions serialized, ordered by ms precision
+- [ ] Different-planet missions can process concurrently
+- [ ] Job cancelled on fleet recall
+- [ ] Scheduler fallback processes backlog after downtime
+- [ ] Processing within 1-3 seconds of scheduled time
 
 ---
 
@@ -185,7 +223,7 @@ $mission->time_arrival_ms = $arrivalTimeMs;
 | 8d | Espionage integration | ~100 lines | None |
 | 9a | Reports to all players | ~50 lines | None |
 | 9b | Per-fleet report display | ~200 lines | 9a (optional) |
-| 10 | Millisecond arrival ordering | ~150 lines | None |
+| 10 | Background fleet processing | ~400 lines | None |
 
 **All PRs can be developed in parallel** - they touch independent systems.
 
