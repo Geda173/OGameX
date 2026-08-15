@@ -77,8 +77,11 @@ class FacilitiesController extends AbstractBuildingsController
         // Get parent parameters
         $params = parent::indexPageParams($request, $player);
 
-        // Add wreck field data
-        $wreckFieldData = $this->wreckFieldService->getWreckFieldForCurrentPlanet($this->planet);
+        // Only expose wreck field data when the player has a Space Dock (level >= 1).
+        $spaceDockLevel = $this->planet->getObjectLevel('space_dock');
+        $wreckFieldData = $spaceDockLevel >= 1
+            ? $this->wreckFieldService->getWreckFieldForCurrentPlanet($this->planet)
+            : null;
         $params['wreckField'] = $wreckFieldData;
 
         return $params;
@@ -133,6 +136,53 @@ class FacilitiesController extends AbstractBuildingsController
                 'cost' => $result['cost'],
                 'new_balance' => $result['new_balance'],
                 'remaining_time' => $result['remaining_time'],
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => true,
+                'message' => $e->getMessage(),
+                'newAjaxToken' => csrf_token(),
+            ]);
+        }
+    }
+
+    /**
+     * Complete a building queue item instantly using Dark Matter.
+     *
+     * @param Request $request
+     * @param PlayerService $player
+     * @param HalvingService $halvingService
+     * @return JsonResponse
+     */
+    public function completeBuilding(Request $request, PlayerService $player, HalvingService $halvingService): JsonResponse
+    {
+        try {
+            $queueItemId = (int)$request->input('queue_item_id');
+
+            if ($queueItemId <= 0) {
+                return response()->json([
+                    'success' => false,
+                    'error' => true,
+                    'message' => 'Invalid queue item ID',
+                    'newAjaxToken' => csrf_token(),
+                ]);
+            }
+
+            $result = $halvingService->completeBuilding(
+                $player->getUser(),
+                $queueItemId,
+                $player->planets->current()
+            );
+
+            session()->flash('success', __('You have successfully accelerated the order.'));
+
+            return response()->json([
+                'success' => true,
+                'error' => false,
+                'newAjaxToken' => csrf_token(),
+                'cost' => $result['cost'],
+                'new_balance' => $result['new_balance'],
             ]);
         } catch (Exception $e) {
             return response()->json([
@@ -307,7 +357,11 @@ class FacilitiesController extends AbstractBuildingsController
             $planetService = $player->planets->current();
 
             $wreckFieldService = new WreckFieldService($player, app(SettingsService::class));
-            $wreckField = $wreckFieldService->getWreckFieldForCurrentPlanet($planetService);
+
+            $spaceDockLevel = $planetService->getObjectLevel('space_dock');
+            $wreckField = $spaceDockLevel >= 1
+                ? $wreckFieldService->getWreckFieldForCurrentPlanet($planetService)
+                : null;
 
             return response()->json([
                 'success' => true,

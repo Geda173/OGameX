@@ -86,6 +86,7 @@ Route::middleware(['auth', 'banned', 'globalgame', 'locale', 'firstlogin'])->gro
     Route::post('/facilities/downgrade', [FacilitiesController::class, 'downgradeBuildRequest'])->name('facilities.downgrade');
     Route::post('/facilities/cancel-buildrequest', [FacilitiesController::class, 'cancelBuildRequest'])->name('facilities.cancelbuildrequest');
     Route::post('/ajax/facilities/halve-building', [FacilitiesController::class, 'halveBuilding'])->name('facilities.halvebuilding');
+    Route::post('/ajax/facilities/complete-building', [FacilitiesController::class, 'completeBuilding'])->name('facilities.completebuilding');
     Route::post('/ajax/facilities/start-repairs', [FacilitiesController::class, 'startRepairs'])->name('facilities.startrepairs');
     Route::post('/ajax/facilities/complete-repairs', [FacilitiesController::class, 'completeRepairs'])->name('facilities.completerepairs');
     Route::post('/ajax/facilities/burn-wreck-field', [FacilitiesController::class, 'burnWreckField'])->name('facilities.burnwreckfield');
@@ -278,6 +279,10 @@ Route::middleware(['auth', 'globalgame', 'locale', 'admin'])->group(function () 
     Route::post('/admin/server-administration/detection-settings', [ServerAdministrationController::class, 'saveDetectionSettings'])->name('admin.server-administration.detection-settings');
     Route::post('/admin/server-administration/dismiss', [ServerAdministrationController::class, 'dismiss'])->name('admin.server-administration.dismiss');
     Route::post('/admin/server-administration/clear-cache', [ServerAdministrationController::class, 'clearCache'])->name('admin.server-administration.clear-cache');
+    Route::post('/admin/server-administration/attack-block', [ServerAdministrationController::class, 'saveAttackBlock'])->name('admin.server-administration.attack-block');
+    Route::post('/admin/server-administration/stuck-missions/settings', [ServerAdministrationController::class, 'saveStuckMissionSettings'])->name('admin.server-administration.stuck-missions.settings');
+    Route::post('/admin/server-administration/stuck-missions/process', [ServerAdministrationController::class, 'processStuckMission'])->name('admin.server-administration.stuck-missions.process');
+    Route::post('/admin/server-administration/stuck-missions/recover-homeworld', [ServerAdministrationController::class, 'recoverStuckMissionToHomeworld'])->name('admin.server-administration.stuck-missions.recover-homeworld');
 
     // Developer shortcuts
     Route::get('/admin/developer-shortcuts', [DeveloperShortcutsController::class, 'index'])->name('admin.developershortcuts.index');
